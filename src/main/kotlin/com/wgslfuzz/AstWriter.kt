@@ -23,7 +23,7 @@ class AstWriter(
 
     fun emit(assignmentStatement: Statement.Assignment) {
         with(assignmentStatement) {
-            out.print("$text;")
+            out.print("${placeholder.text};")
         }
     }
 
@@ -57,7 +57,7 @@ class AstWriter(
 
     fun emit(functionCallStatement: Statement.FunctionCall) {
         with(functionCallStatement) {
-            out.print("$text;")
+            out.print("${placeholder.text};")
         }
     }
 
@@ -75,7 +75,7 @@ class AstWriter(
 
     fun emit(loopStatement: Statement.Loop) {
         with(loopStatement) {
-            out.print(loopStatement.text)
+            out.print(placeholder.text)
         }
     }
 
@@ -83,7 +83,7 @@ class AstWriter(
         with(returnStatement) {
             out.print("return")
             returnStatement.expr?.let {
-                out.print(" $expr")
+                out.print(" ${expr?.text}")
             }
             out.print(";")
         }
@@ -103,7 +103,7 @@ class AstWriter(
 
     fun emit(variableStatement: Statement.Variable) {
         with(variableStatement) {
-            out.print("$text;")
+            out.print("${placeholder.text};")
         }
     }
 
@@ -145,11 +145,11 @@ class AstWriter(
             for (member in members) {
                 for (attribute in member.attributes) {
                     emitIndent()
-                    out.print(attribute)
+                    out.print(attribute.text)
                     out.println()
                 }
                 emitIndent()
-                out.print("${member.name} : ${member.type},\n")
+                out.print("${member.name} : ${member.type.text},\n")
             }
             decreaseIndent()
             out.print("}\n")
@@ -159,19 +159,19 @@ class AstWriter(
     fun emit(globalVarDecl: GlobalDecl.Variable) {
         with(globalVarDecl) {
             for (attribute in attributes) {
-                out.print("$attribute\n")
+                out.print("${attribute.text}\n")
             }
             out.print("var")
             if (addressSpace != null) {
-                out.print("<$addressSpace")
+                out.print("<${addressSpace!!.text}")
                 if (accessMode != null) {
-                    out.print(", $accessMode")
+                    out.print(", ${accessMode!!.text}")
                 }
                 out.print(">")
             }
             out.print(" $name")
             if (type != null) {
-                out.print(" : $type")
+                out.print(" : ${type!!.text}")
             }
             if (initializer != null) {
                 out.print(" = $initializer")
@@ -183,12 +183,12 @@ class AstWriter(
     fun emit(functionDecl: GlobalDecl.Function) {
         with(functionDecl) {
             for (attribute in attributes) {
-                out.print("$attribute\n")
+                out.print("${attribute.text}\n")
             }
             out.print("fn $name(")
             out.print(")")
             returnType?.let {
-                out.print(" -> $returnType")
+                out.print(" -> ${returnType!!.text}")
             }
             out.print("\n")
             emit(body)
@@ -198,13 +198,13 @@ class AstWriter(
     fun emit(decl: GlobalDecl) {
         when (decl) {
             is GlobalDecl.Value -> {
-                out.println("constant ${decl.name}")
+                out.println(decl.placeholder.text)
             }
             is GlobalDecl.Variable -> emit(decl)
             is GlobalDecl.Function -> emit(decl)
             is GlobalDecl.Struct -> emit(decl)
             is GlobalDecl.TypeAlias -> {
-                out.println("type alias ${decl.name}")
+                out.println(decl.placeholder.text)
             }
             is GlobalDecl.ConstAssert -> {
                 out.println("const assert")

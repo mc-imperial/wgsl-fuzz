@@ -1,5 +1,10 @@
 package com.wgslfuzz
 
+// A placeholder in the AST for something that has not been elaborated yet.
+class Placeholder(
+    val text: String,
+)
+
 class TranslationUnit(
     val globalDecls: MutableList<GlobalDecl>,
 )
@@ -8,39 +13,39 @@ sealed interface Statement {
     class Empty : Statement
 
     class Return(
-        var expr: String?,
+        var expr: Placeholder?,
     ) : Statement
 
     class If(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Switch(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Loop(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class For(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class While(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class FunctionCall(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Value(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Variable(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Break : Statement
@@ -48,7 +53,7 @@ sealed interface Statement {
     class Continue : Statement
 
     class Assignment(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Compound(
@@ -56,39 +61,39 @@ sealed interface Statement {
     ) : Statement
 
     class Increment(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Decrement(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 
     class Discard : Statement
 
     class ConstAssert(
-        var text: String,
+        var placeholder: Placeholder,
     ) : Statement
 }
 
 sealed interface GlobalDecl {
     class Value(
-        var name: String,
+        var placeholder: Placeholder,
     ) : GlobalDecl
 
     class Variable(
-        val attributes: MutableList<String>,
+        val attributes: MutableList<Placeholder>,
         var name: String,
-        var addressSpace: String? = null,
-        var accessMode: String? = null,
-        var type: String? = null,
-        var initializer: String? = null,
+        var addressSpace: Placeholder? = null,
+        var accessMode: Placeholder? = null,
+        var type: Placeholder? = null,
+        var initializer: Placeholder? = null,
     ) : GlobalDecl
 
     class Function(
-        val attributes: MutableList<String>,
+        val attributes: MutableList<Placeholder>,
         var name: String,
-        val parameters: MutableList<String>,
-        var returnType: String? = null,
+        val parameters: MutableList<Placeholder>,
+        var returnType: Placeholder? = null,
         var body: Statement.Compound,
     ) : GlobalDecl
 
@@ -98,18 +103,18 @@ sealed interface GlobalDecl {
     ) : GlobalDecl
 
     class TypeAlias(
-        var name: String,
+        var placeholder: Placeholder,
     ) : GlobalDecl
 
     class ConstAssert(
-        var text: String,
+        var placeholder: Placeholder,
     ) : GlobalDecl
 
     class Empty : GlobalDecl
 }
 
 class StructMember(
-    val attributes: MutableList<String>,
+    val attributes: MutableList<Placeholder>,
     var name: String,
-    var type: String,
+    var type: Placeholder,
 )

@@ -113,10 +113,10 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitEmpty_global_decl(ctx: WGSLParser.Empty_global_declContext): GlobalDecl.Empty = GlobalDecl.Empty()
 
     override fun visitConst_assert_decl(ctx: WGSLParser.Const_assert_declContext): GlobalDecl.ConstAssert =
-        GlobalDecl.ConstAssert(ctx.fullText)
+        GlobalDecl.ConstAssert(placeholder = Placeholder(ctx.fullText))
 
     override fun visitGlobal_value_decl(ctx: WGSLParser.Global_value_declContext): GlobalDecl.Value =
-        GlobalDecl.Value(name = ctx.ident_with_optional_type().IDENT().text)
+        GlobalDecl.Value(placeholder = Placeholder(ctx.fullText))
 
     override fun visitGlobal_variable_decl(ctx: WGSLParser.Global_variable_declContext): GlobalDecl.Variable =
         GlobalDecl.Variable(
@@ -124,7 +124,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                 ctx
                     .attribute()
                     .map {
-                        it.fullText
+                        Placeholder(it.fullText)
                     }.toMutableList(),
             name =
                 ctx
@@ -137,20 +137,20 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                     .variable_decl()
                     .variable_qualifier()
                     ?.address_space()
-                    ?.fullText,
+                    ?.let { Placeholder(it.fullText) },
             accessMode =
                 ctx
                     .variable_decl()
                     .variable_qualifier()
                     ?.access_mode()
-                    ?.fullText,
+                    ?.let { Placeholder(it.fullText) },
             type =
                 ctx
                     .variable_decl()
                     .ident_with_optional_type()
                     .type_decl()
-                    ?.fullText,
-            initializer = ctx.expression()?.fullText,
+                    ?.let { Placeholder(it.fullText) },
+            initializer = ctx.expression()?.let { Placeholder(it.fullText) },
         )
 
     override fun visitFunction_decl(ctx: WGSLParser.Function_declContext): GlobalDecl.Function =
@@ -159,7 +159,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                 ctx
                     .attribute()
                     .map {
-                        it.fullText
+                        Placeholder(it.fullText)
                     }.toMutableList(),
             name = ctx.function_header().IDENT().text,
             parameters =
@@ -168,9 +168,9 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                     .param_list()
                     ?.param()
                     ?.map {
-                        it.fullText
+                        Placeholder(it.fullText)
                     }?.toMutableList() ?: mutableListOf(),
-            returnType = ctx.function_header().type_decl()?.fullText,
+            returnType = ctx.function_header().type_decl()?.let { Placeholder(it.fullText) },
             body = visitCompound_statement(ctx.compound_statement()),
         )
 
@@ -185,28 +185,28 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         )
 
     override fun visitReturn_statement(ctx: WGSLParser.Return_statementContext): Statement.Return =
-        Statement.Return(ctx.expression()?.fullText)
+        Statement.Return(ctx.expression()?.let { Placeholder(it.fullText) })
 
     override fun visitIf_statement(ctx: WGSLParser.If_statementContext): Statement.If = TODO()
 
     override fun visitSwitch_statement(ctx: WGSLParser.Switch_statementContext): Statement.Switch = TODO()
 
-    override fun visitLoop_statement(ctx: WGSLParser.Loop_statementContext): Statement.Loop = Statement.Loop(ctx.fullText)
+    override fun visitLoop_statement(ctx: WGSLParser.Loop_statementContext): Statement.Loop = Statement.Loop(Placeholder(ctx.fullText))
 
     override fun visitFor_statement(ctx: WGSLParser.For_statementContext): Statement.For = TODO()
 
     override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While = TODO()
 
     override fun visitFunc_call_statement(ctx: WGSLParser.Func_call_statementContext): Statement.FunctionCall =
-        Statement.FunctionCall(ctx.fullText)
+        Statement.FunctionCall(Placeholder(ctx.fullText))
 
     override fun visitVariable_or_value_statement(ctx: WGSLParser.Variable_or_value_statementContext): Statement {
         if (ctx.variable_decl() != null) {
             return Statement.Variable(
-                ctx.fullText,
+                Placeholder(ctx.fullText),
             )
         } else {
-            return Statement.Value(ctx.fullText)
+            return Statement.Value(Placeholder(ctx.fullText))
         }
     }
 
@@ -215,7 +215,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitContinue_statement(ctx: WGSLParser.Continue_statementContext): Statement.Continue = Statement.Continue()
 
     override fun visitAssignment_statement(ctx: WGSLParser.Assignment_statementContext): Statement.Assignment =
-        Statement.Assignment(ctx.fullText)
+        Statement.Assignment(Placeholder(ctx.fullText))
 
     override fun visitIncrement_statement(ctx: WGSLParser.Increment_statementContext): Statement.Increment = TODO()
 
@@ -241,17 +241,18 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                                     it
                                         .attribute()
                                         .map {
-                                            it.fullText
+                                            Placeholder(it.fullText)
                                         }.toMutableList(),
                                 name = it.IDENT().text,
-                                type = it.type_decl().fullText,
+                                type = Placeholder(it.type_decl().fullText),
                             )
                         }.toMutableList(),
             )
         return result
     }
 
-    override fun visitType_alias_decl(ctx: WGSLParser.Type_alias_declContext): GlobalDecl.TypeAlias = GlobalDecl.TypeAlias(ctx.IDENT().text)
+    override fun visitType_alias_decl(ctx: WGSLParser.Type_alias_declContext): GlobalDecl.TypeAlias =
+        GlobalDecl.TypeAlias(Placeholder(ctx.fullText))
 
     // This allows superclass visitors to be used for production rules where we want every alternative to be visited,
     // such as for statements
