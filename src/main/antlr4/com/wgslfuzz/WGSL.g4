@@ -281,7 +281,7 @@ expression: relational_expression
 
 // Statements
 
-compound_statement: attribute? BRACE_LEFT statement* BRACE_RIGHT;
+compound_statement: attribute* BRACE_LEFT statement* BRACE_RIGHT;
 
 assignment_statement: lhs_expression (EQUAL | compound_assignment_operator) expression
                     | UNDERSCORE EQUAL expression;
@@ -300,20 +300,20 @@ compound_assignment_operator: PLUS_EQUAL
 increment_statement: lhs_expression PLUS_PLUS;
 decrement_statement: lhs_expression MINUS_MINUS;
 
-if_statement: attribute? IF expression compound_statement (ELSE else_statement)?;
+if_statement: attribute* IF expression compound_statement (ELSE else_statement)?;
 else_statement: compound_statement | if_statement;
 
-switch_statement: attribute? SWITCH expression attribute? BRACE_LEFT switch_body+ BRACE_RIGHT;
+switch_statement: attribute* SWITCH expression attribute* BRACE_LEFT switch_body+ BRACE_RIGHT;
 switch_body: CASE case_selectors COLON? case_compound_statement
            | DEFAULT COLON? case_compound_statement;
 expression_or_default: expression | DEFAULT;
 case_selectors: expression_or_default (COMMA expression_or_default)* COMMA?;
-case_compound_statement: attribute? BRACE_LEFT statement* fallthrough_statement? BRACE_RIGHT;
+case_compound_statement: attribute* BRACE_LEFT statement* fallthrough_statement? BRACE_RIGHT;
 fallthrough_statement: FALLTHROUGH SEMICOLON;
 
-loop_statement: attribute? LOOP attribute? BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
+loop_statement: attribute* LOOP attribute* BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
 
-for_statement: attribute? FOR PAREN_LEFT for_header PAREN_RIGHT compound_statement;
+for_statement: attribute* FOR PAREN_LEFT for_header PAREN_RIGHT compound_statement;
 for_header: for_init? SEMICOLON expression? SEMICOLON for_update?;
 for_init: variable_or_value_statement
         | increment_statement
@@ -325,13 +325,13 @@ for_update: increment_statement
           | assignment_statement
           | func_call_statement;
 
-while_statement: attribute? WHILE expression compound_statement;
+while_statement: attribute* WHILE expression compound_statement;
 
 break_statement: BREAK;
 break_if_statement: BREAK IF expression SEMICOLON;
 continue_statement: CONTINUE;
 continuing_statement: CONTINUING continuing_compound_statement;
-continuing_compound_statement: attribute? BRACE_LEFT statement* break_if_statement? BRACE_RIGHT;
+continuing_compound_statement: attribute* BRACE_LEFT statement* break_if_statement? BRACE_RIGHT;
 discard_statement: DISCARD;
 return_statement: RETURN expression?;
 func_call_statement: IDENT argument_expression_list;

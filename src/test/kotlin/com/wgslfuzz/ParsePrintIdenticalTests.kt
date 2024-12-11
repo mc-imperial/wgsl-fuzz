@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 
-class ParsePrintReparseTests {
+class ParsePrintIdenticalTests {
     @Test
     fun graphicsFuzzTest() {
         val input =
@@ -122,6 +122,31 @@ class ParsePrintReparseTests {
             
             """.trimIndent()
 
+        checkParsePrintIdentical(input)
+    }
+
+    @Test
+    fun aliasTest() {
+        val input =
+            """
+            struct S {
+              m : T,
+            }
+            
+            alias T = i32;
+            
+            @fragment
+            fn f()
+            {
+              var v : S;
+            }
+            
+            """.trimIndent()
+
+        checkParsePrintIdentical(input)
+    }
+
+    private fun checkParsePrintIdentical(input: String) {
         val errorListener = LoggingParseErrorListener()
 
         val tu =

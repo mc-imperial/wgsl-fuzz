@@ -39,19 +39,19 @@ class AstWriter(
 
     fun emit(constAssertStatement: Statement.ConstAssert) {
         with(constAssertStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
     fun emit(decrementStatement: Statement.Decrement) {
         with(decrementStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
     fun emit(forStatement: Statement.For) {
         with(forStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
@@ -63,13 +63,13 @@ class AstWriter(
 
     fun emit(ifStatement: Statement.If) {
         with(ifStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
     fun emit(incrementStatement: Statement.Increment) {
         with(incrementStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
@@ -91,13 +91,13 @@ class AstWriter(
 
     fun emit(switchStatement: Statement.Switch) {
         with(switchStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
     fun emit(valueStatement: Statement.Value) {
         with(valueStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
@@ -109,7 +109,7 @@ class AstWriter(
 
     fun emit(whileStatement: Statement.While) {
         with(whileStatement) {
-            TODO()
+            out.print(placeholder.text)
         }
     }
 
@@ -204,10 +204,10 @@ class AstWriter(
             is GlobalDecl.Function -> emit(decl)
             is GlobalDecl.Struct -> emit(decl)
             is GlobalDecl.TypeAlias -> {
-                out.println(decl.placeholder.text)
+                out.println("${decl.placeholder.text};")
             }
             is GlobalDecl.ConstAssert -> {
-                out.println("const assert")
+                out.println("${decl.placeholder.text};")
             }
             is GlobalDecl.Empty -> {
                 out.println(";")

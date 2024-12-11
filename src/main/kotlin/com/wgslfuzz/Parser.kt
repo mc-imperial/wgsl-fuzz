@@ -187,15 +187,16 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitReturn_statement(ctx: WGSLParser.Return_statementContext): Statement.Return =
         Statement.Return(ctx.expression()?.let { Placeholder(it.fullText) })
 
-    override fun visitIf_statement(ctx: WGSLParser.If_statementContext): Statement.If = TODO()
+    override fun visitIf_statement(ctx: WGSLParser.If_statementContext): Statement.If = Statement.If(Placeholder(ctx.fullText))
 
-    override fun visitSwitch_statement(ctx: WGSLParser.Switch_statementContext): Statement.Switch = TODO()
+    override fun visitSwitch_statement(ctx: WGSLParser.Switch_statementContext): Statement.Switch =
+        Statement.Switch(Placeholder(ctx.fullText))
 
     override fun visitLoop_statement(ctx: WGSLParser.Loop_statementContext): Statement.Loop = Statement.Loop(Placeholder(ctx.fullText))
 
-    override fun visitFor_statement(ctx: WGSLParser.For_statementContext): Statement.For = TODO()
+    override fun visitFor_statement(ctx: WGSLParser.For_statementContext): Statement.For = Statement.For(Placeholder(ctx.fullText))
 
-    override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While = TODO()
+    override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While = Statement.While(Placeholder(ctx.fullText))
 
     override fun visitFunc_call_statement(ctx: WGSLParser.Func_call_statementContext): Statement.FunctionCall =
         Statement.FunctionCall(Placeholder(ctx.fullText))
@@ -217,13 +218,16 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitAssignment_statement(ctx: WGSLParser.Assignment_statementContext): Statement.Assignment =
         Statement.Assignment(Placeholder(ctx.fullText))
 
-    override fun visitIncrement_statement(ctx: WGSLParser.Increment_statementContext): Statement.Increment = TODO()
+    override fun visitIncrement_statement(ctx: WGSLParser.Increment_statementContext): Statement.Increment =
+        Statement.Increment(Placeholder(ctx.fullText))
 
-    override fun visitDecrement_statement(ctx: WGSLParser.Decrement_statementContext): Statement.Decrement = TODO()
+    override fun visitDecrement_statement(ctx: WGSLParser.Decrement_statementContext): Statement.Decrement =
+        Statement.Decrement(Placeholder(ctx.fullText))
 
     override fun visitDiscard_statement(ctx: WGSLParser.Discard_statementContext): Statement.Discard = Statement.Discard()
 
-    override fun visitConst_assert_statement(ctx: WGSLParser.Const_assert_statementContext): Statement.ConstAssert = TODO()
+    override fun visitConst_assert_statement(ctx: WGSLParser.Const_assert_statementContext): Statement.ConstAssert =
+        Statement.ConstAssert(Placeholder(ctx.fullText))
 
     override fun visitEmpty_statement(ctx: WGSLParser.Empty_statementContext): Statement.Empty = Statement.Empty()
 

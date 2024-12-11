@@ -1,7 +1,9 @@
 package com.wgslfuzz
 
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.PrintStream
 
 class ParseTintTests {
     // // This test, commented out by default, is useful if you want to check a specific WGSL test case during debugging.
@@ -65,7 +67,10 @@ class ParseTintTests {
     private fun checkWgslTest(wgslTestFilename: String) {
         val errorListener = LoggingParseErrorListener()
         try {
-            parseFromFile(filename = wgslTestFilename, errorListener = errorListener)
+            val tu = parseFromFile(filename = wgslTestFilename, errorListener = errorListener)
+            val byteOutputStream = ByteArrayOutputStream()
+            AstWriter(PrintStream(byteOutputStream)).emit(tu)
+            parseFromString(wgslString = byteOutputStream.toString(), errorListener = errorListener)
         } catch (e: Exception) {
             println(wgslTestFilename)
             println(errorListener.loggedMessages)
