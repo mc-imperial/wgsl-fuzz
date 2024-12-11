@@ -160,8 +160,8 @@ array_type_decl: ARRAY (LESS_THAN type_decl (COMMA element_count_expression)? GR
 element_count_expression: expression;
 
 struct_decl: STRUCT IDENT struct_body_decl SEMICOLON?;
-struct_body_decl: BRACE_LEFT (struct_member (COMMA | SEMICOLON))* struct_member (COMMA | SEMICOLON)? BRACE_RIGHT;
-struct_member: attribute* variable_ident_decl;
+struct_body_decl: BRACE_LEFT (struct_member COMMA)* struct_member COMMA? BRACE_RIGHT;
+struct_member: attribute* IDENT COLON type_decl;
 
 // The options for access mode are 'read', 'write' and 'read_write', but these are not keywords
 access_mode: IDENT;
@@ -193,17 +193,18 @@ mat_prefix: MAT2X2
 
 // Variables
 
+ident_with_optional_type: IDENT (COLON type_decl)?;
+
 variable_or_value_statement: variable_decl
                   | variable_decl EQUAL expression
-                  | CONST (IDENT | variable_ident_decl) EQUAL expression
-                  | LET (IDENT | variable_ident_decl) EQUAL expression;
+                  | CONST ident_with_optional_type EQUAL expression
+                  | LET ident_with_optional_type EQUAL expression;
 
-variable_decl: VAR variable_qualifier? (IDENT | variable_ident_decl);
-variable_ident_decl: IDENT COLON type_decl;
+variable_decl: VAR variable_qualifier? ident_with_optional_type;
 variable_qualifier: LESS_THAN address_space (COMMA access_mode)? GREATER_THAN;
 global_variable_decl: attribute* variable_decl (EQUAL expression)?;
-global_value_decl: CONST (IDENT | variable_ident_decl) EQUAL expression
-                    | attribute* OVERRIDE (IDENT | variable_ident_decl) (EQUAL expression)?;
+global_value_decl: CONST ident_with_optional_type EQUAL expression
+                    | attribute* OVERRIDE ident_with_optional_type (EQUAL expression)?;
 
 // Expressions
 
@@ -335,8 +336,9 @@ discard_statement: DISCARD;
 return_statement: RETURN expression?;
 func_call_statement: IDENT argument_expression_list;
 const_assert_statement: CONST_ASSERT expression;
+empty_statement: SEMICOLON;
 
-statement: SEMICOLON
+statement: empty_statement
          | return_statement SEMICOLON
          | if_statement
          | switch_statement
@@ -359,7 +361,7 @@ statement: SEMICOLON
 function_decl: attribute* function_header compound_statement;
 function_header: FN IDENT PAREN_LEFT param_list? PAREN_RIGHT (ARROW attribute* type_decl)?;
 param_list: (param COMMA)* param COMMA?;
-param: attribute* variable_ident_decl;
+param: attribute* IDENT COLON type_decl;
 
 severity_control_name: IDENT;
 diagnostic_rule_name: IDENT | IDENT PERIOD IDENT;
@@ -377,10 +379,14 @@ global_directive: diagnostic_directive SEMICOLON
            | enable_directive SEMICOLON
            | requires_directive SEMICOLON;
 
-global_decl: SEMICOLON
+empty_global_decl: SEMICOLON;
+
+const_assert_decl: const_assert_statement;
+
+global_decl: empty_global_decl
            | global_variable_decl SEMICOLON
            | global_value_decl SEMICOLON
            | type_alias_decl SEMICOLON
            | struct_decl
            | function_decl
-           | const_assert_statement SEMICOLON;
+           | const_assert_decl SEMICOLON;

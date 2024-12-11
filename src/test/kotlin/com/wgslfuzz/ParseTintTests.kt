@@ -65,7 +65,7 @@ class ParseTintTests {
     private fun checkWgslTest(wgslTestFilename: String) {
         val errorListener = LoggingParseErrorListener()
         try {
-            parse(filename = wgslTestFilename, errorListener = errorListener)
+            parseFromFile(filename = wgslTestFilename, errorListener = errorListener)
         } catch (e: Exception) {
             println(wgslTestFilename)
             println(errorListener.loggedMessages)
