@@ -13,7 +13,6 @@ import java.io.InputStream
 import java.util.BitSet
 
 class LoggingParseErrorListener : ANTLRErrorListener {
-
     val loggedMessages: String
         get() = _loggedMessages.toString()
 
@@ -25,7 +24,7 @@ class LoggingParseErrorListener : ANTLRErrorListener {
         line: Int,
         charPositionInLine: Int,
         msg: String?,
-        e: RecognitionException?
+        e: RecognitionException?,
     ) {
         _loggedMessages.append("[$line, $charPositionInLine]: $msg\n")
     }
@@ -37,7 +36,7 @@ class LoggingParseErrorListener : ANTLRErrorListener {
         stopIndex: Int,
         exact: Boolean,
         ambigAlts: BitSet?,
-        configs: ATNConfigSet?
+        configs: ATNConfigSet?,
     ) {
     }
 
@@ -47,7 +46,7 @@ class LoggingParseErrorListener : ANTLRErrorListener {
         startIndex: Int,
         stopIndex: Int,
         conflictingAlts: BitSet?,
-        configs: ATNConfigSet?
+        configs: ATNConfigSet?,
     ) {
     }
 
@@ -57,13 +56,14 @@ class LoggingParseErrorListener : ANTLRErrorListener {
         startIndex: Int,
         stopIndex: Int,
         prediction: Int,
-        configs: ATNConfigSet?
+        configs: ATNConfigSet?,
     ) {
     }
 }
 
-private class TimeoutParseTreeListener(private val timeToStop: Long) : ParseTreeListener {
-
+private class TimeoutParseTreeListener(
+    private val timeToStop: Long,
+) : ParseTreeListener {
     private fun checkTime() {
         if (System.currentTimeMillis() > timeToStop) {
             throw RuntimeException("Parsing timed out.")
@@ -79,9 +79,7 @@ private class TimeoutParseTreeListener(private val timeToStop: Long) : ParseTree
     override fun exitEveryRule(parserRuleContext: ParserRuleContext) = checkTime()
 }
 
-
 private class AstBuilder : WGSLBaseVisitor<Any>() {
-
     override fun visitTranslation_unit(ctx: Translation_unitContext): TranslationUnit {
         val result = TranslationUnit()
         for (globalDecl in ctx.global_decl()) {
@@ -108,34 +106,35 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         }
 
     override fun visitGlobal_value_decl(ctx: WGSLParser.Global_value_declContext): GlobalDecl.Value {
-        val name = if (ctx.IDENT() != null) {
-            ctx.IDENT().text
-        } else {
-            ctx.variable_ident_decl().IDENT().text
-        }
+        val name =
+            if (ctx.IDENT() != null) {
+                ctx.IDENT().text
+            } else {
+                ctx.variable_ident_decl().IDENT().text
+            }
         return GlobalDecl.Value(name = name)
     }
 
     override fun visitGlobal_variable_decl(ctx: WGSLParser.Global_variable_declContext): GlobalDecl.Variable {
-        val name = if (ctx.variable_decl().IDENT() != null) {
-            ctx.variable_decl().IDENT().text
-        } else {
-            ctx.variable_decl().variable_ident_decl().IDENT().text
-        }
+        val name =
+            if (ctx.variable_decl().IDENT() != null) {
+                ctx.variable_decl().IDENT().text
+            } else {
+                ctx
+                    .variable_decl()
+                    .variable_ident_decl()
+                    .IDENT()
+                    .text
+            }
         return GlobalDecl.Variable(name = name)
     }
 
-    override fun visitFunction_decl(ctx: WGSLParser.Function_declContext): GlobalDecl.Function {
-        return GlobalDecl.Function(ctx.function_header().IDENT().text)
-    }
+    override fun visitFunction_decl(ctx: WGSLParser.Function_declContext): GlobalDecl.Function =
+        GlobalDecl.Function(ctx.function_header().IDENT().text)
 
-    override fun visitStruct_decl(ctx: WGSLParser.Struct_declContext): GlobalDecl.Struct {
-        return GlobalDecl.Struct(ctx.IDENT().text)
-    }
+    override fun visitStruct_decl(ctx: WGSLParser.Struct_declContext): GlobalDecl.Struct = GlobalDecl.Struct(ctx.IDENT().text)
 
-    override fun visitType_alias_decl(ctx: WGSLParser.Type_alias_declContext): GlobalDecl.TypeAlias {
-        return GlobalDecl.TypeAlias(ctx.IDENT().text)
-    }
+    override fun visitType_alias_decl(ctx: WGSLParser.Type_alias_declContext): GlobalDecl.TypeAlias = GlobalDecl.TypeAlias(ctx.IDENT().text)
 }
 
 private fun getParser(
@@ -146,10 +145,13 @@ private fun getParser(
     val charStream = CharStreams.fromStream(inputStream)
     val lexer = WGSLLexer(charStream)
     val cache = PredictionContextCache()
-    lexer.interpreter = LexerATNSimulator(
-        lexer, lexer.atn,
-        lexer.interpreter.decisionToDFA, cache
-    )
+    lexer.interpreter =
+        LexerATNSimulator(
+            lexer,
+            lexer.atn,
+            lexer.interpreter.decisionToDFA,
+            cache,
+        )
     val tokens = CommonTokenStream(lexer)
     val parser = WGSLParser(tokens)
     if (errorListener != null) {
@@ -159,11 +161,13 @@ private fun getParser(
     if (parseTreeListener != null) {
         parser.addParseListener(parseTreeListener)
     }
-    parser.interpreter = ParserATNSimulator(
-        parser, parser.atn,
-        parser.interpreter.decisionToDFA,
-        cache
-    )
+    parser.interpreter =
+        ParserATNSimulator(
+            parser,
+            parser.atn,
+            parser.interpreter.decisionToDFA,
+            cache,
+        )
     return parser
 }
 
@@ -171,10 +175,11 @@ private fun tryFastParse(
     filename: String,
     parseTreeListener: ParseTreeListener,
 ): Translation_unitContext {
-    val parser: WGSLParser = getParser(
-        inputStream = FileInputStream(filename),
-        parseTreeListener = parseTreeListener,
-    )
+    val parser: WGSLParser =
+        getParser(
+            inputStream = FileInputStream(filename),
+            parseTreeListener = parseTreeListener,
+        )
     parser.removeErrorListeners()
     parser.errorHandler = BailErrorStrategy()
     parser.interpreter.predictionMode = PredictionMode.SLL
@@ -188,11 +193,12 @@ private fun slowParse(
     parseTreeListener: ParseTreeListener,
     errorListener: ANTLRErrorListener,
 ): Translation_unitContext {
-    val parser: WGSLParser = getParser(
-        inputStream = FileInputStream(filename),
-        parseTreeListener = parseTreeListener,
-        errorListener = errorListener
-    )
+    val parser: WGSLParser =
+        getParser(
+            inputStream = FileInputStream(filename),
+            parseTreeListener = parseTreeListener,
+            errorListener = errorListener,
+        )
     try {
         val tu: Translation_unitContext = parser.translation_unit()
         if (parser.numberOfSyntaxErrors > 0) {
@@ -204,7 +210,10 @@ private fun slowParse(
     }
 }
 
-fun parse(filename: String, errorListener: ANTLRErrorListener): TranslationUnit {
+fun parse(
+    filename: String,
+    errorListener: ANTLRErrorListener,
+): TranslationUnit {
     val antlrTranslationUnit: Translation_unitContext =
         try {
             tryFastParse(
