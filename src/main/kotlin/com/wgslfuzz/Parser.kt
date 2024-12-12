@@ -20,7 +20,7 @@ import org.antlr.v4.runtime.misc.ParseCancellationException
 import org.antlr.v4.runtime.tree.ErrorNode
 import org.antlr.v4.runtime.tree.ParseTreeListener
 import org.antlr.v4.runtime.tree.TerminalNode
-import java.io.FileInputStream
+import java.io.File
 import java.io.InputStream
 import java.util.BitSet
 
@@ -339,10 +339,11 @@ private fun slowParse(
     }
 }
 
-fun parseFromInputStream(
-    inputStream: InputStream,
+fun parseFromString(
+    wgslString: String,
     errorListener: ANTLRErrorListener,
 ): TranslationUnit {
+    val inputStream: InputStream = wgslString.byteInputStream()
     val antlrTranslationUnit: Translation_unitContext =
         try {
             tryFastParse(
@@ -362,16 +363,7 @@ fun parseFromInputStream(
     )
 }
 
-fun parseFromString(
-    wgslString: String,
-    errorListener: ANTLRErrorListener,
-): TranslationUnit =
-    parseFromInputStream(
-        inputStream = wgslString.byteInputStream(),
-        errorListener = errorListener,
-    )
-
 fun parseFromFile(
     filename: String,
     errorListener: ANTLRErrorListener,
-): TranslationUnit = parseFromInputStream(inputStream = FileInputStream(filename), errorListener = errorListener)
+): TranslationUnit = parseFromString(wgslString = File(filename).readText(), errorListener = errorListener)

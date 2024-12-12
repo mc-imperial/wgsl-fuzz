@@ -66,14 +66,15 @@ class ParseTintTests {
 
     private fun checkWgslTest(wgslTestFilename: String) {
         val errorListener = LoggingParseErrorListener()
+        val byteOutputStream = ByteArrayOutputStream()
         try {
             val tu = parseFromFile(filename = wgslTestFilename, errorListener = errorListener)
-            val byteOutputStream = ByteArrayOutputStream()
             AstWriter(PrintStream(byteOutputStream)).emit(tu)
             parseFromString(wgslString = byteOutputStream.toString(), errorListener = errorListener)
         } catch (e: Exception) {
             println(wgslTestFilename)
             println(errorListener.loggedMessages)
+            println(byteOutputStream.toString())
             throw e
         }
     }

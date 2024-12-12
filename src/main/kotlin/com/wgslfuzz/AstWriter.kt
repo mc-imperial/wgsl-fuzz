@@ -39,13 +39,13 @@ class AstWriter(
 
     fun emit(constAssertStatement: Statement.ConstAssert) {
         with(constAssertStatement) {
-            out.print(placeholder.text)
+            out.print("${placeholder.text};")
         }
     }
 
     fun emit(decrementStatement: Statement.Decrement) {
         with(decrementStatement) {
-            out.print(placeholder.text)
+            out.print("${placeholder.text};")
         }
     }
 
@@ -69,7 +69,7 @@ class AstWriter(
 
     fun emit(incrementStatement: Statement.Increment) {
         with(incrementStatement) {
-            out.print(placeholder.text)
+            out.print("${placeholder.text};")
         }
     }
 
@@ -97,7 +97,7 @@ class AstWriter(
 
     fun emit(valueStatement: Statement.Value) {
         with(valueStatement) {
-            out.print(placeholder.text)
+            out.print("${placeholder.text};")
         }
     }
 
@@ -174,7 +174,7 @@ class AstWriter(
                 out.print(" : ${type!!.text}")
             }
             if (initializer != null) {
-                out.print(" = $initializer")
+                out.print(" = ${initializer!!.text}")
             }
             out.print(";\n")
         }
@@ -198,7 +198,7 @@ class AstWriter(
     fun emit(decl: GlobalDecl) {
         when (decl) {
             is GlobalDecl.Value -> {
-                out.println(decl.placeholder.text)
+                out.println("${decl.placeholder.text};")
             }
             is GlobalDecl.Variable -> emit(decl)
             is GlobalDecl.Function -> emit(decl)
