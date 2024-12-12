@@ -254,8 +254,39 @@ class AstWriter(
 
     fun emit(loopStatement: Statement.Loop) {
         with(loopStatement) {
+            emit(loopStatement.attributesAtStart)
             emitIndent()
-            out.print("${placeholder.text}\n")
+            out.print("loop\n")
+            emit(loopStatement.attributesBeforeBody)
+            emitIndent()
+            out.print("{\n")
+            increaseIndent()
+            statements.forEach {
+                emit(it)
+            }
+            continuingStatement?.let {
+                emitIndent()
+                out.print("continuing\n")
+                emit(it.attributes)
+                emitIndent()
+                out.print("{\n")
+                increaseIndent()
+                it.statements.forEach { statement ->
+                    emit(statement)
+                }
+                it.breakIfExpr.let { breakIfExpr ->
+                    emitIndent()
+                    out.print("break if ")
+                    emit(breakIfExpr!!)
+                    out.print(";\n")
+                }
+                decreaseIndent()
+                emitIndent()
+                out.print("}\n")
+            }
+            decreaseIndent()
+            emitIndent()
+            out.print("}\n")
         }
     }
 
@@ -263,7 +294,7 @@ class AstWriter(
         with(returnStatement) {
             emitIndent()
             out.print("return")
-            returnStatement.expr?.let {
+            expr?.let {
                 out.print(" ")
                 emit(it)
             }
@@ -275,6 +306,7 @@ class AstWriter(
         with(switchStatement) {
             emitIndent()
             out.print(placeholder.text)
+            out.println()
         }
     }
 

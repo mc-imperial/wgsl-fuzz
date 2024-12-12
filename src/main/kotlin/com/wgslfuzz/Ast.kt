@@ -167,9 +167,13 @@ sealed interface TypeDecl {
     }
 }
 
-sealed interface Statement {
-    data object Empty : Statement
+class ContinuingStatement(
+    val attributes: MutableList<Attribute>,
+    val statements: MutableList<Statement>,
+    var breakIfExpr: Expression?,
+)
 
+sealed interface Statement {
     class Return(
         var expr: Expression?,
     ) : Statement
@@ -182,8 +186,12 @@ sealed interface Statement {
         var placeholder: Placeholder,
     ) : Statement
 
+    // loop_statement: BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
     class Loop(
-        var placeholder: Placeholder,
+        val attributesAtStart: MutableList<Attribute>,
+        val attributesBeforeBody: MutableList<Attribute>,
+        val statements: MutableList<Statement>,
+        var continuingStatement: ContinuingStatement?,
     ) : Statement
 
     class For(
@@ -211,10 +219,6 @@ sealed interface Statement {
         var initializer: Expression?,
     ) : Statement
 
-    data object Break : Statement
-
-    data object Continue : Statement
-
     class Assignment(
         var lhsExpression: LhsExpression?,
         var assignmentOperator: AssignmentOperator,
@@ -233,11 +237,17 @@ sealed interface Statement {
         var placeholder: Placeholder,
     ) : Statement
 
-    class Discard : Statement
-
     class ConstAssert(
         var placeholder: Placeholder,
     ) : Statement
+
+    data object Empty : Statement
+
+    data object Break : Statement
+
+    data object Continue : Statement
+
+    data object Discard : Statement
 }
 
 sealed interface GlobalDecl {
@@ -275,7 +285,7 @@ sealed interface GlobalDecl {
         var placeholder: Placeholder,
     ) : GlobalDecl
 
-    class Empty : GlobalDecl
+    data object Empty : GlobalDecl
 }
 
 class StructMember(

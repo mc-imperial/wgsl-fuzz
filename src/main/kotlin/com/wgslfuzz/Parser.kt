@@ -107,11 +107,11 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                 ctx
                     .global_decl()
                     .map {
-                        visitGlobal_decl(it) as GlobalDecl
+                        visitGlobal_decl(it)
                     }.toMutableList(),
         )
 
-    override fun visitEmpty_global_decl(ctx: WGSLParser.Empty_global_declContext): GlobalDecl.Empty = GlobalDecl.Empty()
+    override fun visitEmpty_global_decl(ctx: WGSLParser.Empty_global_declContext): GlobalDecl.Empty = GlobalDecl.Empty
 
     override fun visitConst_assert_decl(ctx: WGSLParser.Const_assert_declContext): GlobalDecl.ConstAssert =
         GlobalDecl.ConstAssert(placeholder = Placeholder(ctx.fullText))
@@ -168,13 +168,15 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
             body = visitCompound_statement(ctx.compound_statement()),
         )
 
+    override fun visitGlobal_decl(ctx: WGSLParser.Global_declContext): GlobalDecl = super.visitGlobal_decl(ctx) as GlobalDecl
+
     override fun visitCompound_statement(ctx: WGSLParser.Compound_statementContext): Statement.Compound =
         Statement.Compound(
             statements =
                 ctx
                     .statement()
                     .map {
-                        visitStatement(it) as Statement
+                        visitStatement(it)
                     }.toMutableList(),
         )
 
@@ -190,14 +192,36 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitSwitch_statement(ctx: WGSLParser.Switch_statementContext): Statement.Switch =
         Statement.Switch(Placeholder(ctx.fullText))
 
-    override fun visitLoop_statement(ctx: WGSLParser.Loop_statementContext): Statement.Loop = Statement.Loop(Placeholder(ctx.fullText))
+    override fun visitLoop_statement(ctx: WGSLParser.Loop_statementContext): Statement.Loop =
+        Statement.Loop(
+            attributesAtStart = gatherAttributes(ctx.attributes_at_start),
+            attributesBeforeBody = gatherAttributes(ctx.attributes_before_body),
+            statements = ctx.statement().map { visitStatement(it) }.toMutableList(),
+            continuingStatement =
+                ctx.continuing_statement()?.let {
+                    ContinuingStatement(
+                        attributes = gatherAttributes(it.continuing_compound_statement().attribute()),
+                        statements =
+                            it
+                                .continuing_compound_statement()
+                                .statement()
+                                .map { statement ->
+                                    visitStatement(statement)
+                                }.toMutableList(),
+                        breakIfExpr =
+                            it.continuing_compound_statement().break_if_statement()?.let { breakIfStatement ->
+                                visitExpression(breakIfStatement.expression())
+                            },
+                    )
+                },
+        )
 
     override fun visitFor_statement(ctx: WGSLParser.For_statementContext): Statement.For = Statement.For(Placeholder(ctx.fullText))
 
     override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While =
         Statement.While(
             attributes = gatherAttributes(ctx.attribute()),
-            expression = visitExpression(ctx.expression()) as Expression,
+            expression = visitExpression(ctx.expression()),
             body = visitCompound_statement(ctx.compound_statement()),
         )
 
@@ -228,6 +252,8 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitBreak_statement(ctx: WGSLParser.Break_statementContext): Statement.Break = Statement.Break
 
     override fun visitContinue_statement(ctx: WGSLParser.Continue_statementContext): Statement.Continue = Statement.Continue
+
+    override fun visitStatement(ctx: WGSLParser.StatementContext): Statement = super.visitStatement(ctx) as Statement
 
     override fun visitLhs_expression(ctx: WGSLParser.Lhs_expressionContext): LhsExpression {
         val target = visitCore_lhs_expression(ctx.core_lhs_expression())
@@ -313,7 +339,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitDecrement_statement(ctx: WGSLParser.Decrement_statementContext): Statement.Decrement =
         Statement.Decrement(Placeholder(ctx.fullText))
 
-    override fun visitDiscard_statement(ctx: WGSLParser.Discard_statementContext): Statement.Discard = Statement.Discard()
+    override fun visitDiscard_statement(ctx: WGSLParser.Discard_statementContext): Statement.Discard = Statement.Discard
 
     override fun visitConst_assert_statement(ctx: WGSLParser.Const_assert_statementContext): Statement.ConstAssert =
         Statement.ConstAssert(Placeholder(ctx.fullText))
@@ -602,50 +628,69 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                         it.attr_name().IDENT().text
                     }
                 val kind: AttributeKind =
-                    if (attributeTokenName == "align") {
-                        AttributeKind.ALIGN
-                    } else if (attributeTokenName == "binding") {
-                        AttributeKind.BINDING
-                    } else if (attributeTokenName == "builtin") {
-                        AttributeKind.BUILTIN
-                    } else if (attributeTokenName == "compute") {
-                        AttributeKind.COMPUTE
-                    } else if (attributeTokenName == "const") {
-                        AttributeKind.CONST
-                    } else if (attributeTokenName == "diagnostic") {
-                        AttributeKind.DIAGNOSTIC
-                    } else if (attributeTokenName == "fragment") {
-                        AttributeKind.FRAGMENT
-                    } else if (attributeTokenName == "group") {
-                        AttributeKind.GROUP
-                    } else if (attributeTokenName == "id") {
-                        AttributeKind.ID
-                    } else if (attributeTokenName == "interpolate") {
-                        AttributeKind.INTERPOLATE
-                    } else if (attributeTokenName == "invariant") {
-                        AttributeKind.INVARIANT
-                    } else if (attributeTokenName == "location") {
-                        AttributeKind.LOCATION
-                    } else if (attributeTokenName == "blend_src") {
-                        AttributeKind.BLEND_SRC
-                    } else if (attributeTokenName == "must_use") {
-                        AttributeKind.MUST_USE
-                    } else if (attributeTokenName == "size") {
-                        AttributeKind.SIZE
-                    } else if (attributeTokenName == "vertex") {
-                        AttributeKind.VERTEX
-                    } else if (attributeTokenName == "workgroup_size") {
-                        AttributeKind.WORKGROUP_SIZE
-                    } else {
-                        throw UnsupportedOperationException("Unknown attribute kind")
+                    when (attributeTokenName) {
+                        "align" -> {
+                            AttributeKind.ALIGN
+                        }
+                        "binding" -> {
+                            AttributeKind.BINDING
+                        }
+                        "builtin" -> {
+                            AttributeKind.BUILTIN
+                        }
+                        "compute" -> {
+                            AttributeKind.COMPUTE
+                        }
+                        "const" -> {
+                            AttributeKind.CONST
+                        }
+                        "diagnostic" -> {
+                            AttributeKind.DIAGNOSTIC
+                        }
+                        "fragment" -> {
+                            AttributeKind.FRAGMENT
+                        }
+                        "group" -> {
+                            AttributeKind.GROUP
+                        }
+                        "id" -> {
+                            AttributeKind.ID
+                        }
+                        "interpolate" -> {
+                            AttributeKind.INTERPOLATE
+                        }
+                        "invariant" -> {
+                            AttributeKind.INVARIANT
+                        }
+                        "location" -> {
+                            AttributeKind.LOCATION
+                        }
+                        "blend_src" -> {
+                            AttributeKind.BLEND_SRC
+                        }
+                        "must_use" -> {
+                            AttributeKind.MUST_USE
+                        }
+                        "size" -> {
+                            AttributeKind.SIZE
+                        }
+                        "vertex" -> {
+                            AttributeKind.VERTEX
+                        }
+                        "workgroup_size" -> {
+                            AttributeKind.WORKGROUP_SIZE
+                        }
+                        else -> {
+                            throw UnsupportedOperationException("Unknown attribute kind")
+                        }
                     }
                 Attribute(
                     kind = kind,
                     args =
                         it
                             .expression()
-                            ?.map {
-                                visitExpression(it)
+                            ?.map { expression ->
+                                visitExpression(expression)
                             }?.toMutableList() ?: mutableListOf(),
                 )
             }.toMutableList()

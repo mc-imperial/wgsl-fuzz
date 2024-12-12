@@ -308,7 +308,7 @@ case_selectors: expression_or_default (COMMA expression_or_default)* COMMA?;
 case_compound_statement: attribute* BRACE_LEFT statement* fallthrough_statement? BRACE_RIGHT;
 fallthrough_statement: FALLTHROUGH SEMICOLON;
 
-loop_statement: attribute* LOOP attribute* BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
+loop_statement: attributes_at_start+=attribute* LOOP attributes_before_body+=attribute* BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
 
 for_statement: attribute* FOR PAREN_LEFT for_header PAREN_RIGHT compound_statement;
 for_header: for_init? SEMICOLON expression? SEMICOLON for_update?;
