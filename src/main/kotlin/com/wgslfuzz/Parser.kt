@@ -220,7 +220,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                 ctx.variable_decl().ident_with_optional_type().type_decl()?.let {
                     visitType_decl(it)
                 },
-            initializer = ctx.expression()?.let { Placeholder(it.fullText) },
+            initializer = ctx.expression()?.let { visitExpression(it) },
         )
 
     override fun visitValue_statement(ctx: WGSLParser.Value_statementContext): Statement = Statement.Value(Placeholder(ctx.fullText))
@@ -583,7 +583,71 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     private fun gatherAttributes(attributes: List<AttributeContext>) =
         attributes
             .map {
-                Placeholder(it.fullText)
+                val attributeTokenName =
+                    if (it.attr_name() == null) {
+                        it.IDENT().text
+                    } else if (it.attr_name().attr_keyword() != null && it.attr_name().attr_keyword().CONST() != null) {
+                        it
+                            .attr_name()
+                            .attr_keyword()
+                            .CONST()
+                            .text
+                    } else if (it.attr_name().attr_keyword() != null && it.attr_name().attr_keyword().DIAGNOSTIC() != null) {
+                        it
+                            .attr_name()
+                            .attr_keyword()
+                            .DIAGNOSTIC()
+                            .text
+                    } else {
+                        it.attr_name().IDENT().text
+                    }
+                val kind: AttributeKind =
+                    if (attributeTokenName == "align") {
+                        AttributeKind.ALIGN
+                    } else if (attributeTokenName == "binding") {
+                        AttributeKind.BINDING
+                    } else if (attributeTokenName == "builtin") {
+                        AttributeKind.BUILTIN
+                    } else if (attributeTokenName == "compute") {
+                        AttributeKind.COMPUTE
+                    } else if (attributeTokenName == "const") {
+                        AttributeKind.CONST
+                    } else if (attributeTokenName == "diagnostic") {
+                        AttributeKind.DIAGNOSTIC
+                    } else if (attributeTokenName == "fragment") {
+                        AttributeKind.FRAGMENT
+                    } else if (attributeTokenName == "group") {
+                        AttributeKind.GROUP
+                    } else if (attributeTokenName == "id") {
+                        AttributeKind.ID
+                    } else if (attributeTokenName == "interpolate") {
+                        AttributeKind.INTERPOLATE
+                    } else if (attributeTokenName == "invariant") {
+                        AttributeKind.INVARIANT
+                    } else if (attributeTokenName == "location") {
+                        AttributeKind.LOCATION
+                    } else if (attributeTokenName == "blend_src") {
+                        AttributeKind.BLEND_SRC
+                    } else if (attributeTokenName == "must_use") {
+                        AttributeKind.MUST_USE
+                    } else if (attributeTokenName == "size") {
+                        AttributeKind.SIZE
+                    } else if (attributeTokenName == "vertex") {
+                        AttributeKind.VERTEX
+                    } else if (attributeTokenName == "workgroup_size") {
+                        AttributeKind.WORKGROUP_SIZE
+                    } else {
+                        throw UnsupportedOperationException("Unknown attribute kind")
+                    }
+                Attribute(
+                    kind = kind,
+                    args =
+                        it
+                            .expression()
+                            ?.map {
+                                visitExpression(it)
+                            }?.toMutableList() ?: mutableListOf(),
+                )
             }.toMutableList()
 }
 

@@ -14,6 +14,26 @@ class TranslationUnit(
     val globalDecls: MutableList<GlobalDecl>,
 )
 
+enum class AttributeKind {
+    ALIGN,
+    BINDING,
+    BUILTIN,
+    COMPUTE,
+    CONST,
+    DIAGNOSTIC,
+    FRAGMENT,
+    GROUP,
+    ID,
+    INTERPOLATE,
+    INVARIANT,
+    LOCATION,
+    BLEND_SRC,
+    MUST_USE,
+    SIZE,
+    VERTEX,
+    WORKGROUP_SIZE,
+}
+
 enum class AssignmentOperator {
     EQUAL,
     PLUS_EQUAL,
@@ -56,6 +76,11 @@ enum class BinaryOperator {
     DIVIDE,
     MODULO,
 }
+
+class Attribute(
+    var kind: AttributeKind,
+    val args: MutableList<Expression>,
+)
 
 sealed interface LhsExpression {
     class Identifier(
@@ -166,7 +191,7 @@ sealed interface Statement {
     ) : Statement
 
     class While(
-        val attributes: MutableList<Placeholder>,
+        val attributes: MutableList<Attribute>,
         var expression: Expression,
         var body: Compound,
     ) : Statement
@@ -183,7 +208,7 @@ sealed interface Statement {
         var qualifier: Placeholder?,
         var name: String,
         var type: TypeDecl?,
-        var initializer: Placeholder?,
+        var initializer: Expression?,
     ) : Statement
 
     data object Break : Statement
@@ -221,7 +246,7 @@ sealed interface GlobalDecl {
     ) : GlobalDecl
 
     class Variable(
-        val attributes: MutableList<Placeholder>,
+        val attributes: MutableList<Attribute>,
         var name: String,
         var addressSpace: Placeholder? = null,
         var accessMode: Placeholder? = null,
@@ -230,7 +255,7 @@ sealed interface GlobalDecl {
     ) : GlobalDecl
 
     class Function(
-        val attributes: MutableList<Placeholder>,
+        val attributes: MutableList<Attribute>,
         var name: String,
         val parameters: MutableList<Placeholder>,
         var returnType: TypeDecl? = null,
@@ -254,7 +279,7 @@ sealed interface GlobalDecl {
 }
 
 class StructMember(
-    val attributes: MutableList<Placeholder>,
+    val attributes: MutableList<Attribute>,
     var name: String,
     var type: Placeholder,
 )

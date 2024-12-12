@@ -14,8 +14,8 @@ class ParsePrintIdenticalTests {
               injected : i32,
             }
 
-            @group(0)
-            @binding(0)
+            @group(0, )
+            @binding(0, )
             var<uniform> x_9 : buf0;
 
             var<private> x_GLF_color : vec4<f32>;
@@ -109,7 +109,7 @@ class ParsePrintIdenticalTests {
             }
 
             struct main_out {
-              @location(0)
+              @location(0, )
               x_GLF_color_1 : vec4<f32>,
             }
 
@@ -145,27 +145,28 @@ class ParsePrintIdenticalTests {
 
 //    @Test
 //    fun continueInSwitchWithBreakif() {
-//        """
-//        @compute @workgroup_size(1)
-//        fn f() {
-//            var i : i32 = 0;
-//            loop {
-//                switch (i) {
-//                    case 0: {
-//                        continue;
+//        val input =
+//            """
+//            @compute @workgroup_size(1)
+//            fn f() {
+//                var i : i32 = 0;
+//                loop {
+//                    switch (i) {
+//                        case 0: {
+//                            continue;
+//                        }
+//                        default:{
+//                            break;
+//                        }
 //                    }
-//                    default:{
-//                        break;
+//                    continuing {
+//                       i = i + 1;
+//                       break if i >= 4;
 //                    }
-//                }
-//                continuing {
-//                   i = i + 1;
-//                   break if i >= 4;
 //                }
 //            }
-//        }
-//        """.trimIndent()
-//        fail()
+//            """.trimIndent()
+//        checkParsePrintIdentical(input)
 //    }
 
     @Test

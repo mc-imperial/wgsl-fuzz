@@ -21,6 +21,53 @@ class AstWriter(
         currentIndentLevel -= indentValue
     }
 
+    fun emit(attributeKind: AttributeKind) {
+        out.print(
+            when (attributeKind) {
+                AttributeKind.ALIGN -> "align"
+                AttributeKind.BINDING -> "binding"
+                AttributeKind.BUILTIN -> "builtin"
+                AttributeKind.COMPUTE -> "compute"
+                AttributeKind.CONST -> "const"
+                AttributeKind.DIAGNOSTIC -> "diagnostic"
+                AttributeKind.FRAGMENT -> "fragment"
+                AttributeKind.GROUP -> "group"
+                AttributeKind.ID -> "id"
+                AttributeKind.INTERPOLATE -> "interpolate"
+                AttributeKind.INVARIANT -> "invariant"
+                AttributeKind.LOCATION -> "location"
+                AttributeKind.BLEND_SRC -> "blend_src"
+                AttributeKind.MUST_USE -> "must_use"
+                AttributeKind.SIZE -> "size"
+                AttributeKind.VERTEX -> "vertex"
+                AttributeKind.WORKGROUP_SIZE -> "workgroup_size"
+            },
+        )
+    }
+
+    fun emit(attributes: List<Attribute>) {
+        attributes.forEach {
+            emit(it)
+        }
+    }
+
+    fun emit(attribute: Attribute) {
+        with(attribute) {
+            emitIndent()
+            out.print("@")
+            emit(kind)
+            if (args.isNotEmpty()) {
+                out.print("(")
+                args.forEach {
+                    emit(it)
+                    out.print(", ")
+                }
+                out.print(")")
+            }
+            out.println()
+        }
+    }
+
     fun emit(assignmentOperator: AssignmentOperator) {
         when (assignmentOperator) {
             AssignmentOperator.EQUAL -> out.print("=")
@@ -251,7 +298,8 @@ class AstWriter(
                 emit(it)
             }
             initializer?.let {
-                out.print(" = ${it.text}")
+                out.print(" = ")
+                emit(it)
             }
             out.print(";\n")
         }
@@ -259,11 +307,8 @@ class AstWriter(
 
     fun emit(whileStatement: Statement.While) {
         with(whileStatement) {
+            emit(attributes)
             emitIndent()
-            attributes.forEach {
-                out.print("${it.text}\n")
-                emitIndent()
-            }
             out.print("while ")
             emit(expression)
             out.print("\n")
@@ -299,11 +344,7 @@ class AstWriter(
             out.print("struct $name {\n")
             increaseIndent()
             for (member in members) {
-                for (attribute in member.attributes) {
-                    emitIndent()
-                    out.print(attribute.text)
-                    out.println()
-                }
+                emit(member.attributes)
                 emitIndent()
                 out.print("${member.name} : ${member.type.text},\n")
             }
@@ -314,9 +355,7 @@ class AstWriter(
 
     fun emit(globalVarDecl: GlobalDecl.Variable) {
         with(globalVarDecl) {
-            for (attribute in attributes) {
-                out.print("${attribute.text}\n")
-            }
+            emit(attributes)
             out.print("var")
             if (addressSpace != null) {
                 out.print("<${addressSpace!!.text}")
@@ -338,9 +377,7 @@ class AstWriter(
 
     fun emit(functionDecl: GlobalDecl.Function) {
         with(functionDecl) {
-            for (attribute in attributes) {
-                out.print("${attribute.text}\n")
-            }
+            emit(attributes)
             out.print("fn $name(")
             out.print(")")
             returnType?.let {
