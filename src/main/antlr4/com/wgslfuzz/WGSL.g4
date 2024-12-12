@@ -66,7 +66,6 @@ DEFAULT: 'default';
 DIAGNOSTIC: 'diagnostic';
 DISCARD: 'discard';
 ELSE: 'else';
-FALLTHROUGH: 'fallthrough';
 FN: 'fn';
 FOR: 'for';
 FUNCTION: 'function';
@@ -300,13 +299,11 @@ decrement_statement: lhs_expression MINUS_MINUS;
 if_statement: attribute* IF expression compound_statement (ELSE else_statement)?;
 else_statement: compound_statement | if_statement;
 
-switch_statement: attribute* SWITCH expression attribute* BRACE_LEFT switch_body+ BRACE_RIGHT;
-switch_body: CASE case_selectors COLON? case_compound_statement
-           | DEFAULT COLON? case_compound_statement;
+switch_statement: attributes_at_start+=attribute* SWITCH expression attributes_before_body+=attribute* BRACE_LEFT switch_clause+ BRACE_RIGHT;
+switch_clause: CASE case_selectors COLON? compound_statement
+           | DEFAULT COLON? compound_statement;
 expression_or_default: expression | DEFAULT;
 case_selectors: expression_or_default (COMMA expression_or_default)* COMMA?;
-case_compound_statement: attribute* BRACE_LEFT statement* fallthrough_statement? BRACE_RIGHT;
-fallthrough_statement: FALLTHROUGH SEMICOLON;
 
 loop_statement: attributes_at_start+=attribute* LOOP attributes_before_body+=attribute* BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
 

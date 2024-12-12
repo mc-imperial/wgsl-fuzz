@@ -242,6 +242,7 @@ class AstWriter(
         with(ifStatement) {
             emitIndent()
             out.print(placeholder.text)
+            out.print("\n")
         }
     }
 
@@ -274,10 +275,10 @@ class AstWriter(
                 it.statements.forEach { statement ->
                     emit(statement)
                 }
-                it.breakIfExpr.let { breakIfExpr ->
+                it.breakIfExpr?.let { breakIfExpr ->
                     emitIndent()
                     out.print("break if ")
-                    emit(breakIfExpr!!)
+                    emit(breakIfExpr)
                     out.print(";\n")
                 }
                 decreaseIndent()
@@ -304,9 +305,35 @@ class AstWriter(
 
     fun emit(switchStatement: Statement.Switch) {
         with(switchStatement) {
+            emit(attributesAtStart)
             emitIndent()
-            out.print(placeholder.text)
-            out.println()
+            out.print("switch ")
+            emit(expression)
+            out.print("\n")
+            emit(attributesBeforeBody)
+            emitIndent()
+            out.print("{\n")
+            increaseIndent()
+            clauses.forEach {
+                emitIndent()
+                when (it.caseSelectors) {
+                    CaseSelectors.DefaultAlone -> out.print("default\n")
+                    is CaseSelectors.ExpressionsOrDefault -> {
+                        out.print("case ")
+                        (it.caseSelectors as CaseSelectors.ExpressionsOrDefault).expressions.forEach { expression ->
+                            expression?.let { emit(expression) } ?: run {
+                                out.print("default")
+                                out.print(", ")
+                            }
+                        }
+                        out.print("\n")
+                    }
+                }
+                emit(it.compoundStatement)
+            }
+            decreaseIndent()
+            emitIndent()
+            out.print("}\n")
         }
     }
 
@@ -351,13 +378,25 @@ class AstWriter(
     fun emit(statement: Statement) {
         when (statement) {
             is Statement.Assignment -> emit(statement)
-            is Statement.Break -> out.print("break;\n")
+            is Statement.Break -> {
+                emitIndent()
+                out.print("break;\n")
+            }
             is Statement.Compound -> emit(statement)
             is Statement.ConstAssert -> emit(statement)
-            is Statement.Continue -> out.print("continue;\n")
+            is Statement.Continue -> {
+                emitIndent()
+                out.print("continue;\n")
+            }
             is Statement.Decrement -> emit(statement)
-            is Statement.Discard -> out.print("discard;\n")
-            is Statement.Empty -> out.print(";\n")
+            is Statement.Discard -> {
+                emitIndent()
+                out.print("discard;\n")
+            }
+            is Statement.Empty -> {
+                emitIndent()
+                out.print(";\n")
+            }
             is Statement.For -> emit(statement)
             is Statement.FunctionCall -> emit(statement)
             is Statement.If -> emit(statement)

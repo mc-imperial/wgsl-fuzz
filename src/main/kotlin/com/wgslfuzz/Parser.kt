@@ -190,7 +190,41 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitIf_statement(ctx: WGSLParser.If_statementContext): Statement.If = Statement.If(Placeholder(ctx.fullText))
 
     override fun visitSwitch_statement(ctx: WGSLParser.Switch_statementContext): Statement.Switch =
-        Statement.Switch(Placeholder(ctx.fullText))
+        Statement.Switch(
+            attributesAtStart = gatherAttributes(ctx.attributes_at_start),
+            expression = visitExpression(ctx.expression()),
+            attributesBeforeBody = gatherAttributes(ctx.attributes_before_body),
+            clauses =
+                ctx
+                    .switch_clause()
+                    .map {
+                        if (it.DEFAULT() != null) {
+                            SwitchClause(
+                                caseSelectors = CaseSelectors.DefaultAlone,
+                                compoundStatement = visitCompound_statement(it.compound_statement()),
+                            )
+                        } else {
+                            SwitchClause(
+                                caseSelectors =
+                                    CaseSelectors.ExpressionsOrDefault(
+                                        expressions =
+                                            it
+                                                .case_selectors()
+                                                .expression_or_default()
+                                                .map { expressionOrDefault ->
+                                                    if (expressionOrDefault.DEFAULT() != null) {
+                                                        // Null is used to represent occurrences of default in a sequence of selector expressions
+                                                        null
+                                                    } else {
+                                                        visitExpression(expressionOrDefault.expression())
+                                                    }
+                                                }.toMutableList(),
+                                    ),
+                                compoundStatement = visitCompound_statement(it.compound_statement()),
+                            )
+                        }
+                    }.toMutableList(),
+        )
 
     override fun visitLoop_statement(ctx: WGSLParser.Loop_statementContext): Statement.Loop =
         Statement.Loop(

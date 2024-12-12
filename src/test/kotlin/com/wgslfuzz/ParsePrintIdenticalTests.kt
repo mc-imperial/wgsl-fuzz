@@ -38,7 +38,8 @@ class ParsePrintIdenticalTests {
               m43 = mat4x3<f32>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 0.0));
               ll_1 = 0;
               GLF_live6rows = 2;
-              loop {
+              loop
+              {
                 let x_18 : i32 = ll_1;
                 let x_19 : i32 = x_9.injected;
                 if ((x_18 >= x_19)) {
@@ -51,7 +52,8 @@ class ParsePrintIdenticalTests {
                 z = x_22;
                 ll_2 = 0;
                 ctr = 0;
-                loop {
+                loop
+                {
                   let x_23 : i32 = ctr;
                   if ((x_23 < 1)) {
                   } else {
@@ -68,7 +70,8 @@ class ParsePrintIdenticalTests {
                   tempm43 = x_98;
                   ll_3 = 0;
                   c = 0;
-                  loop {
+                  loop
+                  {
                     let x_28 : i32 = z;
                     if ((1 < x_28)) {
                     } else {
@@ -82,8 +85,8 @@ class ParsePrintIdenticalTests {
                     let x_33 : i32 = d;
                     let x_34 : i32 = d;
                     tempm43[select(0, x_31, ((x_29 >= 0) & (x_30 < 4)))][select(0, x_34, ((x_32 >= 0) & (x_33 < 3)))] = 1.0;
-
-                    continuing {
+                    continuing
+                    {
                       let x_35 : i32 = c;
                       c = (x_35 + 1);
                     }
@@ -96,8 +99,8 @@ class ParsePrintIdenticalTests {
                   let x_119 : f32 = m43[x_40].y;
                   let x_121 : f32 = GLF_live6sums[x_117];
                   GLF_live6sums[x_117] = (x_121 + x_119);
-
-                  continuing {
+                  continuing
+                  {
                     let x_41 : i32 = ctr;
                     ctr = (x_41 + 1);
                   }
@@ -156,10 +159,11 @@ class ParsePrintIdenticalTests {
               {
                 switch (i)
                 {
-                  case 0: {
+                  case 0
+                  {
                     continue;
                   }
-                  default:
+                  default
                   {
                     break;
                   }

@@ -173,6 +173,20 @@ class ContinuingStatement(
     var breakIfExpr: Expression?,
 )
 
+sealed interface CaseSelectors {
+    data object DefaultAlone : CaseSelectors
+
+    class ExpressionsOrDefault(
+        // Null represents default, which can occur in a sequence of case selector expressions
+        val expressions: MutableList<Expression?>,
+    ) : CaseSelectors
+}
+
+class SwitchClause(
+    var caseSelectors: CaseSelectors,
+    var compoundStatement: Statement.Compound,
+)
+
 sealed interface Statement {
     class Return(
         var expr: Expression?,
@@ -183,7 +197,10 @@ sealed interface Statement {
     ) : Statement
 
     class Switch(
-        var placeholder: Placeholder,
+        val attributesAtStart: MutableList<Attribute>,
+        var expression: Expression,
+        val attributesBeforeBody: MutableList<Attribute>,
+        val clauses: MutableList<SwitchClause>,
     ) : Statement
 
     // loop_statement: BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
