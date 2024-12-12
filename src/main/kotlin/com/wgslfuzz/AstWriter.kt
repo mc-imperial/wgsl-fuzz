@@ -21,6 +21,32 @@ class AstWriter(
         currentIndentLevel -= indentValue
     }
 
+    fun emit(assignmentOperator: AssignmentOperator) {
+        when (assignmentOperator) {
+            AssignmentOperator.EQUAL -> out.print("=")
+            AssignmentOperator.PLUS_EQUAL -> out.print("+=")
+            AssignmentOperator.MINUS_EQUAL -> out.print("-=")
+            AssignmentOperator.TIMES_EQUAL -> out.print("*=")
+            AssignmentOperator.DIVIDE_EQUAL -> out.print("/=")
+            AssignmentOperator.MODULO_EQUAL -> out.print("%=")
+            AssignmentOperator.AND_EQUAL -> out.print("&=")
+            AssignmentOperator.OR_EQUAL -> out.print("|=")
+            AssignmentOperator.XOR_EQUAL -> out.print("^=")
+            AssignmentOperator.SHIFT_LEFT_EQUAL -> out.print("<<=")
+            AssignmentOperator.SHIFT_RIGHT_EQUAL -> out.print(">>=")
+        }
+    }
+
+    fun emit(operator: UnaryOperator) {
+        when (operator) {
+            UnaryOperator.MINUS -> out.print("-")
+            UnaryOperator.LOGICAL_NOT -> out.print("!")
+            UnaryOperator.BINARY_NOT -> out.print("~")
+            UnaryOperator.DEREFERENCE -> out.print("*")
+            UnaryOperator.ADDRESS_OF -> out.print("&")
+        }
+    }
+
     fun emit(operator: BinaryOperator) {
         when (operator) {
             BinaryOperator.SHORT_CIRCUIT_OR -> out.print("||")
@@ -44,6 +70,35 @@ class AstWriter(
         }
     }
 
+    fun emit(lhsExpression: LhsExpression) {
+        when (lhsExpression) {
+            is LhsExpression.AddressOf -> {
+                out.print("&")
+                emit(lhsExpression.target)
+            }
+            is LhsExpression.ArrayIndex -> {
+                emit(lhsExpression.target)
+                out.print("[")
+                emit(lhsExpression.indexExpression)
+                out.print("]")
+            }
+            is LhsExpression.Identifier -> out.print(lhsExpression.name)
+            is LhsExpression.MemberLookup -> {
+                emit(lhsExpression.target)
+                out.print(".${lhsExpression.member}")
+            }
+            is LhsExpression.Paren -> {
+                out.print("(")
+                emit(lhsExpression.target)
+                out.print(")")
+            }
+            is LhsExpression.Dereference -> {
+                out.print("*")
+                emit(lhsExpression.target)
+            }
+        }
+    }
+
     fun emit(expression: Expression) {
         when (expression) {
             is Expression.Binary -> {
@@ -54,6 +109,19 @@ class AstWriter(
                 emit(expression.rhs)
             }
             is Expression.Placeholder -> out.print(expression.placeholder.text)
+            is Expression.Unary -> {
+                emit(expression.operator)
+                emit(expression.target)
+            }
+            is Expression.BoolLiteral -> out.print(expression.text)
+            is Expression.FloatLiteral -> out.print(expression.text)
+            is Expression.IntLiteral -> out.print(expression.text)
+            is Expression.Identifier -> out.print(expression.name)
+            is Expression.Paren -> {
+                out.print("(")
+                emit(expression.target)
+                out.print(")")
+            }
         }
     }
 
@@ -70,7 +138,16 @@ class AstWriter(
     fun emit(assignmentStatement: Statement.Assignment) {
         with(assignmentStatement) {
             emitIndent()
-            out.print("${placeholder.text};\n")
+            assignmentStatement.lhsExpression?.let {
+                emit(it)
+            } ?: run {
+                out.print("_")
+            }
+            out.print(" ")
+            emit(assignmentStatement.assignmentOperator)
+            out.print(" ")
+            emit(assignmentStatement.rhs)
+            out.print(";\n")
         }
     }
 
@@ -140,7 +217,8 @@ class AstWriter(
             emitIndent()
             out.print("return")
             returnStatement.expr?.let {
-                out.print(" ${expr?.text}")
+                out.print(" ")
+                emit(it)
             }
             out.print(";\n")
         }

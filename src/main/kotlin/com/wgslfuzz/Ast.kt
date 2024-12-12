@@ -4,15 +4,37 @@ package com.wgslfuzz
 class Placeholder(
     val text: String,
 ) {
-    // // Uncomment this to detect placholders so that they can be eliminated.
+    // // Uncomment this to detect placeholders so that they can be eliminated.
     // init {
-    //    assert(false)
+    //   assert(false)
     // }
 }
 
 class TranslationUnit(
     val globalDecls: MutableList<GlobalDecl>,
 )
+
+enum class AssignmentOperator {
+    EQUAL,
+    PLUS_EQUAL,
+    MINUS_EQUAL,
+    TIMES_EQUAL,
+    DIVIDE_EQUAL,
+    MODULO_EQUAL,
+    AND_EQUAL,
+    OR_EQUAL,
+    XOR_EQUAL,
+    SHIFT_LEFT_EQUAL,
+    SHIFT_RIGHT_EQUAL,
+}
+
+enum class UnaryOperator {
+    MINUS,
+    LOGICAL_NOT,
+    BINARY_NOT,
+    DEREFERENCE,
+    ADDRESS_OF,
+}
 
 enum class BinaryOperator {
     SHORT_CIRCUIT_OR,
@@ -35,7 +57,60 @@ enum class BinaryOperator {
     MODULO,
 }
 
+sealed interface LhsExpression {
+    class Identifier(
+        var name: String,
+    ) : LhsExpression
+
+    class Paren(
+        var target: LhsExpression,
+    ) : LhsExpression
+
+    class MemberLookup(
+        var target: LhsExpression,
+        var member: String,
+    ) : LhsExpression
+
+    class ArrayIndex(
+        var target: LhsExpression,
+        var indexExpression: Expression,
+    ) : LhsExpression
+
+    class Dereference(
+        var target: LhsExpression,
+    ) : LhsExpression
+
+    class AddressOf(
+        var target: LhsExpression,
+    ) : LhsExpression
+}
+
 sealed interface Expression {
+    class BoolLiteral(
+        var text: String,
+    ) : Expression
+
+    class FloatLiteral(
+        var text: String,
+    ) : Expression
+
+    class IntLiteral(
+        var text: String,
+    ) : Expression
+
+    class Identifier(
+        var name: String,
+    ) : Expression
+
+    class Paren(
+        var target: Expression,
+    ) : Expression
+
+    class Unary(
+        var operator: UnaryOperator,
+        var target: Expression,
+    ) : Expression
+
     class Binary(
         var operator: BinaryOperator,
         var lhs: Expression,
@@ -71,7 +146,7 @@ sealed interface Statement {
     data object Empty : Statement
 
     class Return(
-        var expr: Placeholder?,
+        var expr: Expression?,
     ) : Statement
 
     class If(
@@ -116,7 +191,9 @@ sealed interface Statement {
     data object Continue : Statement
 
     class Assignment(
-        var placeholder: Placeholder,
+        var lhsExpression: LhsExpression?,
+        var assignmentOperator: AssignmentOperator,
+        var rhs: Expression,
     ) : Statement
 
     class Compound(

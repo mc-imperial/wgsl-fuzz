@@ -179,7 +179,11 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         )
 
     override fun visitReturn_statement(ctx: WGSLParser.Return_statementContext): Statement.Return =
-        Statement.Return(ctx.expression()?.let { Placeholder(it.fullText) })
+        Statement.Return(
+            ctx.expression()?.let {
+                visitExpression(it)
+            },
+        )
 
     override fun visitIf_statement(ctx: WGSLParser.If_statementContext): Statement.If = Statement.If(Placeholder(ctx.fullText))
 
@@ -225,8 +229,83 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
 
     override fun visitContinue_statement(ctx: WGSLParser.Continue_statementContext): Statement.Continue = Statement.Continue
 
-    override fun visitAssignment_statement(ctx: WGSLParser.Assignment_statementContext): Statement.Assignment =
-        Statement.Assignment(Placeholder(ctx.fullText))
+    override fun visitLhs_expression(ctx: WGSLParser.Lhs_expressionContext): LhsExpression {
+        val target = visitCore_lhs_expression(ctx.core_lhs_expression())
+        val targetWithPostfix = processLhsExpressionPostfix(target, ctx.postfix_expression())
+        return if (ctx.STAR().isNotEmpty()) {
+            LhsExpression.Dereference(targetWithPostfix)
+        } else if (ctx.AND().isNotEmpty()) {
+            LhsExpression.AddressOf(targetWithPostfix)
+        } else {
+            targetWithPostfix
+        }
+    }
+
+    override fun visitCore_lhs_expression(ctx: WGSLParser.Core_lhs_expressionContext): LhsExpression =
+        if (ctx.IDENT() != null) {
+            LhsExpression.Identifier(ctx.IDENT().text)
+        } else if (ctx.PAREN_LEFT() != null) {
+            LhsExpression.Paren(visitLhs_expression(ctx.lhs_expression()))
+        } else {
+            throw UnsupportedOperationException("Unknown kind of LHS expression.")
+        }
+
+    private fun processLhsExpressionPostfix(
+        target: LhsExpression,
+        ctx: WGSLParser.Postfix_expressionContext?,
+    ): LhsExpression {
+        if (ctx == null) {
+            return target
+        }
+        if (ctx.IDENT() != null) {
+            return processLhsExpressionPostfix(
+                LhsExpression.MemberLookup(target, ctx.IDENT().text),
+                ctx.postfix_expression(),
+            )
+        }
+        if (ctx.BRACKET_LEFT() != null) {
+            return processLhsExpressionPostfix(
+                LhsExpression.ArrayIndex(target, visitExpression(ctx.expression())),
+                ctx.postfix_expression(),
+            )
+        }
+        throw UnsupportedOperationException("Unknown postfix expression.")
+    }
+
+    override fun visitAssignment_statement(ctx: WGSLParser.Assignment_statementContext): Statement.Assignment {
+        val lhs: LhsExpression? =
+            ctx.lhs_expression()?.let {
+                visitLhs_expression(ctx.lhs_expression())
+            }
+        val assignmentOperator =
+            if (ctx.EQUAL() != null) {
+                AssignmentOperator.EQUAL
+            } else if (ctx.compound_assignment_operator().PLUS_EQUAL() != null) {
+                AssignmentOperator.PLUS_EQUAL
+            } else if (ctx.compound_assignment_operator().MINUS_EQUAL() != null) {
+                AssignmentOperator.MINUS_EQUAL
+            } else if (ctx.compound_assignment_operator().TIMES_EQUAL() != null) {
+                AssignmentOperator.TIMES_EQUAL
+            } else if (ctx.compound_assignment_operator().DIVISION_EQUAL() != null) {
+                AssignmentOperator.DIVIDE_EQUAL
+            } else if (ctx.compound_assignment_operator().MODULO_EQUAL() != null) {
+                AssignmentOperator.MODULO_EQUAL
+            } else if (ctx.compound_assignment_operator().AND_EQUAL() != null) {
+                AssignmentOperator.AND_EQUAL
+            } else if (ctx.compound_assignment_operator().OR_EQUAL() != null) {
+                AssignmentOperator.OR_EQUAL
+            } else if (ctx.compound_assignment_operator().XOR_EQUAL() != null) {
+                AssignmentOperator.XOR_EQUAL
+            } else if (ctx.compound_assignment_operator().SHIFT_LEFT_EQUAL() != null) {
+                AssignmentOperator.SHIFT_LEFT_EQUAL
+            } else if (ctx.compound_assignment_operator().SHIFT_RIGHT_EQUAL() != null) {
+                AssignmentOperator.SHIFT_RIGHT_EQUAL
+            } else {
+                throw UnsupportedOperationException("Unknown assignment operator.")
+            }
+        val rhs = visitExpression(ctx.expression())
+        return Statement.Assignment(lhsExpression = lhs, assignmentOperator = assignmentOperator, rhs = rhs)
+    }
 
     override fun visitIncrement_statement(ctx: WGSLParser.Increment_statementContext): Statement.Increment =
         Statement.Increment(Placeholder(ctx.fullText))
@@ -299,27 +378,77 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
 
     override fun visitBinary_xor_expression(ctx: WGSLParser.Binary_xor_expressionContext): Expression = Expression.Placeholder(ctx.fullText)
 
+    override fun visitPrimary_expression(ctx: WGSLParser.Primary_expressionContext): Expression {
+        if (ctx.IDENT() != null) {
+            return Expression.Identifier(ctx.IDENT().text)
+        }
+        if (ctx.const_literal() != null) {
+            return if (ctx.const_literal().bool_literal() != null) {
+                Expression.BoolLiteral(
+                    ctx
+                        .const_literal()
+                        .bool_literal()
+                        .BOOL_LITERAL()
+                        .text,
+                )
+            } else if (ctx.const_literal().int_literal() != null) {
+                Expression.IntLiteral(
+                    ctx
+                        .const_literal()
+                        .int_literal()
+                        .INT_LITERAL()
+                        .text,
+                )
+            } else if (ctx.const_literal().float_literal() != null) {
+                Expression.FloatLiteral(
+                    ctx
+                        .const_literal()
+                        .float_literal()
+                        .FLOAT_LITERAL()
+                        .text,
+                )
+            } else {
+                throw UnsupportedOperationException("Unknown const literal")
+            }
+        }
+        if (ctx.PAREN_LEFT() != null) {
+            return Expression.Paren(visitExpression(ctx.expression()))
+        }
+        if (ctx.callable_val() != null) {
+            return Expression.Placeholder(ctx.fullText)
+        }
+        throw UnsupportedOperationException("Unknown primary expression.")
+    }
+
     override fun visitSingular_expression(ctx: WGSLParser.Singular_expressionContext): Expression {
-        // singular_expression: primary_expression postfix_expression?;
-
-        // primary_expression: IDENT
-        //          | callable_val argument_expression_list
-        //          | const_literal
-        //          | PAREN_LEFT expression PAREN_RIGHT;
-
-        // postfix_expression: BRACKET_LEFT expression BRACKET_RIGHT postfix_expression?
-        //                  | PERIOD IDENT postfix_expression?;
-        return Expression.Placeholder(ctx.fullText)
+        if (ctx.postfix_expression() != null) {
+            // postfix_expression: BRACKET_LEFT expression BRACKET_RIGHT postfix_expression?
+            //                  | PERIOD IDENT postfix_expression?;
+            return Expression.Placeholder(ctx.fullText)
+        }
+        return visitPrimary_expression(ctx.primary_expression())
     }
 
     override fun visitUnary_expression(ctx: WGSLParser.Unary_expressionContext): Expression {
-        // unary_expression: singular_expression
-        //                | MINUS unary_expression
-        //                | BANG unary_expression
-        //                | TILDE unary_expression
-        //                | STAR unary_expression
-        //                | AND unary_expression;
-        return Expression.Placeholder(ctx.fullText)
+        if (ctx.singular_expression() != null) {
+            return visitSingular_expression(ctx.singular_expression())
+        }
+        val target = visitUnary_expression(ctx.unary_expression())
+        val operator =
+            if (ctx.MINUS() != null) {
+                UnaryOperator.MINUS
+            } else if (ctx.BANG() != null) {
+                UnaryOperator.LOGICAL_NOT
+            } else if (ctx.TILDE() != null) {
+                UnaryOperator.BINARY_NOT
+            } else if (ctx.STAR() != null) {
+                UnaryOperator.DEREFERENCE
+            } else if (ctx.AND() != null) {
+                UnaryOperator.ADDRESS_OF
+            } else {
+                throw UnsupportedOperationException("Unknown unary operator")
+            }
+        return Expression.Unary(operator, target)
     }
 
     override fun visitMultiplicative_expression(ctx: WGSLParser.Multiplicative_expressionContext): Expression {
