@@ -126,6 +126,49 @@ class ParsePrintIdenticalTests {
     }
 
     @Test
+    fun whileTest() {
+        val input =
+            """
+            fn f() -> i32
+            {
+              var i : i32;
+              while (i < 4)
+              {
+                i = i + 1;
+              }
+              return i;
+            }
+            
+            """.trimIndent()
+        checkParsePrintIdentical(input)
+    }
+
+//    @Test
+//    fun continueInSwitchWithBreakif() {
+//        """
+//        @compute @workgroup_size(1)
+//        fn f() {
+//            var i : i32 = 0;
+//            loop {
+//                switch (i) {
+//                    case 0: {
+//                        continue;
+//                    }
+//                    default:{
+//                        break;
+//                    }
+//                }
+//                continuing {
+//                   i = i + 1;
+//                   break if i >= 4;
+//                }
+//            }
+//        }
+//        """.trimIndent()
+//        fail()
+//    }
+
+    @Test
     fun aliasTest() {
         val input =
             """

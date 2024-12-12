@@ -195,11 +195,8 @@ mat_prefix: MAT2X2
 
 ident_with_optional_type: IDENT (COLON type_decl)?;
 
-variable_or_value_statement: variable_decl
-                  | variable_decl EQUAL expression
-                  | CONST ident_with_optional_type EQUAL expression
-                  | LET ident_with_optional_type EQUAL expression;
-
+variable_statement: variable_decl (EQUAL expression)?;
+value_statement: (CONST | LET) ident_with_optional_type EQUAL expression;
 variable_decl: VAR variable_qualifier? ident_with_optional_type;
 variable_qualifier: LESS_THAN address_space (COMMA access_mode)? GREATER_THAN;
 global_variable_decl: attribute* variable_decl (EQUAL expression)?;
@@ -315,7 +312,8 @@ loop_statement: attribute* LOOP attribute* BRACE_LEFT statement* continuing_stat
 
 for_statement: attribute* FOR PAREN_LEFT for_header PAREN_RIGHT compound_statement;
 for_header: for_init? SEMICOLON expression? SEMICOLON for_update?;
-for_init: variable_or_value_statement
+for_init: variable_statement
+        | value_statement
         | increment_statement
         | decrement_statement
         | assignment_statement
@@ -346,7 +344,8 @@ statement: empty_statement
          | for_statement
          | while_statement
          | func_call_statement SEMICOLON
-         | variable_or_value_statement SEMICOLON
+         | variable_statement SEMICOLON
+         | value_statement SEMICOLON
          | break_statement SEMICOLON
          | continue_statement SEMICOLON
          | assignment_statement SEMICOLON

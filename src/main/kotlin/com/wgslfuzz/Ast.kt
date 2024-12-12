@@ -3,14 +3,72 @@ package com.wgslfuzz
 // A placeholder in the AST for something that has not been elaborated yet.
 class Placeholder(
     val text: String,
-)
+) {
+    // // Uncomment this to detect placholders so that they can be eliminated.
+    // init {
+    //    assert(false)
+    // }
+}
 
 class TranslationUnit(
     val globalDecls: MutableList<GlobalDecl>,
 )
 
+enum class BinaryOperator {
+    SHORT_CIRCUIT_OR,
+    SHORT_CIRCUIT_AND,
+    BINARY_OR,
+    BINARY_AND,
+    BINARY_XOR,
+    LESS_THAN,
+    GREATER_THAN,
+    LESS_THAN_EQUAL,
+    GREATER_THAN_EQUAL,
+    EQUAL_EQUAL,
+    NOT_EQUAL,
+    SHIFT_LEFT,
+    SHIFT_RIGHT,
+    PLUS,
+    MINUS,
+    TIMES,
+    DIVIDE,
+    MODULO,
+}
+
+sealed interface Expression {
+    class Binary(
+        var operator: BinaryOperator,
+        var lhs: Expression,
+        var rhs: Expression,
+    ) : Expression
+
+    class Placeholder(
+        text: String,
+    ) : Expression {
+        val placeholder = com.wgslfuzz.Placeholder(text)
+    }
+}
+
+sealed interface TypeDecl {
+    sealed interface BasicTypeDecl : TypeDecl
+
+    data object Bool : BasicTypeDecl
+
+    data object I32 : BasicTypeDecl
+
+    data object U32 : BasicTypeDecl
+
+    data object F32 : BasicTypeDecl
+
+    class Placeholder(
+        text: String,
+    ) : TypeDecl {
+        val placeholder = com.wgslfuzz.Placeholder(text)
+    }
+}
+
 sealed interface Statement {
-    class Empty : Statement
+    data object Empty : Statement
 
     class Return(
         var expr: Placeholder?,
@@ -33,7 +91,9 @@ sealed interface Statement {
     ) : Statement
 
     class While(
-        var placeholder: Placeholder,
+        val attributes: MutableList<Placeholder>,
+        var expression: Expression,
+        var body: Compound,
     ) : Statement
 
     class FunctionCall(
@@ -45,12 +105,15 @@ sealed interface Statement {
     ) : Statement
 
     class Variable(
-        var placeholder: Placeholder,
+        var qualifier: Placeholder?,
+        var name: String,
+        var type: TypeDecl?,
+        var initializer: Placeholder?,
     ) : Statement
 
-    class Break : Statement
+    data object Break : Statement
 
-    class Continue : Statement
+    data object Continue : Statement
 
     class Assignment(
         var placeholder: Placeholder,
@@ -93,7 +156,7 @@ sealed interface GlobalDecl {
         val attributes: MutableList<Placeholder>,
         var name: String,
         val parameters: MutableList<Placeholder>,
-        var returnType: Placeholder? = null,
+        var returnType: TypeDecl? = null,
         var body: Statement.Compound,
     ) : GlobalDecl
 

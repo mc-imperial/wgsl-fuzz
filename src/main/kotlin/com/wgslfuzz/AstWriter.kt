@@ -21,109 +21,188 @@ class AstWriter(
         currentIndentLevel -= indentValue
     }
 
+    fun emit(operator: BinaryOperator) {
+        when (operator) {
+            BinaryOperator.SHORT_CIRCUIT_OR -> out.print("||")
+            BinaryOperator.SHORT_CIRCUIT_AND -> out.print("||")
+            BinaryOperator.BINARY_OR -> out.print("|")
+            BinaryOperator.BINARY_AND -> out.print("&")
+            BinaryOperator.BINARY_XOR -> out.print("^")
+            BinaryOperator.LESS_THAN -> out.print("<")
+            BinaryOperator.GREATER_THAN -> out.print(">")
+            BinaryOperator.LESS_THAN_EQUAL -> out.print("<=")
+            BinaryOperator.GREATER_THAN_EQUAL -> out.print(">=")
+            BinaryOperator.EQUAL_EQUAL -> out.print("==")
+            BinaryOperator.NOT_EQUAL -> out.print("!=")
+            BinaryOperator.SHIFT_LEFT -> out.print("<<")
+            BinaryOperator.SHIFT_RIGHT -> out.print(">>")
+            BinaryOperator.PLUS -> out.print("+")
+            BinaryOperator.MINUS -> out.print("-")
+            BinaryOperator.TIMES -> out.print("*")
+            BinaryOperator.DIVIDE -> out.print("/")
+            BinaryOperator.MODULO -> out.print("%")
+        }
+    }
+
+    fun emit(expression: Expression) {
+        when (expression) {
+            is Expression.Binary -> {
+                emit(expression.lhs)
+                out.print(" ")
+                emit(expression.operator)
+                out.print(" ")
+                emit(expression.rhs)
+            }
+            is Expression.Placeholder -> out.print(expression.placeholder.text)
+        }
+    }
+
+    fun emit(typeDecl: TypeDecl) {
+        when (typeDecl) {
+            TypeDecl.Bool -> out.print("bool")
+            TypeDecl.F32 -> out.print("f32")
+            TypeDecl.I32 -> out.print("i32")
+            TypeDecl.U32 -> out.print("u32")
+            is TypeDecl.Placeholder -> out.print(typeDecl.placeholder.text)
+        }
+    }
+
     fun emit(assignmentStatement: Statement.Assignment) {
         with(assignmentStatement) {
-            out.print("${placeholder.text};")
+            emitIndent()
+            out.print("${placeholder.text};\n")
         }
     }
 
     fun emit(compoundStatement: Statement.Compound) {
         with(compoundStatement) {
+            emitIndent()
             out.print("{\n")
             increaseIndent()
             statements.forEach(::emit)
             decreaseIndent()
+            emitIndent()
             out.print("}\n")
         }
     }
 
     fun emit(constAssertStatement: Statement.ConstAssert) {
         with(constAssertStatement) {
-            out.print("${placeholder.text};")
+            emitIndent()
+            out.print("${placeholder.text};\n")
         }
     }
 
     fun emit(decrementStatement: Statement.Decrement) {
         with(decrementStatement) {
-            out.print("${placeholder.text};")
+            emitIndent()
+            out.print("${placeholder.text};\n")
         }
     }
 
     fun emit(forStatement: Statement.For) {
         with(forStatement) {
+            emitIndent()
             out.print(placeholder.text)
         }
     }
 
     fun emit(functionCallStatement: Statement.FunctionCall) {
         with(functionCallStatement) {
-            out.print("${placeholder.text};")
+            emitIndent()
+            out.print("${placeholder.text};\n")
         }
     }
 
     fun emit(ifStatement: Statement.If) {
         with(ifStatement) {
+            emitIndent()
             out.print(placeholder.text)
         }
     }
 
     fun emit(incrementStatement: Statement.Increment) {
         with(incrementStatement) {
-            out.print("${placeholder.text};")
+            emitIndent()
+            out.print("${placeholder.text};\n")
         }
     }
 
     fun emit(loopStatement: Statement.Loop) {
         with(loopStatement) {
-            out.print(placeholder.text)
+            emitIndent()
+            out.print("${placeholder.text}\n")
         }
     }
 
     fun emit(returnStatement: Statement.Return) {
         with(returnStatement) {
+            emitIndent()
             out.print("return")
             returnStatement.expr?.let {
                 out.print(" ${expr?.text}")
             }
-            out.print(";")
+            out.print(";\n")
         }
     }
 
     fun emit(switchStatement: Statement.Switch) {
         with(switchStatement) {
+            emitIndent()
             out.print(placeholder.text)
         }
     }
 
     fun emit(valueStatement: Statement.Value) {
         with(valueStatement) {
-            out.print("${placeholder.text};")
+            emitIndent()
+            out.print("${placeholder.text};\n")
         }
     }
 
     fun emit(variableStatement: Statement.Variable) {
         with(variableStatement) {
-            out.print("${placeholder.text};")
+            emitIndent()
+            out.print("var")
+            qualifier?.let {
+                out.print(it.text)
+            }
+            out.print(" $name")
+            type?.let {
+                out.print(" : ")
+                emit(it)
+            }
+            initializer?.let {
+                out.print(" = ${it.text}")
+            }
+            out.print(";\n")
         }
     }
 
     fun emit(whileStatement: Statement.While) {
         with(whileStatement) {
-            out.print(placeholder.text)
+            emitIndent()
+            attributes.forEach {
+                out.print("${it.text}\n")
+                emitIndent()
+            }
+            out.print("while ")
+            emit(expression)
+            out.print("\n")
+            emit(body)
         }
     }
 
     fun emit(statement: Statement) {
-        emitIndent()
         when (statement) {
             is Statement.Assignment -> emit(statement)
-            is Statement.Break -> out.print("break;")
+            is Statement.Break -> out.print("break;\n")
             is Statement.Compound -> emit(statement)
             is Statement.ConstAssert -> emit(statement)
-            is Statement.Continue -> out.print("continue;")
+            is Statement.Continue -> out.print("continue;\n")
             is Statement.Decrement -> emit(statement)
-            is Statement.Discard -> out.print("discard;")
-            is Statement.Empty -> out.print(";")
+            is Statement.Discard -> out.print("discard;\n")
+            is Statement.Empty -> out.print(";\n")
             is Statement.For -> emit(statement)
             is Statement.FunctionCall -> emit(statement)
             is Statement.If -> emit(statement)
@@ -135,7 +214,6 @@ class AstWriter(
             is Statement.Variable -> emit(statement)
             is Statement.While -> emit(statement)
         }
-        out.println()
     }
 
     fun emit(struct: GlobalDecl.Struct) {
@@ -188,7 +266,8 @@ class AstWriter(
             out.print("fn $name(")
             out.print(")")
             returnType?.let {
-                out.print(" -> ${returnType!!.text}")
+                out.print(" -> ")
+                emit(returnType!!)
             }
             out.print("\n")
             emit(body)
