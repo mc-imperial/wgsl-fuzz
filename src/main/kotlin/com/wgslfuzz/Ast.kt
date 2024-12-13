@@ -279,6 +279,11 @@ sealed interface TypeDecl {
             get() = "mat4x4"
     }
 
+    class Array(
+        var elementType: TypeDecl?,
+        var elementCount: Expression?,
+    ) : TypeDecl
+
     class NamedType(
         var name: String,
         val templateArgs: MutableList<TypeDecl>,

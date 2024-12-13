@@ -225,6 +225,18 @@ class AstWriter(
                     out.print(">")
                 }
             }
+            is TypeDecl.Array -> {
+                out.print("array")
+                typeDecl.elementType?.let {
+                    out.print("<")
+                    emit(it)
+                    typeDecl.elementCount?.let { innerIt ->
+                        out.print(", ")
+                        emit(innerIt)
+                    }
+                    out.print(">")
+                }
+            }
             is TypeDecl.Placeholder -> out.print(typeDecl.placeholder.text)
         }
     }

@@ -489,6 +489,20 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
             }
             throw UnsupportedOperationException("Unknown matrix type.")
         }
+        if (ctx.array_type_decl() != null) {
+            with(ctx.array_type_decl()!!) {
+                return TypeDecl.Array(
+                    elementType =
+                        type_decl()?.let {
+                            visitType_decl(it)
+                        },
+                    elementCount =
+                        element_count_expression()?.let {
+                            visitExpression(it.expression())
+                        },
+                )
+            }
+        }
         return TypeDecl.Placeholder(ctx.fullText)
     }
 
