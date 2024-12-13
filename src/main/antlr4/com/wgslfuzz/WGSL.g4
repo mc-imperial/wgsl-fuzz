@@ -68,21 +68,16 @@ DISCARD: 'discard';
 ELSE: 'else';
 FN: 'fn';
 FOR: 'for';
-FUNCTION: 'function';
 IF: 'if';
 LET: 'let';
 LOOP: 'loop';
 OVERRIDE: 'override';
-PRIVATE: 'private';
 PTR: 'ptr';
 RETURN: 'return';
-STORAGE: 'storage';
 SWITCH: 'switch';
 TYPE: 'type';
-UNIFORM: 'uniform';
 VAR: 'var';
 WHILE: 'while';
-WORKGROUP: 'workgroup';
 
 // Syntactic tokens
 
@@ -162,10 +157,6 @@ struct_decl: STRUCT IDENT struct_body_decl SEMICOLON?;
 struct_body_decl: BRACE_LEFT (struct_member COMMA)* struct_member COMMA? BRACE_RIGHT;
 struct_member: attribute* IDENT COLON type_decl;
 
-// The options for access mode are 'read', 'write' and 'read_write', but these are not keywords
-access_mode: IDENT;
-address_space: FUNCTION | PRIVATE | WORKGROUP | UNIFORM | STORAGE;
-
 type_alias_decl: ALIAS IDENT EQUAL type_decl;
 
 type_decl: IDENT (LESS_THAN type_decl (COMMA type_decl)* COMMA? GREATER_THAN)? | type_decl_without_ident;
@@ -176,7 +167,7 @@ type_decl_without_ident: BOOL
                        | UINT32
                        | vec_prefix LESS_THAN type_decl GREATER_THAN
                        | mat_prefix LESS_THAN type_decl GREATER_THAN
-                       | PTR LESS_THAN address_space COMMA type_decl (COMMA access_mode)? GREATER_THAN
+                       | PTR LESS_THAN address_space=IDENT() COMMA type_decl (COMMA access_mode=IDENT)? GREATER_THAN
                        | array_type_decl;
 
 vec_prefix: VEC2 | VEC3 | VEC4;
@@ -194,11 +185,11 @@ mat_prefix: MAT2X2
 
 ident_with_optional_type: IDENT (COLON type_decl)?;
 
-variable_statement: variable_decl (EQUAL expression)?;
+variable_statement: variable_decl;
 value_statement: (CONST | LET) ident_with_optional_type EQUAL expression;
-variable_decl: VAR variable_qualifier? ident_with_optional_type;
-variable_qualifier: LESS_THAN address_space (COMMA access_mode)? GREATER_THAN;
-global_variable_decl: attribute* variable_decl (EQUAL expression)?;
+variable_decl: VAR variable_qualifier? ident_with_optional_type (EQUAL expression)?;
+variable_qualifier: LESS_THAN address_space=IDENT (COMMA access_mode=IDENT)? GREATER_THAN;
+global_variable_decl: attribute* variable_decl;
 global_value_decl: CONST ident_with_optional_type EQUAL expression
                     | attribute* OVERRIDE ident_with_optional_type (EQUAL expression)?;
 

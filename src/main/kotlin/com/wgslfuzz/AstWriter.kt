@@ -21,6 +21,29 @@ class AstWriter(
         currentIndentLevel -= indentValue
     }
 
+    fun emit(accessMode: AccessMode) {
+        out.print(
+            when (accessMode) {
+                AccessMode.READ -> "read"
+                AccessMode.WRITE -> "write"
+                AccessMode.READ_WRITE -> "read_write"
+            },
+        )
+    }
+
+    fun emit(addressSpace: AddressSpace) {
+        out.print(
+            when (addressSpace) {
+                AddressSpace.FUNCTION -> "function"
+                AddressSpace.PRIVATE -> "private"
+                AddressSpace.WORKGROUP -> "workgroup"
+                AddressSpace.UNIFORM -> "uniform"
+                AddressSpace.STORAGE -> "storate"
+                AddressSpace.HANDLE -> "handle"
+            },
+        )
+    }
+
     fun emit(attributeKind: AttributeKind) {
         out.print(
             when (attributeKind) {
@@ -178,7 +201,42 @@ class AstWriter(
             TypeDecl.F32 -> out.print("f32")
             TypeDecl.I32 -> out.print("i32")
             TypeDecl.U32 -> out.print("u32")
+            is TypeDecl.NamedType -> {
+                out.print(typeDecl.name)
+                if (typeDecl.templateArgs.isNotEmpty()) {
+                    out.print("<")
+                    typeDecl.templateArgs.forEach {
+                        emit(it)
+                        out.print(", ")
+                    }
+                    out.print(">")
+                }
+            }
             is TypeDecl.Placeholder -> out.print(typeDecl.placeholder.text)
+        }
+    }
+
+    fun emit(variableDecl: VariableDecl) {
+        with(variableDecl) {
+            out.print("var")
+            addressSpace?.let {
+                out.print("<")
+                emit(it)
+                accessMode?.let { itInner ->
+                    out.print(", ")
+                    emit(itInner)
+                }
+                out.print(">")
+            }
+            out.print(" $name")
+            type?.let {
+                out.print(" : ")
+                emit(it)
+            }
+            initializer?.let {
+                out.print(" = ")
+                emit(it)
+            }
         }
     }
 
@@ -347,19 +405,7 @@ class AstWriter(
     fun emit(variableStatement: Statement.Variable) {
         with(variableStatement) {
             emitIndent()
-            out.print("var")
-            qualifier?.let {
-                out.print(it.text)
-            }
-            out.print(" $name")
-            type?.let {
-                out.print(" : ")
-                emit(it)
-            }
-            initializer?.let {
-                out.print(" = ")
-                emit(it)
-            }
+            emit(variableDecl)
             out.print(";\n")
         }
     }
@@ -417,7 +463,9 @@ class AstWriter(
             for (member in members) {
                 emit(member.attributes)
                 emitIndent()
-                out.print("${member.name} : ${member.type.text},\n")
+                out.print("${member.name} : ")
+                emit(member.type)
+                out.print(",\n")
             }
             decreaseIndent()
             out.print("}\n")
@@ -427,21 +475,7 @@ class AstWriter(
     fun emit(globalVarDecl: GlobalDecl.Variable) {
         with(globalVarDecl) {
             emit(attributes)
-            out.print("var")
-            if (addressSpace != null) {
-                out.print("<${addressSpace!!.text}")
-                if (accessMode != null) {
-                    out.print(", ${accessMode!!.text}")
-                }
-                out.print(">")
-            }
-            out.print(" $name")
-            if (type != null) {
-                out.print(" : ${type!!.text}")
-            }
-            if (initializer != null) {
-                out.print(" = ${initializer!!.text}")
-            }
+            emit(variableDecl)
             out.print(";\n")
         }
     }
@@ -463,19 +497,21 @@ class AstWriter(
     fun emit(decl: GlobalDecl) {
         when (decl) {
             is GlobalDecl.Value -> {
-                out.println("${decl.placeholder.text};")
+                out.println("${decl.placeholder.text};\n")
             }
             is GlobalDecl.Variable -> emit(decl)
             is GlobalDecl.Function -> emit(decl)
             is GlobalDecl.Struct -> emit(decl)
             is GlobalDecl.TypeAlias -> {
-                out.println("${decl.placeholder.text};")
+                out.print("alias ${decl.name} = ")
+                emit(decl.type)
+                out.print(";\n")
             }
             is GlobalDecl.ConstAssert -> {
-                out.println("${decl.placeholder.text};")
+                out.println("${decl.placeholder.text};\n")
             }
             is GlobalDecl.Empty -> {
-                out.println(";")
+                out.println(";\n")
             }
         }
     }

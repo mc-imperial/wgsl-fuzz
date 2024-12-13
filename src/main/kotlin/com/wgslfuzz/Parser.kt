@@ -122,31 +122,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     override fun visitGlobal_variable_decl(ctx: WGSLParser.Global_variable_declContext): GlobalDecl.Variable =
         GlobalDecl.Variable(
             attributes = gatherAttributes(ctx.attribute()),
-            name =
-                ctx
-                    .variable_decl()
-                    .ident_with_optional_type()
-                    .IDENT()
-                    .text,
-            addressSpace =
-                ctx
-                    .variable_decl()
-                    .variable_qualifier()
-                    ?.address_space()
-                    ?.let { Placeholder(it.fullText) },
-            accessMode =
-                ctx
-                    .variable_decl()
-                    .variable_qualifier()
-                    ?.access_mode()
-                    ?.let { Placeholder(it.fullText) },
-            type =
-                ctx
-                    .variable_decl()
-                    .ident_with_optional_type()
-                    .type_decl()
-                    ?.let { Placeholder(it.fullText) },
-            initializer = ctx.expression()?.let { Placeholder(it.fullText) },
+            variableDecl = visitVariable_decl(ctx.variable_decl()),
         )
 
     override fun visitFunction_decl(ctx: WGSLParser.Function_declContext): GlobalDecl.Function =
@@ -263,23 +239,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         Statement.FunctionCall(Placeholder(ctx.fullText))
 
     override fun visitVariable_statement(ctx: WGSLParser.Variable_statementContext): Statement =
-        Statement.Variable(
-            qualifier =
-                ctx.variable_decl().variable_qualifier()?.let {
-                    Placeholder(it.fullText)
-                },
-            name =
-                ctx
-                    .variable_decl()
-                    .ident_with_optional_type()
-                    .IDENT()
-                    .text,
-            type =
-                ctx.variable_decl().ident_with_optional_type().type_decl()?.let {
-                    visitType_decl(it)
-                },
-            initializer = ctx.expression()?.let { visitExpression(it) },
-        )
+        Statement.Variable(variableDecl = visitVariable_decl(ctx.variable_decl()))
 
     override fun visitValue_statement(ctx: WGSLParser.Value_statementContext): Statement = Statement.Value(Placeholder(ctx.fullText))
 
@@ -300,6 +260,52 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
             targetWithPostfix
         }
     }
+
+    override fun visitVariable_decl(ctx: WGSLParser.Variable_declContext): VariableDecl =
+        VariableDecl(
+            name =
+                ctx
+                    .ident_with_optional_type()
+                    .IDENT()
+                    .text,
+            addressSpace =
+                ctx
+                    .variable_qualifier()
+                    ?.address_space
+                    ?.text
+                    ?.let {
+                        when (it) {
+                            "function" -> AddressSpace.FUNCTION
+                            "private" -> AddressSpace.PRIVATE
+                            "workgroup" -> AddressSpace.WORKGROUP
+                            "uniform" -> AddressSpace.UNIFORM
+                            "storage" -> AddressSpace.STORAGE
+                            "handle" -> AddressSpace.HANDLE
+                            else -> throw UnsupportedOperationException("Unknown address space")
+                        }
+                    },
+            accessMode =
+                ctx
+                    .variable_qualifier()
+                    ?.access_mode
+                    ?.text
+                    ?.let {
+                        when (it) {
+                            "read" -> AccessMode.READ
+                            "write" -> AccessMode.WRITE
+                            "read_write" -> AccessMode.READ_WRITE
+                            else -> throw UnsupportedOperationException("Unknown access mode")
+                        }
+                    },
+            type =
+                ctx
+                    .ident_with_optional_type()
+                    .type_decl()
+                    ?.let {
+                        visitType_decl(it)
+                    },
+            initializer = ctx.expression()?.let { visitExpression(it) },
+        )
 
     override fun visitCore_lhs_expression(ctx: WGSLParser.Core_lhs_expressionContext): LhsExpression =
         if (ctx.IDENT() != null) {
@@ -393,7 +399,7 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                                 attributes =
                                     gatherAttributes(it.attribute()),
                                 name = it.IDENT().text,
-                                type = Placeholder(it.type_decl().fullText),
+                                type = visitType_decl(it.type_decl()),
                             )
                         }.toMutableList(),
             )
@@ -401,7 +407,10 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     }
 
     override fun visitType_alias_decl(ctx: WGSLParser.Type_alias_declContext): GlobalDecl.TypeAlias =
-        GlobalDecl.TypeAlias(Placeholder(ctx.fullText))
+        GlobalDecl.TypeAlias(
+            name = ctx.IDENT().text,
+            type = visitType_decl(ctx.type_decl()),
+        )
 
     override fun visitType_decl_without_ident(ctx: WGSLParser.Type_decl_without_identContext): TypeDecl {
         if (ctx.BOOL() != null) {
@@ -419,12 +428,20 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         return TypeDecl.Placeholder(ctx.fullText)
     }
 
-    override fun visitType_decl(ctx: WGSLParser.Type_declContext): TypeDecl {
+    override fun visitType_decl(ctx: WGSLParser.Type_declContext): TypeDecl =
         if (ctx.type_decl_without_ident() != null) {
-            return visitType_decl_without_ident(ctx.type_decl_without_ident())
+            visitType_decl_without_ident(ctx.type_decl_without_ident())
+        } else {
+            TypeDecl.NamedType(
+                name = ctx.IDENT().text,
+                templateArgs =
+                    ctx
+                        .type_decl()
+                        .map {
+                            visitType_decl(it)
+                        }.toMutableList(),
+            )
         }
-        return TypeDecl.Placeholder(ctx.fullText)
-    }
 
     override fun visitShort_circuit_or_expression(ctx: WGSLParser.Short_circuit_or_expressionContext): Expression =
         Expression.Placeholder(ctx.fullText)
@@ -663,60 +680,24 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                     }
                 val kind: AttributeKind =
                     when (attributeTokenName) {
-                        "align" -> {
-                            AttributeKind.ALIGN
-                        }
-                        "binding" -> {
-                            AttributeKind.BINDING
-                        }
-                        "builtin" -> {
-                            AttributeKind.BUILTIN
-                        }
-                        "compute" -> {
-                            AttributeKind.COMPUTE
-                        }
-                        "const" -> {
-                            AttributeKind.CONST
-                        }
-                        "diagnostic" -> {
-                            AttributeKind.DIAGNOSTIC
-                        }
-                        "fragment" -> {
-                            AttributeKind.FRAGMENT
-                        }
-                        "group" -> {
-                            AttributeKind.GROUP
-                        }
-                        "id" -> {
-                            AttributeKind.ID
-                        }
-                        "interpolate" -> {
-                            AttributeKind.INTERPOLATE
-                        }
-                        "invariant" -> {
-                            AttributeKind.INVARIANT
-                        }
-                        "location" -> {
-                            AttributeKind.LOCATION
-                        }
-                        "blend_src" -> {
-                            AttributeKind.BLEND_SRC
-                        }
-                        "must_use" -> {
-                            AttributeKind.MUST_USE
-                        }
-                        "size" -> {
-                            AttributeKind.SIZE
-                        }
-                        "vertex" -> {
-                            AttributeKind.VERTEX
-                        }
-                        "workgroup_size" -> {
-                            AttributeKind.WORKGROUP_SIZE
-                        }
-                        else -> {
-                            throw UnsupportedOperationException("Unknown attribute kind")
-                        }
+                        "align" -> AttributeKind.ALIGN
+                        "binding" -> AttributeKind.BINDING
+                        "builtin" -> AttributeKind.BUILTIN
+                        "compute" -> AttributeKind.COMPUTE
+                        "const" -> AttributeKind.CONST
+                        "diagnostic" -> AttributeKind.DIAGNOSTIC
+                        "fragment" -> AttributeKind.FRAGMENT
+                        "group" -> AttributeKind.GROUP
+                        "id" -> AttributeKind.ID
+                        "interpolate" -> AttributeKind.INTERPOLATE
+                        "invariant" -> AttributeKind.INVARIANT
+                        "location" -> AttributeKind.LOCATION
+                        "blend_src" -> AttributeKind.BLEND_SRC
+                        "must_use" -> AttributeKind.MUST_USE
+                        "size" -> AttributeKind.SIZE
+                        "vertex" -> AttributeKind.VERTEX
+                        "workgroup_size" -> AttributeKind.WORKGROUP_SIZE
+                        else -> throw UnsupportedOperationException("Unknown attribute kind")
                     }
                 Attribute(
                     kind = kind,

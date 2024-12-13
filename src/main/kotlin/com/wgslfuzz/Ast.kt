@@ -14,6 +14,21 @@ class TranslationUnit(
     val globalDecls: MutableList<GlobalDecl>,
 )
 
+enum class AccessMode {
+    READ,
+    WRITE,
+    READ_WRITE,
+}
+
+enum class AddressSpace {
+    FUNCTION,
+    PRIVATE,
+    WORKGROUP,
+    UNIFORM,
+    STORAGE,
+    HANDLE,
+}
+
 enum class AttributeKind {
     ALIGN,
     BINDING,
@@ -160,6 +175,11 @@ sealed interface TypeDecl {
 
     data object F32 : BasicTypeDecl
 
+    class NamedType(
+        var name: String,
+        val templateArgs: MutableList<TypeDecl>,
+    ) : TypeDecl
+
     class Placeholder(
         text: String,
     ) : TypeDecl {
@@ -185,6 +205,14 @@ sealed interface CaseSelectors {
 class SwitchClause(
     var caseSelectors: CaseSelectors,
     var compoundStatement: Statement.Compound,
+)
+
+class VariableDecl(
+    var name: String,
+    var addressSpace: AddressSpace?,
+    var accessMode: AccessMode?,
+    var type: TypeDecl?,
+    var initializer: Expression?,
 )
 
 sealed interface Statement {
@@ -230,10 +258,7 @@ sealed interface Statement {
     ) : Statement
 
     class Variable(
-        var qualifier: Placeholder?,
-        var name: String,
-        var type: TypeDecl?,
-        var initializer: Expression?,
+        var variableDecl: VariableDecl,
     ) : Statement
 
     class Assignment(
@@ -274,18 +299,14 @@ sealed interface GlobalDecl {
 
     class Variable(
         val attributes: MutableList<Attribute>,
-        var name: String,
-        var addressSpace: Placeholder? = null,
-        var accessMode: Placeholder? = null,
-        var type: Placeholder? = null,
-        var initializer: Placeholder? = null,
+        var variableDecl: VariableDecl,
     ) : GlobalDecl
 
     class Function(
         val attributes: MutableList<Attribute>,
         var name: String,
         val parameters: MutableList<Placeholder>,
-        var returnType: TypeDecl? = null,
+        var returnType: TypeDecl?,
         var body: Statement.Compound,
     ) : GlobalDecl
 
@@ -295,7 +316,8 @@ sealed interface GlobalDecl {
     ) : GlobalDecl
 
     class TypeAlias(
-        var placeholder: Placeholder,
+        var name: String,
+        var type: TypeDecl,
     ) : GlobalDecl
 
     class ConstAssert(
@@ -308,5 +330,5 @@ sealed interface GlobalDecl {
 class StructMember(
     val attributes: MutableList<Attribute>,
     var name: String,
-    var type: Placeholder,
+    var type: TypeDecl,
 )
