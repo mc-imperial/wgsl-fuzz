@@ -6,7 +6,7 @@ class Placeholder(
 ) {
     // // Uncomment this to detect placeholders so that they can be eliminated.
     // init {
-    //   assert(false)
+    //     assert(false)
     // }
 }
 
@@ -165,15 +165,119 @@ sealed interface Expression {
 }
 
 sealed interface TypeDecl {
-    sealed interface BasicTypeDecl : TypeDecl
+    abstract class ScalarTypeDecl(
+        val name: String,
+    ) : TypeDecl
 
-    data object Bool : BasicTypeDecl
+    data object Bool : ScalarTypeDecl("bool")
 
-    data object I32 : BasicTypeDecl
+    data object I32 : ScalarTypeDecl("i32")
 
-    data object U32 : BasicTypeDecl
+    data object U32 : ScalarTypeDecl("u32")
 
-    data object F32 : BasicTypeDecl
+    abstract class FloatTypeDecl(
+        name: String,
+    ) : ScalarTypeDecl(name)
+
+    data object F32 : FloatTypeDecl("f32")
+
+    data object F16 : FloatTypeDecl("f16")
+
+    abstract class VectorTypeDecl(
+        var elementType: ScalarTypeDecl?,
+    ) : TypeDecl {
+        abstract val name: String
+    }
+
+    class Vec2(
+        elementType: ScalarTypeDecl?,
+    ) : VectorTypeDecl(elementType) {
+        override val name: String
+            get() = "vec2"
+    }
+
+    class Vec3(
+        elementType: ScalarTypeDecl?,
+    ) : VectorTypeDecl(elementType) {
+        override val name: String
+            get() = "vec3"
+    }
+
+    class Vec4(
+        elementType: ScalarTypeDecl?,
+    ) : VectorTypeDecl(elementType) {
+        override val name: String
+            get() = "vec4"
+    }
+
+    abstract class MatrixTypeDecl(
+        var elementType: FloatTypeDecl?,
+    ) : TypeDecl {
+        abstract val name: String
+    }
+
+    class Mat2x2(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat2x2"
+    }
+
+    class Mat2x3(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat2x3"
+    }
+
+    class Mat2x4(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat2x4"
+    }
+
+    class Mat3x2(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat3x2"
+    }
+
+    class Mat3x3(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat3x3"
+    }
+
+    class Mat3x4(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat3x4"
+    }
+
+    class Mat4x2(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat4x2"
+    }
+
+    class Mat4x3(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat4x3"
+    }
+
+    class Mat4x4(
+        elementType: FloatTypeDecl?,
+    ) : MatrixTypeDecl(elementType) {
+        override val name: String
+            get() = "mat4x4"
+    }
 
     class NamedType(
         var name: String,

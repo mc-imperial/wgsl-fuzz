@@ -425,6 +425,70 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         if (ctx.FLOAT32() != null) {
             return TypeDecl.F32
         }
+        if (ctx.vec_prefix() != null) {
+            val elementType: TypeDecl? =
+                ctx.type_decl()?.let {
+                    visitType_decl(it)
+                }
+            elementType?.let {
+                if (it !is TypeDecl.ScalarTypeDecl) {
+                    throw UnsupportedOperationException("Element type of vector must be scalar.")
+                }
+            }
+            elementType as TypeDecl.ScalarTypeDecl?
+            val vecPrefix = ctx.vec_prefix()!!
+            if (vecPrefix.VEC2() != null) {
+                return TypeDecl.Vec2(elementType)
+            }
+            if (vecPrefix.VEC3() != null) {
+                return TypeDecl.Vec3(elementType)
+            }
+            if (vecPrefix.VEC4() != null) {
+                return TypeDecl.Vec4(elementType)
+            }
+            throw UnsupportedOperationException("Unknown vector type.")
+        }
+        if (ctx.mat_prefix() != null) {
+            val elementType: TypeDecl? =
+                ctx.type_decl()?.let {
+                    visitType_decl(it)
+                }
+            elementType?.let {
+                if (it !is TypeDecl.FloatTypeDecl) {
+                    throw UnsupportedOperationException("Element type of matrix must be float.")
+                }
+            }
+            elementType as TypeDecl.FloatTypeDecl?
+            val matPrefix = ctx.mat_prefix()!!
+            if (matPrefix.MAT2X2() != null) {
+                return TypeDecl.Mat2x2(elementType)
+            }
+            if (matPrefix.MAT2X3() != null) {
+                return TypeDecl.Mat2x3(elementType)
+            }
+            if (matPrefix.MAT2X4() != null) {
+                return TypeDecl.Mat2x4(elementType)
+            }
+            if (matPrefix.MAT3X2() != null) {
+                return TypeDecl.Mat3x2(elementType)
+            }
+            if (matPrefix.MAT3X3() != null) {
+                return TypeDecl.Mat3x3(elementType)
+            }
+            if (matPrefix.MAT3X4() != null) {
+                return TypeDecl.Mat3x4(elementType)
+            }
+            if (matPrefix.MAT4X2() != null) {
+                return TypeDecl.Mat4x2(elementType)
+            }
+            if (matPrefix.MAT4X3() != null) {
+                return TypeDecl.Mat4x3(elementType)
+            }
+            if (matPrefix.MAT4X4() != null) {
+                return TypeDecl.Mat4x4(elementType)
+            }
+            throw UnsupportedOperationException("Unknown matrix type.")
+        }
         return TypeDecl.Placeholder(ctx.fullText)
     }
 

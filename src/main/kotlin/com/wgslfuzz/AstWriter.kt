@@ -197,10 +197,23 @@ class AstWriter(
 
     fun emit(typeDecl: TypeDecl) {
         when (typeDecl) {
-            TypeDecl.Bool -> out.print("bool")
-            TypeDecl.F32 -> out.print("f32")
-            TypeDecl.I32 -> out.print("i32")
-            TypeDecl.U32 -> out.print("u32")
+            is TypeDecl.ScalarTypeDecl -> out.print(typeDecl.name)
+            is TypeDecl.MatrixTypeDecl -> {
+                out.print(typeDecl.name)
+                typeDecl.elementType?.let {
+                    out.print("<")
+                    emit(it)
+                    out.print(">")
+                }
+            }
+            is TypeDecl.VectorTypeDecl -> {
+                out.print(typeDecl.name)
+                typeDecl.elementType?.let {
+                    out.print("<")
+                    emit(it)
+                    out.print(">")
+                }
+            }
             is TypeDecl.NamedType -> {
                 out.print(typeDecl.name)
                 if (typeDecl.templateArgs.isNotEmpty()) {

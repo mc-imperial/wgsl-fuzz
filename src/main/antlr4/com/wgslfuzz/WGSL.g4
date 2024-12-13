@@ -165,8 +165,8 @@ type_decl_without_ident: BOOL
                        | FLOAT32
                        | INT32
                        | UINT32
-                       | vec_prefix LESS_THAN type_decl GREATER_THAN
-                       | mat_prefix LESS_THAN type_decl GREATER_THAN
+                       | vec_prefix (LESS_THAN type_decl GREATER_THAN)?
+                       | mat_prefix (LESS_THAN type_decl GREATER_THAN)?
                        | PTR LESS_THAN address_space=IDENT() COMMA type_decl (COMMA access_mode=IDENT)? GREATER_THAN
                        | array_type_decl;
 
