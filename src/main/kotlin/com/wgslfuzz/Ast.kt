@@ -520,7 +520,10 @@ sealed interface Statement {
         ForUpdate
 
     class Value(
-        var placeholder: Placeholder,
+        var isConst: Boolean,
+        var name: String,
+        var type: TypeDecl?,
+        var initializer: Expression,
     ) : ForInit
 
     class Variable(

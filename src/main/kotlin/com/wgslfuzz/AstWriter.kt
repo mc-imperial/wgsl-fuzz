@@ -501,7 +501,21 @@ class AstWriter(
     fun emit(valueStatement: Statement.Value) {
         with(valueStatement) {
             emitIndent()
-            out.print("${placeholder.text};\n")
+            out.print(
+                if (isConst) {
+                    "const"
+                } else {
+                    "let"
+                },
+            )
+            out.print(" $name")
+            type?.let {
+                out.print(" : ")
+                emit(it)
+            }
+            out.print(" = ")
+            emit(initializer)
+            out.print(";\n")
         }
     }
 

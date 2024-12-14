@@ -102,7 +102,7 @@ class ParsePrintIdenticalTests {
                   let x_37 : i32 = idx;
                   let x_38 : i32 = idx;
                   let x_39 : i32 = idx;
-                  let x_117 : i32 = select(0, x_39, ((x_37 >= 0) & (x_38 < 9)));
+                  let x_117 : i32 = select(0, x_39, ((x_37 >= 0) & (x_38 < 9)), );
                   let x_40 : i32 = ctr;
                   let x_119 : f32 = m43[x_40].y;
                   let x_121 : f32 = GLF_live6sums[x_117];

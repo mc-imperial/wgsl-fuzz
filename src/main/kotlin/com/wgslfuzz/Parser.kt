@@ -309,10 +309,20 @@ private class AstBuilder(
                     .toMutableList(),
         )
 
-    override fun visitVariable_statement(ctx: WGSLParser.Variable_statementContext): Statement =
+    override fun visitVariable_statement(ctx: WGSLParser.Variable_statementContext): Statement.Variable =
         Statement.Variable(variableDecl = visitVariable_decl(ctx.variable_decl()))
 
-    override fun visitValue_statement(ctx: WGSLParser.Value_statementContext): Statement = Statement.Value(Placeholder(ctx.fullText))
+    override fun visitValue_statement(ctx: WGSLParser.Value_statementContext): Statement.Value =
+        Statement.Value(
+            isConst = ctx.CONST() != null,
+            name = ctx.ident_with_optional_type().IDENT().text,
+            type =
+                ctx
+                    .ident_with_optional_type()
+                    .type_decl()
+                    ?.let(::visitType_decl),
+            initializer = visitExpression(ctx.expression()),
+        )
 
     override fun visitBreak_statement(ctx: WGSLParser.Break_statementContext): Statement.Break = Statement.Break
 
