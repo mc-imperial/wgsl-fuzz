@@ -36,6 +36,7 @@ INT_LITERAL: '0' [xX][0-9a-fA-F]+[iu]? | '0'[iu]? | [1-9][0-9]*[iu]?;
 
 ARRAY: 'array';
 BOOL: 'bool';
+FLOAT16: 'f16';
 FLOAT32: 'f32';
 INT32: 'i32';
 MAT2X2: 'mat2x2';
@@ -162,6 +163,7 @@ type_alias_decl: ALIAS IDENT EQUAL type_decl;
 type_decl: IDENT (LESS_THAN type_decl (COMMA type_decl)* COMMA? GREATER_THAN)? | type_decl_without_ident;
 
 type_decl_without_ident: BOOL
+                       | FLOAT16
                        | FLOAT32
                        | INT32
                        | UINT32
@@ -201,9 +203,7 @@ primary_expression: IDENT
           | PAREN_LEFT expression PAREN_RIGHT;
 
 callable_val: IDENT (LESS_THAN type_decl GREATER_THAN)?
-            | type_decl_without_ident
-            | vec_prefix
-            | mat_prefix;
+            | type_decl_without_ident;
 
 argument_expression_list: PAREN_LEFT ((expression COMMA)* expression COMMA?)? PAREN_RIGHT;
 
@@ -354,7 +354,8 @@ severity_control_name: IDENT;
 diagnostic_rule_name: IDENT | IDENT PERIOD IDENT;
 diagnostic_directive: DIAGNOSTIC PAREN_LEFT severity_control_name COMMA diagnostic_rule_name COMMA? PAREN_RIGHT;
 
-enable_directive: 'enable' IDENT (COMMA IDENT)* COMMA?;
+extension: IDENT | FLOAT16;
+enable_directive: 'enable' extension (COMMA extension)* COMMA?;
 
 requires_directive: 'requires' IDENT (COMMA IDENT)* COMMA?;
 

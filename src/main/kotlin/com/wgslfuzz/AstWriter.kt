@@ -38,7 +38,7 @@ class AstWriter(
                 AddressSpace.PRIVATE -> "private"
                 AddressSpace.WORKGROUP -> "workgroup"
                 AddressSpace.UNIFORM -> "uniform"
-                AddressSpace.STORAGE -> "storate"
+                AddressSpace.STORAGE -> "storage"
                 AddressSpace.HANDLE -> "handle"
             },
         )
@@ -64,6 +64,7 @@ class AstWriter(
                 AttributeKind.SIZE -> "size"
                 AttributeKind.VERTEX -> "vertex"
                 AttributeKind.WORKGROUP_SIZE -> "workgroup_size"
+                AttributeKind.INPUT_ATTACHMENT_INDEX -> "input_attachment_index"
             },
         )
     }
@@ -190,6 +191,52 @@ class AstWriter(
             is Expression.Paren -> {
                 out.print("(")
                 emit(expression.target)
+                out.print(")")
+            }
+            is Expression.ValueConstructor -> {
+                out.print(expression.typeName)
+                if (expression is Expression.VectorValueConstructor) {
+                    expression.elementType?.let {
+                        out.print("<")
+                        emit(it)
+                        out.print(">")
+                    }
+                } else if (expression is Expression.MatrixValueConstructor) {
+                    expression.elementType?.let {
+                        out.print("<")
+                        emit(it)
+                        out.print(">")
+                    }
+                } else if (expression is Expression.ArrayValueConstructor) {
+                    expression.elementType?.let {
+                        out.print("<")
+                        emit(it)
+                        expression.elementCount?.let { itInner ->
+                            out.print(", ")
+                            emit(itInner)
+                        }
+                        out.print(">")
+                    }
+                }
+                out.print("(")
+                expression.args.forEach {
+                    emit(it)
+                    out.print(", ")
+                }
+                out.print(")")
+            }
+            is Expression.FunctionCall -> {
+                out.print(expression.callee)
+                expression.templateParameter?.let {
+                    out.print("<")
+                    emit(it)
+                    out.print(">")
+                }
+                out.print("(")
+                expression.args.forEach {
+                    emit(it)
+                    out.print(", ")
+                }
                 out.print(")")
             }
         }
@@ -406,8 +453,8 @@ class AstWriter(
                         (it.caseSelectors as CaseSelectors.ExpressionsOrDefault).expressions.forEach { expression ->
                             expression?.let { emit(expression) } ?: run {
                                 out.print("default")
-                                out.print(", ")
                             }
+                            out.print(", ")
                         }
                         out.print("\n")
                     }

@@ -35,7 +35,7 @@ class ParsePrintIdenticalTests {
               var d : i32;
               var GLF_live6sums : array<f32, 9u>;
               idx = 0;
-              m43 = mat4x3<f32>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), vec3<f32>(0.0, 0.0, 0.0));
+              m43 = mat4x3<f32>(vec3<f32>(1.0, 0.0, 0.0, ), vec3<f32>(0.0, 1.0, 0.0, ), vec3<f32>(0.0, 0.0, 1.0, ), vec3<f32>(0.0, 0.0, 0.0, ), );
               ll_1 = 0;
               GLF_live6rows = 2;
               loop
@@ -43,7 +43,7 @@ class ParsePrintIdenticalTests {
                 let x_18 : i32 = ll_1;
                 let x_19 : i32 = x_9.injected;
                 if ((x_18 >= x_19)) {
-                  x_GLF_color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+                  x_GLF_color = vec4<f32>(1.0, 0.0, 0.0, 1.0, );
                   break;
                 }
                 let x_20 : i32 = ll_1;
@@ -84,7 +84,7 @@ class ParsePrintIdenticalTests {
                     let x_32 : i32 = d;
                     let x_33 : i32 = d;
                     let x_34 : i32 = d;
-                    tempm43[select(0, x_31, ((x_29 >= 0) & (x_30 < 4)))][select(0, x_34, ((x_32 >= 0) & (x_33 < 3)))] = 1.0;
+                    tempm43[select(0, x_31, ((x_29 >= 0) & (x_30 < 4)), )][select(0, x_34, ((x_32 >= 0) & (x_33 < 3)), )] = 1.0;
                     continuing
                     {
                       let x_35 : i32 = c;
@@ -120,7 +120,7 @@ class ParsePrintIdenticalTests {
             fn main() -> main_out
             {
               main_1();
-              return main_out(x_GLF_color);
+              return main_out(x_GLF_color, );
             }
             
             """.trimIndent()

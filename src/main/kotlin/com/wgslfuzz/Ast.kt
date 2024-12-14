@@ -47,6 +47,9 @@ enum class AttributeKind {
     SIZE,
     VERTEX,
     WORKGROUP_SIZE,
+
+    // Extensions:
+    INPUT_ATTACHMENT_INDEX,
 }
 
 enum class AssignmentOperator {
@@ -157,6 +160,130 @@ sealed interface Expression {
         var rhs: Expression,
     ) : Expression
 
+    class FunctionCall(
+        var callee: String,
+        var templateParameter: TypeDecl?,
+        val args: MutableList<Expression>,
+    ) : Expression
+
+    abstract class ValueConstructor(
+        var typeName: String,
+        val args: MutableList<Expression>,
+    ) : Expression
+
+    abstract class ScalarValueConstructor(
+        scalarTypeName: String,
+        args: MutableList<Expression>,
+    ) : ValueConstructor(scalarTypeName, args)
+
+    class BoolValueConstructor(
+        args: MutableList<Expression>,
+    ) : ScalarValueConstructor("bool", args)
+
+    class I32ValueConstructor(
+        args: MutableList<Expression>,
+    ) : ScalarValueConstructor("i32", args)
+
+    class U32ValueConstructor(
+        args: MutableList<Expression>,
+    ) : ScalarValueConstructor("u32", args)
+
+    class F16ValueConstructor(
+        args: MutableList<Expression>,
+    ) : ScalarValueConstructor("f16", args)
+
+    class F32ValueConstructor(
+        args: MutableList<Expression>,
+    ) : ScalarValueConstructor("f32", args)
+
+    abstract class VectorValueConstructor(
+        vectorTypeName: String,
+        var elementType: TypeDecl.ScalarTypeDecl?,
+        args: MutableList<Expression>,
+    ) : ValueConstructor(vectorTypeName, args)
+
+    class Vec2ValueConstructor(
+        elementType: TypeDecl.ScalarTypeDecl?,
+        args: MutableList<Expression>,
+    ) : VectorValueConstructor("vec2", elementType, args)
+
+    class Vec3ValueConstructor(
+        elementType: TypeDecl.ScalarTypeDecl?,
+        args: MutableList<Expression>,
+    ) : VectorValueConstructor("vec3", elementType, args)
+
+    class Vec4ValueConstructor(
+        elementType: TypeDecl.ScalarTypeDecl?,
+        args: MutableList<Expression>,
+    ) : VectorValueConstructor("vec4", elementType, args)
+
+    abstract class MatrixValueConstructor(
+        matrixTypeName: String,
+        var elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : ValueConstructor(matrixTypeName, args)
+
+    class Mat2x2ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat2x2", elementType, args)
+
+    class Mat2x3ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat2x3", elementType, args)
+
+    class Mat2x4ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat2x4", elementType, args)
+
+    class Mat3x2ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat3x2", elementType, args)
+
+    class Mat3x3ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat3x3", elementType, args)
+
+    class Mat3x4ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat3x4", elementType, args)
+
+    class Mat4x2ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat4x2", elementType, args)
+
+    class Mat4x3ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat4x3", elementType, args)
+
+    class Mat4x4ValueConstructor(
+        elementType: TypeDecl.FloatTypeDecl?,
+        args: MutableList<Expression>,
+    ) : MatrixValueConstructor("mat4x4", elementType, args)
+
+    class StructValueConstructor(
+        structName: String,
+        args: MutableList<Expression>,
+    ) : ValueConstructor(structName, args)
+
+    class TypeAliasValueConstructor(
+        aliasName: String,
+        args: MutableList<Expression>,
+    ) : ValueConstructor(aliasName, args)
+
+    class ArrayValueConstructor(
+        var elementType: TypeDecl?,
+        var elementCount: Expression?,
+        args: MutableList<Expression>,
+    ) : ValueConstructor("array", args)
+
     class Placeholder(
         text: String,
     ) : Expression {
@@ -184,103 +311,103 @@ sealed interface TypeDecl {
     data object F16 : FloatTypeDecl("f16")
 
     abstract class VectorTypeDecl(
-        var elementType: ScalarTypeDecl?,
+        var elementType: ScalarTypeDecl,
     ) : TypeDecl {
         abstract val name: String
     }
 
     class Vec2(
-        elementType: ScalarTypeDecl?,
+        elementType: ScalarTypeDecl,
     ) : VectorTypeDecl(elementType) {
         override val name: String
             get() = "vec2"
     }
 
     class Vec3(
-        elementType: ScalarTypeDecl?,
+        elementType: ScalarTypeDecl,
     ) : VectorTypeDecl(elementType) {
         override val name: String
             get() = "vec3"
     }
 
     class Vec4(
-        elementType: ScalarTypeDecl?,
+        elementType: ScalarTypeDecl,
     ) : VectorTypeDecl(elementType) {
         override val name: String
             get() = "vec4"
     }
 
     abstract class MatrixTypeDecl(
-        var elementType: FloatTypeDecl?,
+        var elementType: FloatTypeDecl,
     ) : TypeDecl {
         abstract val name: String
     }
 
     class Mat2x2(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat2x2"
     }
 
     class Mat2x3(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat2x3"
     }
 
     class Mat2x4(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat2x4"
     }
 
     class Mat3x2(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat3x2"
     }
 
     class Mat3x3(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat3x3"
     }
 
     class Mat3x4(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat3x4"
     }
 
     class Mat4x2(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat4x2"
     }
 
     class Mat4x3(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat4x3"
     }
 
     class Mat4x4(
-        elementType: FloatTypeDecl?,
+        elementType: FloatTypeDecl,
     ) : MatrixTypeDecl(elementType) {
         override val name: String
             get() = "mat4x4"
     }
 
     class Array(
-        var elementType: TypeDecl?,
+        var elementType: TypeDecl,
         var elementCount: Expression?,
     ) : TypeDecl
 

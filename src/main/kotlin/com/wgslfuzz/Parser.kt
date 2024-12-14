@@ -100,7 +100,9 @@ private class TimeoutParseTreeListener(
     override fun exitEveryRule(parserRuleContext: ParserRuleContext) = checkTime()
 }
 
-private class AstBuilder : WGSLBaseVisitor<Any>() {
+private class AstBuilder(
+    private val moduleScopeNames: ModuleScopeNames,
+) : WGSLBaseVisitor<Any>() {
     override fun visitTranslation_unit(ctx: Translation_unitContext): TranslationUnit =
         TranslationUnit(
             globalDecls =
@@ -422,6 +424,9 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         if (ctx.UINT32() != null) {
             return TypeDecl.U32
         }
+        if (ctx.FLOAT16() != null) {
+            return TypeDecl.F16
+        }
         if (ctx.FLOAT32() != null) {
             return TypeDecl.F32
         }
@@ -430,12 +435,12 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                 ctx.type_decl()?.let {
                     visitType_decl(it)
                 }
-            elementType?.let {
-                if (it !is TypeDecl.ScalarTypeDecl) {
-                    throw UnsupportedOperationException("Element type of vector must be scalar.")
-                }
+            if (elementType == null) {
+                throw UnsupportedOperationException("A vector type must specify an element type.")
             }
-            elementType as TypeDecl.ScalarTypeDecl?
+            if (elementType !is TypeDecl.ScalarTypeDecl) {
+                throw UnsupportedOperationException("Element type of vector must be scalar.")
+            }
             val vecPrefix = ctx.vec_prefix()!!
             if (vecPrefix.VEC2() != null) {
                 return TypeDecl.Vec2(elementType)
@@ -453,12 +458,12 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                 ctx.type_decl()?.let {
                     visitType_decl(it)
                 }
-            elementType?.let {
-                if (it !is TypeDecl.FloatTypeDecl) {
-                    throw UnsupportedOperationException("Element type of matrix must be float.")
-                }
+            if (elementType == null) {
+                throw UnsupportedOperationException("A matrix type must have an element type.")
             }
-            elementType as TypeDecl.FloatTypeDecl?
+            if (elementType !is TypeDecl.FloatTypeDecl) {
+                throw UnsupportedOperationException("Element type of matrix must be float.")
+            }
             val matPrefix = ctx.mat_prefix()!!
             if (matPrefix.MAT2X2() != null) {
                 return TypeDecl.Mat2x2(elementType)
@@ -491,11 +496,15 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
         }
         if (ctx.array_type_decl() != null) {
             with(ctx.array_type_decl()!!) {
+                val elementType =
+                    type_decl()?.let {
+                        visitType_decl(it)
+                    }
+                if (elementType == null) {
+                    throw UnsupportedOperationException("An array type must have an element type.")
+                }
                 return TypeDecl.Array(
-                    elementType =
-                        type_decl()?.let {
-                            visitType_decl(it)
-                        },
+                    elementType = elementType,
                     elementCount =
                         element_count_expression()?.let {
                             visitExpression(it.expression())
@@ -570,9 +579,112 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
             return Expression.Paren(visitExpression(ctx.expression()))
         }
         if (ctx.callable_val() != null) {
-            return Expression.Placeholder(ctx.fullText)
+            return handleCallableValueExpression(
+                ctx.callable_val(),
+                ctx
+                    .argument_expression_list()
+                    .expression()
+                    .map {
+                        visitExpression(it)
+                    }.toMutableList(),
+            )
         }
         throw UnsupportedOperationException("Unknown primary expression.")
+    }
+
+    private fun handleCallableValueExpression(
+        ctx: WGSLParser.Callable_valContext,
+        args: MutableList<Expression>,
+    ): Expression {
+        if (ctx.IDENT() != null) {
+            val name = ctx.IDENT().text
+            if (name in moduleScopeNames.structNames) {
+                assert(ctx.type_decl() == null)
+                return Expression.StructValueConstructor(name, args)
+            } else if (name in moduleScopeNames.typeAliasNames) {
+                assert(ctx.type_decl() == null)
+                return Expression.TypeAliasValueConstructor(name, args)
+            } else {
+                return Expression.FunctionCall(
+                    name,
+                    ctx.type_decl()?.let {
+                        visitType_decl(it)
+                    },
+                    args,
+                )
+            }
+        }
+        with(ctx.type_decl_without_ident()) {
+            if (vec_prefix() != null) {
+                val typeDecl = type_decl()?.let { visitType_decl(it) }
+                if (typeDecl !is TypeDecl.ScalarTypeDecl?) {
+                    throw RuntimeException("A vector must have a scalar element type.")
+                }
+                if (vec_prefix().VEC2() != null) {
+                    return Expression.Vec2ValueConstructor(typeDecl, args)
+                }
+                if (vec_prefix().VEC3() != null) {
+                    return Expression.Vec3ValueConstructor(typeDecl, args)
+                }
+                if (vec_prefix().VEC4() != null) {
+                    return Expression.Vec4ValueConstructor(typeDecl, args)
+                }
+                throw RuntimeException("Unknown vector type.")
+            } else if (mat_prefix() != null) {
+                val typeDecl = type_decl()?.let { visitType_decl(it) }
+                if (typeDecl !is TypeDecl.FloatTypeDecl?) {
+                    throw RuntimeException("A matrix must have a float element type.")
+                }
+                if (mat_prefix().MAT2X2() != null) {
+                    return Expression.Mat2x2ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT2X3() != null) {
+                    return Expression.Mat2x3ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT2X4() != null) {
+                    return Expression.Mat2x4ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT3X2() != null) {
+                    return Expression.Mat3x2ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT3X3() != null) {
+                    return Expression.Mat3x3ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT3X4() != null) {
+                    return Expression.Mat3x4ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT4X2() != null) {
+                    return Expression.Mat4x2ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT4X3() != null) {
+                    return Expression.Mat4x3ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT4X4() != null) {
+                    return Expression.Mat4x4ValueConstructor(typeDecl, args)
+                }
+                throw RuntimeException("Unknown matrix type.")
+            } else if (BOOL() != null) {
+                return Expression.BoolValueConstructor(args)
+            } else if (FLOAT16() != null) {
+                return Expression.F16ValueConstructor(args)
+            } else if (FLOAT32() != null) {
+                return Expression.F32ValueConstructor(args)
+            } else if (INT32() != null) {
+                return Expression.I32ValueConstructor(args)
+            } else if (UINT32() != null) {
+                return Expression.U32ValueConstructor(args)
+            } else if (array_type_decl() != null) {
+                // Case left to deal with:
+                // array_type_decl;
+                return Expression.ArrayValueConstructor(
+                    array_type_decl().type_decl()?.let { visitType_decl(it) },
+                    array_type_decl().element_count_expression()?.expression()?.let { visitExpression(it) },
+                    args,
+                )
+            } else {
+                throw RuntimeException("Unknown callable value expression.")
+            }
+        }
     }
 
     override fun visitSingular_expression(ctx: WGSLParser.Singular_expressionContext): Expression {
@@ -689,43 +801,45 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
     }
 
     override fun visitExpression(ctx: WGSLParser.ExpressionContext): Expression {
-        val rhs = visitRelational_expression(ctx.relational_expression())
-        if (ctx.short_circuit_or_expression() != null) {
-            return Expression.Binary(
-                operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                lhs = visitShort_circuit_or_expression(ctx.short_circuit_or_expression()),
-                rhs,
-            )
+        if (ctx.relational_expression() != null) {
+            val relationalExpr = visitRelational_expression(ctx.relational_expression())
+            if (ctx.short_circuit_or_expression() != null) {
+                return Expression.Binary(
+                    operator = BinaryOperator.SHORT_CIRCUIT_OR,
+                    lhs = visitShort_circuit_or_expression(ctx.short_circuit_or_expression()),
+                    rhs = relationalExpr,
+                )
+            }
+            if (ctx.short_circuit_and_expression() != null) {
+                return Expression.Binary(
+                    operator = BinaryOperator.SHORT_CIRCUIT_AND,
+                    lhs = visitShort_circuit_and_expression(ctx.short_circuit_and_expression()),
+                    rhs = relationalExpr,
+                )
+            }
+            return relationalExpr
         }
-        if (ctx.short_circuit_and_expression() != null) {
-            return Expression.Binary(
-                operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                lhs = visitShort_circuit_and_expression(ctx.short_circuit_and_expression()),
-                rhs,
-            )
-        }
+        val unaryExpr = visitUnary_expression(ctx.unary_expression())
         if (ctx.binary_and_expression() != null) {
             return Expression.Binary(
                 operator = BinaryOperator.BINARY_AND,
                 lhs = visitBinary_and_expression(ctx.binary_and_expression()),
-                rhs,
+                rhs = unaryExpr,
             )
         }
         if (ctx.binary_or_expression() != null) {
             return Expression.Binary(
                 operator = BinaryOperator.BINARY_OR,
                 lhs = visitBinary_or_expression(ctx.binary_or_expression()),
-                rhs,
+                rhs = unaryExpr,
             )
         }
-        if (ctx.binary_and_expression() != null) {
-            return Expression.Binary(
-                operator = BinaryOperator.BINARY_XOR,
-                lhs = visitBinary_xor_expression(ctx.binary_xor_expression()),
-                rhs,
-            )
-        }
-        return rhs
+        assert(ctx.binary_xor_expression() != null)
+        return Expression.Binary(
+            operator = BinaryOperator.BINARY_XOR,
+            lhs = visitBinary_xor_expression(ctx.binary_xor_expression()),
+            rhs = unaryExpr,
+        )
     }
 
     // This allows superclass visitors to be used for production rules where we want every alternative to be visited,
@@ -775,7 +889,8 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                         "size" -> AttributeKind.SIZE
                         "vertex" -> AttributeKind.VERTEX
                         "workgroup_size" -> AttributeKind.WORKGROUP_SIZE
-                        else -> throw UnsupportedOperationException("Unknown attribute kind")
+                        "input_attachment_index" -> AttributeKind.INPUT_ATTACHMENT_INDEX
+                        else -> throw UnsupportedOperationException("Unknown attribute kind: $attributeTokenName")
                     }
                 Attribute(
                     kind = kind,
@@ -787,6 +902,27 @@ private class AstBuilder : WGSLBaseVisitor<Any>() {
                             }?.toMutableList() ?: mutableListOf(),
                 )
             }.toMutableList()
+}
+
+private class ModuleScopeNames(
+    val structNames: Set<String>,
+    val typeAliasNames: Set<String>,
+)
+
+private class ModuleScopeNameCollector : WGSLBaseVisitor<Unit>() {
+    val names: ModuleScopeNames
+        get() = ModuleScopeNames(structNames, typeAliasNames)
+
+    private val structNames: MutableSet<String> = mutableSetOf()
+    private val typeAliasNames: MutableSet<String> = mutableSetOf()
+
+    override fun visitStruct_decl(ctx: WGSLParser.Struct_declContext) {
+        structNames.add(ctx.IDENT().text)
+    }
+
+    override fun visitType_alias_decl(ctx: WGSLParser.Type_alias_declContext) {
+        typeAliasNames.add(ctx.IDENT().text)
+    }
 }
 
 private fun getParser(
@@ -881,7 +1017,9 @@ fun parseFromString(
                 errorListener = errorListener,
             )
         }
-    return AstBuilder().visitTranslation_unit(
+    val nameCollector = ModuleScopeNameCollector()
+    nameCollector.visitTranslation_unit(antlrTranslationUnit)
+    return AstBuilder(nameCollector.names).visitTranslation_unit(
         antlrTranslationUnit,
     )
 }
