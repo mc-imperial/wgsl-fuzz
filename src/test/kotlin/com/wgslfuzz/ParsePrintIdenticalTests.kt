@@ -122,7 +122,7 @@ class ParsePrintIdenticalTests {
               main_1();
               return main_out(x_GLF_color, );
             }
-            
+
             """.trimIndent()
 
         checkParsePrintIdentical(input)
@@ -141,7 +141,7 @@ class ParsePrintIdenticalTests {
               }
               return i;
             }
-            
+
             """.trimIndent()
         checkParsePrintIdentical(input)
     }
@@ -159,7 +159,7 @@ class ParsePrintIdenticalTests {
               {
                 switch (i)
                 {
-                  case 0
+                  case 0, 
                   {
                     continue;
                   }
@@ -187,15 +187,53 @@ class ParsePrintIdenticalTests {
             struct S {
               m : T,
             }
-            
+
             alias T = i32;
-            
+
             @fragment
             fn f()
             {
               var v : S;
             }
-            
+
+            """.trimIndent()
+
+        checkParsePrintIdentical(input)
+    }
+
+    @Test
+    fun dualSourceBlendingTest() {
+        val input =
+            """
+            enable dual_source_blending;
+
+            struct FragInput {
+              @location(0, )
+              a : vec4<f32>,
+              @location(1, )
+              b : vec4<f32>,
+            }
+
+            struct FragOutput {
+              @location(0, )
+              @blend_src(0, )
+              color : vec4<f32>,
+              @location(0, )
+              @blend_src(1, )
+              blend : vec4<f32>,
+            }
+
+            @fragment
+            fn frag_main(
+              in : FragInput,
+            ) -> FragOutput
+            {
+              var output : FragOutput;
+              output.color = in.a;
+              output.blend = in.b;
+              return output;
+            }
+
             """.trimIndent()
 
         checkParsePrintIdentical(input)

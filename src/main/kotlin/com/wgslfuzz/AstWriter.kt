@@ -239,6 +239,16 @@ class AstWriter(
                 }
                 out.print(")")
             }
+            is Expression.IndexLookup -> {
+                emit(expression.target)
+                out.print("[")
+                emit(expression.index)
+                out.print("]")
+            }
+            is Expression.MemberLookup -> {
+                emit(expression.receiver)
+                out.print(".${expression.memberName}")
+            }
         }
     }
 
@@ -556,6 +566,18 @@ class AstWriter(
         with(functionDecl) {
             emit(attributes)
             out.print("fn $name(")
+            if (parameters.isNotEmpty()) {
+                out.print("\n")
+                increaseIndent()
+                parameters.forEach {
+                    emit(it.attributes)
+                    emitIndent()
+                    out.print("${it.name} : ")
+                    emit(it.typeDecl)
+                    out.print(",\n")
+                }
+                decreaseIndent()
+            }
             out.print(")")
             returnType?.let {
                 out.print(" -> ")
@@ -589,6 +611,9 @@ class AstWriter(
     }
 
     fun emit(tu: TranslationUnit) {
+        tu.directives.forEach {
+            out.print("${it.text}\n\n")
+        }
         tu.globalDecls.forEachIndexed { index, decl ->
             emit(decl)
             if (index < tu.globalDecls.size - 1) {

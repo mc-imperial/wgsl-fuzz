@@ -1,6 +1,7 @@
 package com.wgslfuzz
 
 import com.wgslfuzz.WGSLParser.AttributeContext
+import com.wgslfuzz.WGSLParser.Postfix_expressionContext
 import com.wgslfuzz.WGSLParser.Translation_unitContext
 import org.antlr.v4.runtime.ANTLRErrorListener
 import org.antlr.v4.runtime.BailErrorStrategy
@@ -105,6 +106,12 @@ private class AstBuilder(
 ) : WGSLBaseVisitor<Any>() {
     override fun visitTranslation_unit(ctx: Translation_unitContext): TranslationUnit =
         TranslationUnit(
+            directives =
+                ctx
+                    .global_directive()
+                    .map {
+                        Directive(it.fullText)
+                    }.toMutableList(),
             globalDecls =
                 ctx
                     .global_decl()
@@ -137,7 +144,11 @@ private class AstBuilder(
                     .param_list()
                     ?.param()
                     ?.map {
-                        Placeholder(it.fullText)
+                        ParameterDecl(
+                            attributes = gatherAttributes(it.attribute()),
+                            name = it.IDENT().text,
+                            typeDecl = visitType_decl(it.type_decl()),
+                        )
                     }?.toMutableList() ?: mutableListOf(),
             returnType =
                 ctx.function_header().type_decl()?.let {
@@ -687,14 +698,11 @@ private class AstBuilder(
         }
     }
 
-    override fun visitSingular_expression(ctx: WGSLParser.Singular_expressionContext): Expression {
-        if (ctx.postfix_expression() != null) {
-            // postfix_expression: BRACKET_LEFT expression BRACKET_RIGHT postfix_expression?
-            //                  | PERIOD IDENT postfix_expression?;
-            return Expression.Placeholder(ctx.fullText)
-        }
-        return visitPrimary_expression(ctx.primary_expression())
-    }
+    override fun visitSingular_expression(ctx: WGSLParser.Singular_expressionContext): Expression =
+        handlePostfixExpression(
+            visitPrimary_expression(ctx.primary_expression()),
+            ctx.postfix_expression(),
+        )
 
     override fun visitUnary_expression(ctx: WGSLParser.Unary_expressionContext): Expression {
         if (ctx.singular_expression() != null) {
@@ -848,6 +856,31 @@ private class AstBuilder(
         aggregate: Any?,
         nextResult: Any?,
     ): Any = nextResult ?: aggregate!!
+
+    private fun handlePostfixExpression(
+        expression: Expression,
+        ctx: Postfix_expressionContext?,
+    ): Expression {
+        if (ctx == null) {
+            return expression
+        }
+        if (ctx.PERIOD() != null) {
+            return handlePostfixExpression(
+                Expression.MemberLookup(
+                    receiver = expression,
+                    memberName = ctx.IDENT().text,
+                ),
+                ctx.postfix_expression(),
+            )
+        }
+        return handlePostfixExpression(
+            Expression.IndexLookup(
+                target = expression,
+                index = visitExpression(ctx.expression()),
+            ),
+            ctx.postfix_expression(),
+        )
+    }
 
     private fun gatherAttributes(attributes: List<AttributeContext>) =
         attributes

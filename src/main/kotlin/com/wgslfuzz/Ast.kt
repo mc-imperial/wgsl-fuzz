@@ -10,7 +10,12 @@ class Placeholder(
     // }
 }
 
+class Directive(
+    var text: String,
+)
+
 class TranslationUnit(
+    val directives: MutableList<Directive>,
     val globalDecls: MutableList<GlobalDecl>,
 )
 
@@ -284,6 +289,16 @@ sealed interface Expression {
         args: MutableList<Expression>,
     ) : ValueConstructor("array", args)
 
+    class MemberLookup(
+        var receiver: Expression,
+        var memberName: String,
+    ) : Expression
+
+    class IndexLookup(
+        var target: Expression,
+        var index: Expression,
+    ) : Expression
+
     class Placeholder(
         text: String,
     ) : Expression {
@@ -528,6 +543,12 @@ sealed interface Statement {
     data object Discard : Statement
 }
 
+class ParameterDecl(
+    val attributes: MutableList<Attribute>,
+    var name: String,
+    var typeDecl: TypeDecl,
+)
+
 sealed interface GlobalDecl {
     class Value(
         var placeholder: Placeholder,
@@ -541,7 +562,7 @@ sealed interface GlobalDecl {
     class Function(
         val attributes: MutableList<Attribute>,
         var name: String,
-        val parameters: MutableList<Placeholder>,
+        val parameters: MutableList<ParameterDecl>,
         var returnType: TypeDecl?,
         var body: Statement.Compound,
     ) : GlobalDecl
