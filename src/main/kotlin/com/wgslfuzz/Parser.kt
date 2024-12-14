@@ -621,11 +621,29 @@ private class AstBuilder(
         return rhs
     }
 
-    override fun visitBinary_and_expression(ctx: WGSLParser.Binary_and_expressionContext): Expression = Expression.Placeholder(ctx.fullText)
+    override fun visitBinary_and_expression(ctx: WGSLParser.Binary_and_expressionContext): Expression {
+        val rhs = visitUnary_expression(ctx.unary_expression())
+        if (ctx.binary_and_expression() != null) {
+            return Expression.Binary(BinaryOperator.BINARY_AND, visitBinary_and_expression(ctx.binary_and_expression()), rhs)
+        }
+        return rhs
+    }
 
-    override fun visitBinary_or_expression(ctx: WGSLParser.Binary_or_expressionContext): Expression = Expression.Placeholder(ctx.fullText)
+    override fun visitBinary_or_expression(ctx: WGSLParser.Binary_or_expressionContext): Expression {
+        val rhs = visitUnary_expression(ctx.unary_expression())
+        if (ctx.binary_or_expression() != null) {
+            return Expression.Binary(BinaryOperator.BINARY_OR, visitBinary_or_expression(ctx.binary_or_expression()), rhs)
+        }
+        return rhs
+    }
 
-    override fun visitBinary_xor_expression(ctx: WGSLParser.Binary_xor_expressionContext): Expression = Expression.Placeholder(ctx.fullText)
+    override fun visitBinary_xor_expression(ctx: WGSLParser.Binary_xor_expressionContext): Expression {
+        val rhs = visitUnary_expression(ctx.unary_expression())
+        if (ctx.binary_xor_expression() != null) {
+            return Expression.Binary(BinaryOperator.BINARY_XOR, visitBinary_xor_expression(ctx.binary_xor_expression()), rhs)
+        }
+        return rhs
+    }
 
     override fun visitPrimary_expression(ctx: WGSLParser.Primary_expressionContext): Expression {
         if (ctx.IDENT() != null) {
