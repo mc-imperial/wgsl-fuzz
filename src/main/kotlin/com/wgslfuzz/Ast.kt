@@ -514,7 +514,8 @@ sealed interface Statement {
     ) : Statement
 
     class FunctionCall(
-        var placeholder: Placeholder,
+        var callee: String,
+        val args: MutableList<Expression>,
     ) : ForInit,
         ForUpdate
 

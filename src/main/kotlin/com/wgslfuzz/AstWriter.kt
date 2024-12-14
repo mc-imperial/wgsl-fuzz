@@ -383,7 +383,10 @@ class AstWriter(
     fun emit(functionCallStatement: Statement.FunctionCall) {
         with(functionCallStatement) {
             emitIndent()
-            out.print("${placeholder.text};\n")
+            out.print(callee)
+            out.print("(")
+            args.forEach(::emit)
+            out.print(");\n")
         }
     }
 
