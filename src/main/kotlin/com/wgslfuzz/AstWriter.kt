@@ -179,7 +179,6 @@ class AstWriter(
                 out.print(" ")
                 emit(expression.rhs)
             }
-            is Expression.Placeholder -> out.print(expression.placeholder.text)
             is Expression.Unary -> {
                 emit(expression.operator)
                 emit(expression.target)
@@ -332,9 +331,14 @@ class AstWriter(
         }
     }
 
-    fun emit(assignmentStatement: Statement.Assignment) {
+    fun emit(
+        assignmentStatement: Statement.Assignment,
+        inForLoopHeader: Boolean,
+    ) {
         with(assignmentStatement) {
-            emitIndent()
+            if (!inForLoopHeader) {
+                emitIndent()
+            }
             assignmentStatement.lhsExpression?.let {
                 emit(it)
             } ?: run {
@@ -344,7 +348,9 @@ class AstWriter(
             emit(assignmentStatement.assignmentOperator)
             out.print(" ")
             emit(assignmentStatement.rhs)
-            out.print(";\n")
+            if (!inForLoopHeader) {
+                out.print(";\n")
+            }
         }
     }
 
@@ -362,16 +368,25 @@ class AstWriter(
 
     fun emit(constAssertStatement: Statement.ConstAssert) {
         with(constAssertStatement) {
-            emitIndent()
-            out.print("${placeholder.text};\n")
+            out.print("const_assert ")
+            emit(expression)
+            out.print(";\n")
         }
     }
 
-    fun emit(decrementStatement: Statement.Decrement) {
+    fun emit(
+        decrementStatement: Statement.Decrement,
+        inForLoopHeader: Boolean,
+    ) {
         with(decrementStatement) {
-            emitIndent()
+            if (!inForLoopHeader) {
+                emitIndent()
+            }
             emit(target)
-            out.print("--;\n")
+            out.print("--")
+            if (!inForLoopHeader) {
+                out.print(";\n")
+            }
         }
     }
 
@@ -380,23 +395,34 @@ class AstWriter(
             emit(attributes)
             emitIndent()
             out.print("for (")
-            init?.let(::emit)
+            init?.let { emit(it, true) }
             out.print("; ")
             condition?.let(::emit)
             out.print("; ")
-            update?.let(::emit)
+            update?.let { emit(it, true) }
             out.print(")\n")
             emit(body)
         }
     }
 
-    fun emit(functionCallStatement: Statement.FunctionCall) {
+    fun emit(
+        functionCallStatement: Statement.FunctionCall,
+        inForLoopHeader: Boolean,
+    ) {
         with(functionCallStatement) {
-            emitIndent()
+            if (!inForLoopHeader) {
+                emitIndent()
+            }
             out.print(callee)
             out.print("(")
-            args.forEach(::emit)
-            out.print(");\n")
+            args.forEach {
+                emit(it)
+                out.print(", ")
+            }
+            out.print(")")
+            if (!inForLoopHeader) {
+                out.print(";\n")
+            }
         }
     }
 
@@ -416,11 +442,19 @@ class AstWriter(
         }
     }
 
-    fun emit(incrementStatement: Statement.Increment) {
+    fun emit(
+        incrementStatement: Statement.Increment,
+        inForLoopHeader: Boolean,
+    ) {
         with(incrementStatement) {
-            emitIndent()
+            if (!inForLoopHeader) {
+                emitIndent()
+            }
             emit(target)
-            out.print("++;\n")
+            out.print("++")
+            if (!inForLoopHeader) {
+                out.print(";\n")
+            }
         }
     }
 
@@ -508,9 +542,14 @@ class AstWriter(
         }
     }
 
-    fun emit(valueStatement: Statement.Value) {
+    fun emit(
+        valueStatement: Statement.Value,
+        inForLoopHeader: Boolean,
+    ) {
         with(valueStatement) {
-            emitIndent()
+            if (!inForLoopHeader) {
+                emitIndent()
+            }
             out.print(
                 if (isConst) {
                     "const"
@@ -525,15 +564,24 @@ class AstWriter(
             }
             out.print(" = ")
             emit(initializer)
-            out.print(";\n")
+            if (!inForLoopHeader) {
+                out.print(";\n")
+            }
         }
     }
 
-    fun emit(variableStatement: Statement.Variable) {
+    fun emit(
+        variableStatement: Statement.Variable,
+        inForLoopHeader: Boolean,
+    ) {
         with(variableStatement) {
-            emitIndent()
+            if (!inForLoopHeader) {
+                emitIndent()
+            }
             emit(variableDecl)
-            out.print(";\n")
+            if (!inForLoopHeader) {
+                out.print(";\n")
+            }
         }
     }
 
@@ -548,9 +596,12 @@ class AstWriter(
         }
     }
 
-    fun emit(statement: Statement) {
+    fun emit(
+        statement: Statement,
+        inForLoopHeader: Boolean = false,
+    ) {
         when (statement) {
-            is Statement.Assignment -> emit(statement)
+            is Statement.Assignment -> emit(statement, inForLoopHeader)
             is Statement.Break -> {
                 emitIndent()
                 out.print("break;\n")
@@ -561,7 +612,7 @@ class AstWriter(
                 emitIndent()
                 out.print("continue;\n")
             }
-            is Statement.Decrement -> emit(statement)
+            is Statement.Decrement -> emit(statement, inForLoopHeader)
             is Statement.Discard -> {
                 emitIndent()
                 out.print("discard;\n")
@@ -571,14 +622,14 @@ class AstWriter(
                 out.print(";\n")
             }
             is Statement.For -> emit(statement)
-            is Statement.FunctionCall -> emit(statement)
+            is Statement.FunctionCall -> emit(statement, inForLoopHeader)
             is Statement.If -> emit(statement)
-            is Statement.Increment -> emit(statement)
+            is Statement.Increment -> emit(statement, inForLoopHeader)
             is Statement.Loop -> emit(statement)
             is Statement.Return -> emit(statement)
             is Statement.Switch -> emit(statement)
-            is Statement.Value -> emit(statement)
-            is Statement.Variable -> emit(statement)
+            is Statement.Value -> emit(statement, inForLoopHeader)
+            is Statement.Variable -> emit(statement, inForLoopHeader)
             is Statement.While -> emit(statement)
         }
     }
@@ -675,7 +726,9 @@ class AstWriter(
                 out.print(";\n")
             }
             is GlobalDecl.ConstAssert -> {
-                out.println("${decl.placeholder.text};\n")
+                out.print("const_assert ")
+                emit(decl.expression)
+                out.println(";\n")
             }
             is GlobalDecl.Empty -> {
                 out.println(";\n")

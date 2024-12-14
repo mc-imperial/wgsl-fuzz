@@ -1,15 +1,5 @@
 package com.wgslfuzz
 
-// A placeholder in the AST for something that has not been elaborated yet.
-class Placeholder(
-    val text: String,
-) {
-    // // Uncomment this to detect placeholders so that they can be eliminated.
-    // init {
-    //     assert(false)
-    // }
-}
-
 class Directive(
     var text: String,
 )
@@ -298,12 +288,6 @@ sealed interface Expression {
         var target: Expression,
         var index: Expression,
     ) : Expression
-
-    class Placeholder(
-        text: String,
-    ) : Expression {
-        val placeholder = com.wgslfuzz.Placeholder(text)
-    }
 }
 
 sealed interface TypeDecl {
@@ -552,7 +536,7 @@ sealed interface Statement {
         ForUpdate
 
     class ConstAssert(
-        var placeholder: Placeholder,
+        var expression: Expression,
     ) : Statement
 
     data object Empty : Statement
@@ -608,7 +592,7 @@ sealed interface GlobalDecl {
     ) : GlobalDecl
 
     class ConstAssert(
-        var placeholder: Placeholder,
+        var expression: Expression,
     ) : GlobalDecl
 
     data object Empty : GlobalDecl

@@ -122,7 +122,9 @@ private class AstBuilder(
     override fun visitEmpty_global_decl(ctx: WGSLParser.Empty_global_declContext): GlobalDecl.Empty = GlobalDecl.Empty
 
     override fun visitConst_assert_decl(ctx: WGSLParser.Const_assert_declContext): GlobalDecl.ConstAssert =
-        GlobalDecl.ConstAssert(placeholder = Placeholder(ctx.fullText))
+        GlobalDecl.ConstAssert(
+            expression = visitExpression(ctx.const_assert_statement().expression()),
+        )
 
     override fun visitGlobal_value_decl(ctx: WGSLParser.Global_value_declContext): GlobalDecl {
         if (ctx.CONST() != null) {
@@ -266,40 +268,34 @@ private class AstBuilder(
                 ctx.for_header().for_init()?.let {
                     if (it.variable_statement() != null) {
                         visitVariable_statement(it.variable_statement())
-                    }
-                    if (it.value_statement() != null) {
+                    } else if (it.value_statement() != null) {
                         visitValue_statement(it.value_statement())
-                    }
-                    if (it.increment_statement() != null) {
+                    } else if (it.increment_statement() != null) {
                         visitIncrement_statement(it.increment_statement())
-                    }
-                    if (it.decrement_statement() != null) {
+                    } else if (it.decrement_statement() != null) {
                         visitDecrement_statement(it.decrement_statement())
-                    }
-                    if (it.assignment_statement() != null) {
+                    } else if (it.assignment_statement() != null) {
                         visitAssignment_statement(it.assignment_statement())
-                    }
-                    if (it.func_call_statement() != null) {
+                    } else if (it.func_call_statement() != null) {
                         visitFunc_call_statement(it.func_call_statement())
+                    } else {
+                        throw UnsupportedOperationException("Unsupported 'for' init statement.")
                     }
-                    throw UnsupportedOperationException("Unsupported 'for' init statement.")
                 },
             condition = ctx.for_header().expression()?.let(::visitExpression),
             update =
                 ctx.for_header().for_update()?.let {
                     if (it.increment_statement() != null) {
                         visitIncrement_statement(it.increment_statement())
-                    }
-                    if (it.decrement_statement() != null) {
+                    } else if (it.decrement_statement() != null) {
                         visitDecrement_statement(it.decrement_statement())
-                    }
-                    if (it.assignment_statement() != null) {
+                    } else if (it.assignment_statement() != null) {
                         visitAssignment_statement(it.assignment_statement())
-                    }
-                    if (it.func_call_statement() != null) {
+                    } else if (it.func_call_statement() != null) {
                         visitFunc_call_statement(it.func_call_statement())
+                    } else {
+                        throw UnsupportedOperationException("Unsupported 'for' update statement.")
                     }
-                    throw UnsupportedOperationException("Unsupported 'for' update statement.")
                 },
             body = visitCompound_statement(ctx.compound_statement()),
         )
@@ -457,7 +453,7 @@ private class AstBuilder(
     override fun visitDiscard_statement(ctx: WGSLParser.Discard_statementContext): Statement.Discard = Statement.Discard
 
     override fun visitConst_assert_statement(ctx: WGSLParser.Const_assert_statementContext): Statement.ConstAssert =
-        Statement.ConstAssert(Placeholder(ctx.fullText))
+        Statement.ConstAssert(visitExpression(ctx.expression()))
 
     override fun visitEmpty_statement(ctx: WGSLParser.Empty_statementContext): Statement.Empty = Statement.Empty
 

@@ -400,6 +400,25 @@ class ParsePrintIdenticalTests {
         checkParsePrintIdentical(input)
     }
 
+    @Test
+    fun forLoopTest() {
+        val input =
+            """
+            var<workgroup> a : i32;
+            
+            var<workgroup> b : i32;
+
+            fn foo()
+            {
+              for (var i = 0; i < workgroupUniformLoad(&a, ); i += workgroupUniformLoad(&b, ))
+              {
+              }
+            }
+            
+            """.trimIndent()
+        checkParsePrintIdentical(input)
+    }
+
     private fun checkParsePrintIdentical(input: String) {
         val errorListener = LoggingParseErrorListener()
 
