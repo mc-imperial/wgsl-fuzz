@@ -294,7 +294,17 @@ class AstWriter(
                     out.print(">")
                 }
             }
-            is TypeDecl.Placeholder -> out.print(typeDecl.placeholder.text)
+            is TypeDecl.Pointer -> {
+                out.print("ptr<")
+                emit(typeDecl.addressSpace)
+                out.print(", ")
+                emit(typeDecl.targetType)
+                typeDecl.accessMode?.let {
+                    out.print(", ")
+                    emit(it)
+                }
+                out.print(">")
+            }
         }
     }
 

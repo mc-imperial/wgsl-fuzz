@@ -131,7 +131,6 @@ private class AstBuilder(
                 type = ctx.ident_with_optional_type().type_decl()?.let(::visitType_decl),
                 initializer = visitExpression(ctx.expression()),
             )
-
         }
         return GlobalDecl.Override(
             attributes = gatherAttributes(ctx.attribute()),
@@ -283,7 +282,7 @@ private class AstBuilder(
                     if (it.func_call_statement() != null) {
                         visitFunc_call_statement(it.func_call_statement())
                     }
-                    throw RuntimeException("Unsupported 'for' init statement.")
+                    throw UnsupportedOperationException("Unsupported 'for' init statement.")
                 },
             condition = ctx.for_header().expression()?.let(::visitExpression),
             update =
@@ -300,7 +299,7 @@ private class AstBuilder(
                     if (it.func_call_statement() != null) {
                         visitFunc_call_statement(it.func_call_statement())
                     }
-                    throw RuntimeException("Unsupported 'for' update statement.")
+                    throw UnsupportedOperationException("Unsupported 'for' update statement.")
                 },
             body = visitCompound_statement(ctx.compound_statement()),
         )
@@ -368,30 +367,13 @@ private class AstBuilder(
                     .variable_qualifier()
                     ?.address_space
                     ?.text
-                    ?.let {
-                        when (it) {
-                            "function" -> AddressSpace.FUNCTION
-                            "private" -> AddressSpace.PRIVATE
-                            "workgroup" -> AddressSpace.WORKGROUP
-                            "uniform" -> AddressSpace.UNIFORM
-                            "storage" -> AddressSpace.STORAGE
-                            "handle" -> AddressSpace.HANDLE
-                            else -> throw UnsupportedOperationException("Unknown address space")
-                        }
-                    },
+                    ?.let(::handleAddressSpace),
             accessMode =
                 ctx
                     .variable_qualifier()
                     ?.access_mode
                     ?.text
-                    ?.let {
-                        when (it) {
-                            "read" -> AccessMode.READ
-                            "write" -> AccessMode.WRITE
-                            "read_write" -> AccessMode.READ_WRITE
-                            else -> throw UnsupportedOperationException("Unknown access mode")
-                        }
-                    },
+                    ?.let(::handleAccessMode),
             type =
                 ctx
                     .ident_with_optional_type()
@@ -597,7 +579,14 @@ private class AstBuilder(
                 )
             }
         }
-        return TypeDecl.Placeholder(ctx.fullText)
+        if (ctx.PTR() != null) {
+            return TypeDecl.Pointer(
+                addressSpace = handleAddressSpace(ctx.address_space.text),
+                targetType = visitType_decl(ctx.type_decl()),
+                accessMode = ctx.access_mode?.text?.let(::handleAccessMode),
+            )
+        }
+        throw UnsupportedOperationException("Unknown type declaration")
     }
 
     override fun visitType_decl(ctx: WGSLParser.Type_declContext): TypeDecl =
@@ -709,99 +698,6 @@ private class AstBuilder(
             )
         }
         throw UnsupportedOperationException("Unknown primary expression.")
-    }
-
-    private fun handleCallableValueExpression(
-        ctx: WGSLParser.Callable_valContext,
-        args: MutableList<Expression>,
-    ): Expression {
-        if (ctx.IDENT() != null) {
-            val name = ctx.IDENT().text
-            if (name in moduleScopeNames.structNames) {
-                assert(ctx.type_decl() == null)
-                return Expression.StructValueConstructor(name, args)
-            } else if (name in moduleScopeNames.typeAliasNames) {
-                assert(ctx.type_decl() == null)
-                return Expression.TypeAliasValueConstructor(name, args)
-            } else {
-                return Expression.FunctionCall(
-                    name,
-                    ctx.type_decl()?.let(::visitType_decl),
-                    args,
-                )
-            }
-        }
-        with(ctx.type_decl_without_ident()) {
-            if (vec_prefix() != null) {
-                val typeDecl = type_decl()?.let(::visitType_decl)
-                if (typeDecl !is TypeDecl.ScalarTypeDecl?) {
-                    throw RuntimeException("A vector must have a scalar element type.")
-                }
-                if (vec_prefix().VEC2() != null) {
-                    return Expression.Vec2ValueConstructor(typeDecl, args)
-                }
-                if (vec_prefix().VEC3() != null) {
-                    return Expression.Vec3ValueConstructor(typeDecl, args)
-                }
-                if (vec_prefix().VEC4() != null) {
-                    return Expression.Vec4ValueConstructor(typeDecl, args)
-                }
-                throw RuntimeException("Unknown vector type.")
-            } else if (mat_prefix() != null) {
-                val typeDecl = type_decl()?.let(::visitType_decl)
-                if (typeDecl !is TypeDecl.FloatTypeDecl?) {
-                    throw RuntimeException("A matrix must have a float element type.")
-                }
-                if (mat_prefix().MAT2X2() != null) {
-                    return Expression.Mat2x2ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT2X3() != null) {
-                    return Expression.Mat2x3ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT2X4() != null) {
-                    return Expression.Mat2x4ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT3X2() != null) {
-                    return Expression.Mat3x2ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT3X3() != null) {
-                    return Expression.Mat3x3ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT3X4() != null) {
-                    return Expression.Mat3x4ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT4X2() != null) {
-                    return Expression.Mat4x2ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT4X3() != null) {
-                    return Expression.Mat4x3ValueConstructor(typeDecl, args)
-                }
-                if (mat_prefix().MAT4X4() != null) {
-                    return Expression.Mat4x4ValueConstructor(typeDecl, args)
-                }
-                throw RuntimeException("Unknown matrix type.")
-            } else if (BOOL() != null) {
-                return Expression.BoolValueConstructor(args)
-            } else if (FLOAT16() != null) {
-                return Expression.F16ValueConstructor(args)
-            } else if (FLOAT32() != null) {
-                return Expression.F32ValueConstructor(args)
-            } else if (INT32() != null) {
-                return Expression.I32ValueConstructor(args)
-            } else if (UINT32() != null) {
-                return Expression.U32ValueConstructor(args)
-            } else if (array_type_decl() != null) {
-                // Case left to deal with:
-                // array_type_decl;
-                return Expression.ArrayValueConstructor(
-                    array_type_decl().type_decl()?.let(::visitType_decl),
-                    array_type_decl().element_count_expression()?.expression()?.let(::visitExpression),
-                    args,
-                )
-            } else {
-                throw RuntimeException("Unknown callable value expression.")
-            }
-        }
     }
 
     override fun visitSingular_expression(ctx: WGSLParser.Singular_expressionContext): Expression =
@@ -962,6 +858,118 @@ private class AstBuilder(
         aggregate: Any?,
         nextResult: Any?,
     ): Any = nextResult ?: aggregate!!
+
+    private fun handleCallableValueExpression(
+        ctx: WGSLParser.Callable_valContext,
+        args: MutableList<Expression>,
+    ): Expression {
+        if (ctx.IDENT() != null) {
+            val name = ctx.IDENT().text
+            if (name in moduleScopeNames.structNames) {
+                assert(ctx.type_decl() == null)
+                return Expression.StructValueConstructor(name, args)
+            } else if (name in moduleScopeNames.typeAliasNames) {
+                assert(ctx.type_decl() == null)
+                return Expression.TypeAliasValueConstructor(name, args)
+            } else {
+                return Expression.FunctionCall(
+                    name,
+                    ctx.type_decl()?.let(::visitType_decl),
+                    args,
+                )
+            }
+        }
+        with(ctx.type_decl_without_ident()) {
+            if (vec_prefix() != null) {
+                val typeDecl = type_decl()?.let(::visitType_decl)
+                if (typeDecl !is TypeDecl.ScalarTypeDecl?) {
+                    throw UnsupportedOperationException("A vector must have a scalar element type.")
+                }
+                if (vec_prefix().VEC2() != null) {
+                    return Expression.Vec2ValueConstructor(typeDecl, args)
+                }
+                if (vec_prefix().VEC3() != null) {
+                    return Expression.Vec3ValueConstructor(typeDecl, args)
+                }
+                if (vec_prefix().VEC4() != null) {
+                    return Expression.Vec4ValueConstructor(typeDecl, args)
+                }
+                throw UnsupportedOperationException("Unknown vector type.")
+            } else if (mat_prefix() != null) {
+                val typeDecl = type_decl()?.let(::visitType_decl)
+                if (typeDecl !is TypeDecl.FloatTypeDecl?) {
+                    throw UnsupportedOperationException("A matrix must have a float element type.")
+                }
+                if (mat_prefix().MAT2X2() != null) {
+                    return Expression.Mat2x2ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT2X3() != null) {
+                    return Expression.Mat2x3ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT2X4() != null) {
+                    return Expression.Mat2x4ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT3X2() != null) {
+                    return Expression.Mat3x2ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT3X3() != null) {
+                    return Expression.Mat3x3ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT3X4() != null) {
+                    return Expression.Mat3x4ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT4X2() != null) {
+                    return Expression.Mat4x2ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT4X3() != null) {
+                    return Expression.Mat4x3ValueConstructor(typeDecl, args)
+                }
+                if (mat_prefix().MAT4X4() != null) {
+                    return Expression.Mat4x4ValueConstructor(typeDecl, args)
+                }
+                throw UnsupportedOperationException("Unknown matrix type.")
+            } else if (BOOL() != null) {
+                return Expression.BoolValueConstructor(args)
+            } else if (FLOAT16() != null) {
+                return Expression.F16ValueConstructor(args)
+            } else if (FLOAT32() != null) {
+                return Expression.F32ValueConstructor(args)
+            } else if (INT32() != null) {
+                return Expression.I32ValueConstructor(args)
+            } else if (UINT32() != null) {
+                return Expression.U32ValueConstructor(args)
+            } else if (array_type_decl() != null) {
+                // Case left to deal with:
+                // array_type_decl;
+                return Expression.ArrayValueConstructor(
+                    array_type_decl().type_decl()?.let(::visitType_decl),
+                    array_type_decl().element_count_expression()?.expression()?.let(::visitExpression),
+                    args,
+                )
+            } else {
+                throw UnsupportedOperationException("Unknown callable value expression.")
+            }
+        }
+    }
+
+    private fun handleAccessMode(it: String) =
+        when (it) {
+            "read" -> AccessMode.READ
+            "write" -> AccessMode.WRITE
+            "read_write" -> AccessMode.READ_WRITE
+            else -> throw UnsupportedOperationException("Unknown access mode")
+        }
+
+    private fun handleAddressSpace(it: String) =
+        when (it) {
+            "function" -> AddressSpace.FUNCTION
+            "private" -> AddressSpace.PRIVATE
+            "workgroup" -> AddressSpace.WORKGROUP
+            "uniform" -> AddressSpace.UNIFORM
+            "storage" -> AddressSpace.STORAGE
+            "handle" -> AddressSpace.HANDLE
+            else -> throw UnsupportedOperationException("Unknown address space")
+        }
 
     private fun handlePostfixExpression(
         expression: Expression,

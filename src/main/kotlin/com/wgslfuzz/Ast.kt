@@ -431,11 +431,11 @@ sealed interface TypeDecl {
         val templateArgs: MutableList<TypeDecl>,
     ) : TypeDecl
 
-    class Placeholder(
-        text: String,
-    ) : TypeDecl {
-        val placeholder = com.wgslfuzz.Placeholder(text)
-    }
+    class Pointer(
+        var addressSpace: AddressSpace,
+        var targetType: TypeDecl,
+        var accessMode: AccessMode?,
+    ) : TypeDecl
 }
 
 class ContinuingStatement(
