@@ -360,7 +360,8 @@ class AstWriter(
     fun emit(decrementStatement: Statement.Decrement) {
         with(decrementStatement) {
             emitIndent()
-            out.print("${placeholder.text};\n")
+            emit(target)
+            out.print("--;\n")
         }
     }
 
@@ -405,7 +406,8 @@ class AstWriter(
     fun emit(incrementStatement: Statement.Increment) {
         with(incrementStatement) {
             emitIndent()
-            out.print("${placeholder.text};\n")
+            emit(target)
+            out.print("++;\n")
         }
     }
 

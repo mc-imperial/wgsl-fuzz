@@ -249,7 +249,8 @@ class ParsePrintIdenticalTests {
 
     @Test
     fun ifStatementTest() {
-        val input = """
+        val input =
+            """
             diagnostic(warning, derivative_uniformity);
 
             @group(0)
@@ -273,7 +274,8 @@ class ParsePrintIdenticalTests {
 
     @Test
     fun switchTest() {
-        val input = """
+        val input =
+            """
             @group(0, )
             @binding(1, )
             var t : texture_2d<f32, >;
@@ -297,7 +299,7 @@ class ParsePrintIdenticalTests {
               }
             }
 
-        """.trimIndent()
+            """.trimIndent()
         checkParsePrintIdentical(input)
     }
 

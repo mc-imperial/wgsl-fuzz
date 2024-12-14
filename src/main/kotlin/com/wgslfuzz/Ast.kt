@@ -477,7 +477,8 @@ sealed interface Statement {
         val attributes: MutableList<Attribute>,
         var condition: Expression,
         var thenBranch: Compound,
-        var elseBranch: ElseBranch?) : ElseBranch
+        var elseBranch: ElseBranch?,
+    ) : ElseBranch
 
     class Switch(
         val attributesAtStart: MutableList<Attribute>,
@@ -514,7 +515,8 @@ sealed interface Statement {
 
     class FunctionCall(
         var placeholder: Placeholder,
-    ) : ForInit, ForUpdate
+    ) : ForInit,
+        ForUpdate
 
     class Value(
         var placeholder: Placeholder,
@@ -528,19 +530,22 @@ sealed interface Statement {
         var lhsExpression: LhsExpression?,
         var assignmentOperator: AssignmentOperator,
         var rhs: Expression,
-    ) : ForInit, ForUpdate
+    ) : ForInit,
+        ForUpdate
 
     class Compound(
         val statements: MutableList<Statement>,
     ) : ElseBranch
 
     class Increment(
-        var placeholder: Placeholder,
-    ) : ForInit, ForUpdate
+        var target: LhsExpression,
+    ) : ForInit,
+        ForUpdate
 
     class Decrement(
-        var placeholder: Placeholder,
-    ) : ForInit, ForUpdate
+        var target: LhsExpression,
+    ) : ForInit,
+        ForUpdate
 
     class ConstAssert(
         var placeholder: Placeholder,

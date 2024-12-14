@@ -181,13 +181,14 @@ private class AstBuilder(
             attributes = gatherAttributes(ctx.attribute()),
             condition = visitExpression(ctx.expression()),
             thenBranch = visitCompound_statement(ctx.compound_statement()),
-            elseBranch = ctx.else_statement()?.let {
-                if (it.if_statement() != null) {
-                    visitIf_statement(it.if_statement())
-                } else {
-                    visitCompound_statement(it.compound_statement())
-                }
-            },
+            elseBranch =
+                ctx.else_statement()?.let {
+                    if (it.if_statement() != null) {
+                        visitIf_statement(it.if_statement())
+                    } else {
+                        visitCompound_statement(it.compound_statement())
+                    }
+                },
         )
 
     override fun visitSwitch_statement(ctx: WGSLParser.Switch_statementContext): Statement.Switch =
@@ -254,44 +255,46 @@ private class AstBuilder(
     override fun visitFor_statement(ctx: WGSLParser.For_statementContext): Statement.For =
         Statement.For(
             attributes = gatherAttributes(ctx.attribute()),
-            init = ctx.for_header().for_init()?.let {
-                if (it.variable_statement() != null) {
-                    visitVariable_statement(it.variable_statement())
-                }
-                if (it.value_statement() != null) {
-                    visitValue_statement(it.value_statement())
-                }
-                if (it.increment_statement() != null) {
-                    visitIncrement_statement(it.increment_statement())
-                }
-                if (it.decrement_statement() != null) {
-                    visitDecrement_statement(it.decrement_statement())
-                }
-                if (it.assignment_statement() != null) {
-                    visitAssignment_statement(it.assignment_statement())
-                }
-                if (it.func_call_statement() != null) {
-                    visitFunc_call_statement(it.func_call_statement())
-                }
-                throw RuntimeException("Unsupported 'for' init statement.")
-            },
+            init =
+                ctx.for_header().for_init()?.let {
+                    if (it.variable_statement() != null) {
+                        visitVariable_statement(it.variable_statement())
+                    }
+                    if (it.value_statement() != null) {
+                        visitValue_statement(it.value_statement())
+                    }
+                    if (it.increment_statement() != null) {
+                        visitIncrement_statement(it.increment_statement())
+                    }
+                    if (it.decrement_statement() != null) {
+                        visitDecrement_statement(it.decrement_statement())
+                    }
+                    if (it.assignment_statement() != null) {
+                        visitAssignment_statement(it.assignment_statement())
+                    }
+                    if (it.func_call_statement() != null) {
+                        visitFunc_call_statement(it.func_call_statement())
+                    }
+                    throw RuntimeException("Unsupported 'for' init statement.")
+                },
             condition = ctx.for_header().expression()?.let(::visitExpression),
-            update = ctx.for_header().for_update()?.let {
-                if (it.increment_statement() != null) {
-                    visitIncrement_statement(it.increment_statement())
-                }
-                if (it.decrement_statement() != null) {
-                    visitDecrement_statement(it.decrement_statement())
-                }
-                if (it.assignment_statement() != null) {
-                    visitAssignment_statement(it.assignment_statement())
-                }
-                if (it.func_call_statement() != null) {
-                    visitFunc_call_statement(it.func_call_statement())
-                }
-                throw RuntimeException("Unsupported 'for' update statement.")
-            },
-            body = visitCompound_statement(ctx.compound_statement())
+            update =
+                ctx.for_header().for_update()?.let {
+                    if (it.increment_statement() != null) {
+                        visitIncrement_statement(it.increment_statement())
+                    }
+                    if (it.decrement_statement() != null) {
+                        visitDecrement_statement(it.decrement_statement())
+                    }
+                    if (it.assignment_statement() != null) {
+                        visitAssignment_statement(it.assignment_statement())
+                    }
+                    if (it.func_call_statement() != null) {
+                        visitFunc_call_statement(it.func_call_statement())
+                    }
+                    throw RuntimeException("Unsupported 'for' update statement.")
+                },
+            body = visitCompound_statement(ctx.compound_statement()),
         )
 
     override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While =
@@ -440,10 +443,10 @@ private class AstBuilder(
     }
 
     override fun visitIncrement_statement(ctx: WGSLParser.Increment_statementContext): Statement.Increment =
-        Statement.Increment(Placeholder(ctx.fullText))
+        Statement.Increment(visitLhs_expression(ctx.lhs_expression()))
 
     override fun visitDecrement_statement(ctx: WGSLParser.Decrement_statementContext): Statement.Decrement =
-        Statement.Decrement(Placeholder(ctx.fullText))
+        Statement.Decrement(visitLhs_expression(ctx.lhs_expression()))
 
     override fun visitDiscard_statement(ctx: WGSLParser.Discard_statementContext): Statement.Discard = Statement.Discard
 
@@ -609,7 +612,11 @@ private class AstBuilder(
     override fun visitShort_circuit_and_expression(ctx: WGSLParser.Short_circuit_and_expressionContext): Expression {
         val rhs = visitRelational_expression(ctx.relational_expression())
         if (ctx.short_circuit_and_expression() != null) {
-            return Expression.Binary(BinaryOperator.SHORT_CIRCUIT_AND, visitShort_circuit_and_expression(ctx.short_circuit_and_expression()), rhs)
+            return Expression.Binary(
+                BinaryOperator.SHORT_CIRCUIT_AND,
+                visitShort_circuit_and_expression(ctx.short_circuit_and_expression()),
+                rhs,
+            )
         }
         return rhs
     }
