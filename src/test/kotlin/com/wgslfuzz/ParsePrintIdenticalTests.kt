@@ -42,7 +42,8 @@ class ParsePrintIdenticalTests {
               {
                 let x_18 : i32 = ll_1;
                 let x_19 : i32 = x_9.injected;
-                if ((x_18 >= x_19)) {
+                if ((x_18 >= x_19))
+                {
                   x_GLF_color = vec4<f32>(1.0, 0.0, 0.0, 1.0, );
                   break;
                 }
@@ -55,13 +56,17 @@ class ParsePrintIdenticalTests {
                 loop
                 {
                   let x_23 : i32 = ctr;
-                  if ((x_23 < 1)) {
-                  } else {
+                  if ((x_23 < 1))
+                  {
+                  }
+                  else
+                  {
                     break;
                   }
                   let x_24 : i32 = ll_2;
                   let x_25 : i32 = x_9.injected;
-                  if ((x_24 >= x_25)) {
+                  if ((x_24 >= x_25))
+                  {
                     break;
                   }
                   let x_26 : i32 = ll_2;
@@ -73,8 +78,11 @@ class ParsePrintIdenticalTests {
                   loop
                   {
                     let x_28 : i32 = z;
-                    if ((1 < x_28)) {
-                    } else {
+                    if ((1 < x_28))
+                    {
+                    }
+                    else
+                    {
                       break;
                     }
                     d = 0;
@@ -236,6 +244,60 @@ class ParsePrintIdenticalTests {
 
             """.trimIndent()
 
+        checkParsePrintIdentical(input)
+    }
+
+    @Test
+    fun ifStatementTest() {
+        val input = """
+            diagnostic(warning, derivative_uniformity);
+
+            @group(0)
+            @binding(1)
+            var t : texture_2d<f32>;
+
+            @group(0)
+            @binding(2)
+            var s : sampler;
+
+            @fragment
+            fn main(@location(0) x : f32) {
+              if (x > 0)
+              {
+                _ = textureSample(t, s, vec2(0, 0));
+              }
+            }
+
+            """.trimIndent()
+    }
+
+    @Test
+    fun switchTest() {
+        val input = """
+            @group(0, )
+            @binding(1, )
+            var t : texture_2d<f32, >;
+
+            @group(0, )
+            @binding(2, )
+            var s : sampler;
+
+            @fragment
+            fn main(
+              @location(0, )
+              x : f32,
+            )
+            {
+              @diagnostic(warning, derivative_uniformity, )
+              switch (i32(x == 0.0 && dpdx(1.0, ) == 0.0, ))
+              {
+                default
+                {
+                }
+              }
+            }
+
+        """.trimIndent()
         checkParsePrintIdentical(input)
     }
 

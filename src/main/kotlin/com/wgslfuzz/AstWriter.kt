@@ -121,7 +121,7 @@ class AstWriter(
     fun emit(operator: BinaryOperator) {
         when (operator) {
             BinaryOperator.SHORT_CIRCUIT_OR -> out.print("||")
-            BinaryOperator.SHORT_CIRCUIT_AND -> out.print("||")
+            BinaryOperator.SHORT_CIRCUIT_AND -> out.print("&&")
             BinaryOperator.BINARY_OR -> out.print("|")
             BinaryOperator.BINARY_AND -> out.print("&")
             BinaryOperator.BINARY_XOR -> out.print("^")
@@ -366,8 +366,16 @@ class AstWriter(
 
     fun emit(forStatement: Statement.For) {
         with(forStatement) {
+            emit(attributes)
             emitIndent()
-            out.print(placeholder.text)
+            out.print("for (")
+            init?.let(::emit)
+            out.print("; ")
+            condition?.let(::emit)
+            out.print("; ")
+            update?.let(::emit)
+            out.print(")\n")
+            emit(body)
         }
     }
 
@@ -380,9 +388,17 @@ class AstWriter(
 
     fun emit(ifStatement: Statement.If) {
         with(ifStatement) {
+            emit(attributes)
             emitIndent()
-            out.print(placeholder.text)
+            out.print("if ")
+            emit(condition)
             out.print("\n")
+            emit(thenBranch)
+            elseBranch?.let {
+                emitIndent()
+                out.print("else\n")
+                emit(it)
+            }
         }
     }
 

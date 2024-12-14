@@ -471,9 +471,13 @@ sealed interface Statement {
         var expr: Expression?,
     ) : Statement
 
+    sealed interface ElseBranch : Statement
+
     class If(
-        var placeholder: Placeholder,
-    ) : Statement
+        val attributes: MutableList<Attribute>,
+        var condition: Expression,
+        var thenBranch: Compound,
+        var elseBranch: ElseBranch?) : ElseBranch
 
     class Switch(
         val attributesAtStart: MutableList<Attribute>,
@@ -490,8 +494,16 @@ sealed interface Statement {
         var continuingStatement: ContinuingStatement?,
     ) : Statement
 
+    sealed interface ForInit : Statement
+
+    sealed interface ForUpdate : Statement
+
     class For(
-        var placeholder: Placeholder,
+        val attributes: MutableList<Attribute>,
+        var init: ForInit?,
+        var condition: Expression?,
+        var update: ForUpdate?,
+        val body: Compound,
     ) : Statement
 
     class While(
@@ -502,33 +514,33 @@ sealed interface Statement {
 
     class FunctionCall(
         var placeholder: Placeholder,
-    ) : Statement
+    ) : ForInit, ForUpdate
 
     class Value(
         var placeholder: Placeholder,
-    ) : Statement
+    ) : ForInit
 
     class Variable(
         var variableDecl: VariableDecl,
-    ) : Statement
+    ) : ForInit
 
     class Assignment(
         var lhsExpression: LhsExpression?,
         var assignmentOperator: AssignmentOperator,
         var rhs: Expression,
-    ) : Statement
+    ) : ForInit, ForUpdate
 
     class Compound(
         val statements: MutableList<Statement>,
-    ) : Statement
+    ) : ElseBranch
 
     class Increment(
         var placeholder: Placeholder,
-    ) : Statement
+    ) : ForInit, ForUpdate
 
     class Decrement(
         var placeholder: Placeholder,
-    ) : Statement
+    ) : ForInit, ForUpdate
 
     class ConstAssert(
         var placeholder: Placeholder,
