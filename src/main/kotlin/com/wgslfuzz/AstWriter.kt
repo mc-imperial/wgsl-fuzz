@@ -589,6 +589,35 @@ class AstWriter(
         }
     }
 
+    fun emit(globalConstantDecl: GlobalDecl.Constant) {
+        with(globalConstantDecl) {
+            out.print("const $name ")
+            type?.let {
+                out.print(": ")
+                emit(it)
+            }
+            out.print(" = ")
+            emit(initializer)
+            out.print(";\n")
+        }
+    }
+
+    fun emit(globalOverrideDecl: GlobalDecl.Override) {
+        with(globalOverrideDecl) {
+            emit(attributes)
+            out.print("override $name ")
+            type?.let {
+                out.print(": ")
+                emit(it)
+            }
+            initializer?.let {
+                out.print(" = ")
+                emit(it)
+            }
+            out.print(";\n")
+        }
+    }
+
     fun emit(globalVarDecl: GlobalDecl.Variable) {
         with(globalVarDecl) {
             emit(attributes)
@@ -625,9 +654,8 @@ class AstWriter(
 
     fun emit(decl: GlobalDecl) {
         when (decl) {
-            is GlobalDecl.Value -> {
-                out.println("${decl.placeholder.text};\n")
-            }
+            is GlobalDecl.Constant -> emit(decl)
+            is GlobalDecl.Override -> emit(decl)
             is GlobalDecl.Variable -> emit(decl)
             is GlobalDecl.Function -> emit(decl)
             is GlobalDecl.Struct -> emit(decl)

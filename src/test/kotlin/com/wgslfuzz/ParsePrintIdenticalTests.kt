@@ -303,6 +303,21 @@ class ParsePrintIdenticalTests {
         checkParsePrintIdentical(input)
     }
 
+    @Test
+    fun constTest() {
+        val input = """
+            @fragment
+            fn f()
+            {
+              const b = a;
+            }
+
+            const a : i32 = 1;
+
+            """.trimIndent()
+        checkParsePrintIdentical(input)
+    }
+
     private fun checkParsePrintIdentical(input: String) {
         val errorListener = LoggingParseErrorListener()
 

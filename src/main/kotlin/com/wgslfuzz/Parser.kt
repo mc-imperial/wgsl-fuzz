@@ -124,8 +124,22 @@ private class AstBuilder(
     override fun visitConst_assert_decl(ctx: WGSLParser.Const_assert_declContext): GlobalDecl.ConstAssert =
         GlobalDecl.ConstAssert(placeholder = Placeholder(ctx.fullText))
 
-    override fun visitGlobal_value_decl(ctx: WGSLParser.Global_value_declContext): GlobalDecl.Value =
-        GlobalDecl.Value(placeholder = Placeholder(ctx.fullText))
+    override fun visitGlobal_value_decl(ctx: WGSLParser.Global_value_declContext): GlobalDecl {
+        if (ctx.CONST() != null) {
+            return GlobalDecl.Constant(
+                name = ctx.ident_with_optional_type().IDENT().text,
+                type = ctx.ident_with_optional_type().type_decl()?.let(::visitType_decl),
+                initializer = visitExpression(ctx.expression()),
+            )
+
+        }
+        return GlobalDecl.Override(
+            attributes = gatherAttributes(ctx.attribute()),
+            name = ctx.ident_with_optional_type().IDENT().text,
+            type = ctx.ident_with_optional_type().type_decl()?.let(::visitType_decl),
+            initializer = ctx.expression()?.let(::visitExpression),
+        )
+    }
 
     override fun visitGlobal_variable_decl(ctx: WGSLParser.Global_variable_declContext): GlobalDecl.Variable =
         GlobalDecl.Variable(

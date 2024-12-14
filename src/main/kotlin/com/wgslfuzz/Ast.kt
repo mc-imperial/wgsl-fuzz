@@ -571,8 +571,17 @@ class ParameterDecl(
 )
 
 sealed interface GlobalDecl {
-    class Value(
-        var placeholder: Placeholder,
+    class Constant(
+        var name: String,
+        var type: TypeDecl?,
+        var initializer: Expression,
+    ) : GlobalDecl
+
+    class Override(
+        val attributes: MutableList<Attribute>,
+        var name: String,
+        var type: TypeDecl?,
+        var initializer: Expression?,
     ) : GlobalDecl
 
     class Variable(
