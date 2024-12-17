@@ -147,16 +147,16 @@ class AstWriter(
                 out.print("&")
                 emit(lhsExpression.target)
             }
-            is LhsExpression.ArrayIndex -> {
+            is LhsExpression.IndexLookup -> {
                 emit(lhsExpression.target)
                 out.print("[")
-                emit(lhsExpression.indexExpression)
+                emit(lhsExpression.index)
                 out.print("]")
             }
             is LhsExpression.Identifier -> out.print(lhsExpression.name)
             is LhsExpression.MemberLookup -> {
-                emit(lhsExpression.target)
-                out.print(".${lhsExpression.member}")
+                emit(lhsExpression.receiver)
+                out.print(".${lhsExpression.memberName}")
             }
             is LhsExpression.Paren -> {
                 out.print("(")
@@ -303,30 +303,6 @@ class AstWriter(
                     emit(it)
                 }
                 out.print(">")
-            }
-        }
-    }
-
-    fun emit(variableDecl: VariableDecl) {
-        with(variableDecl) {
-            out.print("var")
-            addressSpace?.let {
-                out.print("<")
-                emit(it)
-                accessMode?.let { itInner ->
-                    out.print(", ")
-                    emit(itInner)
-                }
-                out.print(">")
-            }
-            out.print(" $name")
-            type?.let {
-                out.print(" : ")
-                emit(it)
-            }
-            initializer?.let {
-                out.print(" = ")
-                emit(it)
             }
         }
     }
@@ -578,7 +554,25 @@ class AstWriter(
             if (!inForLoopHeader) {
                 emitIndent()
             }
-            emit(variableDecl)
+            out.print("var")
+            addressSpace?.let {
+                out.print("<")
+                emit(it)
+                accessMode?.let { itInner ->
+                    out.print(", ")
+                    emit(itInner)
+                }
+                out.print(">")
+            }
+            out.print(" $name")
+            type?.let {
+                out.print(" : ")
+                emit(it)
+            }
+            initializer?.let {
+                out.print(" = ")
+                emit(it)
+            }
             if (!inForLoopHeader) {
                 out.print(";\n")
             }
@@ -682,7 +676,25 @@ class AstWriter(
     fun emit(globalVarDecl: GlobalDecl.Variable) {
         with(globalVarDecl) {
             emit(attributes)
-            emit(variableDecl)
+            out.print("var")
+            addressSpace?.let {
+                out.print("<")
+                emit(it)
+                accessMode?.let { itInner ->
+                    out.print(", ")
+                    emit(itInner)
+                }
+                out.print(">")
+            }
+            out.print(" $name")
+            type?.let {
+                out.print(" : ")
+                emit(it)
+            }
+            initializer?.let {
+                out.print(" = ")
+                emit(it)
+            }
             out.print(";\n")
         }
     }

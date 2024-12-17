@@ -187,11 +187,10 @@ mat_prefix: MAT2X2
 
 ident_with_optional_type: IDENT (COLON type_decl)?;
 
-variable_statement: variable_decl;
+variable_statement: VAR variable_qualifier? ident_with_optional_type (EQUAL expression)?;
 value_statement: (CONST | LET) ident_with_optional_type EQUAL expression;
-variable_decl: VAR variable_qualifier? ident_with_optional_type (EQUAL expression)?;
 variable_qualifier: LESS_THAN address_space=IDENT (COMMA access_mode=IDENT)? GREATER_THAN;
-global_variable_decl: attribute* variable_decl;
+global_variable_decl: attribute* VAR variable_qualifier? ident_with_optional_type (EQUAL expression)?;
 global_value_decl: CONST ident_with_optional_type EQUAL expression
                     | attribute* OVERRIDE ident_with_optional_type (EQUAL expression)?;
 

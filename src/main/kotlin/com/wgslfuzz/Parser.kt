@@ -145,7 +145,29 @@ private class AstBuilder(
     override fun visitGlobal_variable_decl(ctx: WGSLParser.Global_variable_declContext): GlobalDecl.Variable =
         GlobalDecl.Variable(
             attributes = gatherAttributes(ctx.attribute()),
-            variableDecl = visitVariable_decl(ctx.variable_decl()),
+            name =
+                ctx
+                    .ident_with_optional_type()
+                    .IDENT()
+                    .text,
+            addressSpace =
+                ctx
+                    .variable_qualifier()
+                    ?.address_space
+                    ?.text
+                    ?.let(::handleAddressSpace),
+            accessMode =
+                ctx
+                    .variable_qualifier()
+                    ?.access_mode
+                    ?.text
+                    ?.let(::handleAccessMode),
+            type =
+                ctx
+                    .ident_with_optional_type()
+                    .type_decl()
+                    ?.let(::visitType_decl),
+            initializer = ctx.expression()?.let(::visitExpression),
         )
 
     override fun visitFunction_decl(ctx: WGSLParser.Function_declContext): GlobalDecl.Function =
@@ -319,7 +341,31 @@ private class AstBuilder(
         )
 
     override fun visitVariable_statement(ctx: WGSLParser.Variable_statementContext): Statement.Variable =
-        Statement.Variable(variableDecl = visitVariable_decl(ctx.variable_decl()))
+        Statement.Variable(
+            name =
+                ctx
+                    .ident_with_optional_type()
+                    .IDENT()
+                    .text,
+            addressSpace =
+                ctx
+                    .variable_qualifier()
+                    ?.address_space
+                    ?.text
+                    ?.let(::handleAddressSpace),
+            accessMode =
+                ctx
+                    .variable_qualifier()
+                    ?.access_mode
+                    ?.text
+                    ?.let(::handleAccessMode),
+            type =
+                ctx
+                    .ident_with_optional_type()
+                    .type_decl()
+                    ?.let(::visitType_decl),
+            initializer = ctx.expression()?.let(::visitExpression),
+        )
 
     override fun visitValue_statement(ctx: WGSLParser.Value_statementContext): Statement.Value =
         Statement.Value(
@@ -351,33 +397,6 @@ private class AstBuilder(
         }
     }
 
-    override fun visitVariable_decl(ctx: WGSLParser.Variable_declContext): VariableDecl =
-        VariableDecl(
-            name =
-                ctx
-                    .ident_with_optional_type()
-                    .IDENT()
-                    .text,
-            addressSpace =
-                ctx
-                    .variable_qualifier()
-                    ?.address_space
-                    ?.text
-                    ?.let(::handleAddressSpace),
-            accessMode =
-                ctx
-                    .variable_qualifier()
-                    ?.access_mode
-                    ?.text
-                    ?.let(::handleAccessMode),
-            type =
-                ctx
-                    .ident_with_optional_type()
-                    .type_decl()
-                    ?.let(::visitType_decl),
-            initializer = ctx.expression()?.let(::visitExpression),
-        )
-
     override fun visitCore_lhs_expression(ctx: WGSLParser.Core_lhs_expressionContext): LhsExpression =
         if (ctx.IDENT() != null) {
             LhsExpression.Identifier(ctx.IDENT().text)
@@ -402,7 +421,7 @@ private class AstBuilder(
         }
         if (ctx.BRACKET_LEFT() != null) {
             return processLhsExpressionPostfix(
-                LhsExpression.ArrayIndex(target, visitExpression(ctx.expression())),
+                LhsExpression.IndexLookup(target, visitExpression(ctx.expression())),
                 ctx.postfix_expression(),
             )
         }

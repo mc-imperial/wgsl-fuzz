@@ -1,13 +1,15 @@
 package com.wgslfuzz
 
+sealed interface AstNode
+
 class Directive(
     var text: String,
-)
+) : AstNode
 
 class TranslationUnit(
     val directives: MutableList<Directive>,
     val globalDecls: MutableList<GlobalDecl>,
-)
+) : AstNode
 
 enum class AccessMode {
     READ,
@@ -93,9 +95,9 @@ enum class BinaryOperator {
 class Attribute(
     var kind: AttributeKind,
     val args: MutableList<Expression>,
-)
+) : AstNode
 
-sealed interface LhsExpression {
+sealed interface LhsExpression : AstNode {
     class Identifier(
         var name: String,
     ) : LhsExpression
@@ -105,13 +107,13 @@ sealed interface LhsExpression {
     ) : LhsExpression
 
     class MemberLookup(
-        var target: LhsExpression,
-        var member: String,
+        var receiver: LhsExpression,
+        var memberName: String,
     ) : LhsExpression
 
-    class ArrayIndex(
+    class IndexLookup(
         var target: LhsExpression,
-        var indexExpression: Expression,
+        var index: Expression,
     ) : LhsExpression
 
     class Dereference(
@@ -123,7 +125,7 @@ sealed interface LhsExpression {
     ) : LhsExpression
 }
 
-sealed interface Expression {
+sealed interface Expression : AstNode {
     class BoolLiteral(
         var text: String,
     ) : Expression
@@ -290,8 +292,8 @@ sealed interface Expression {
     ) : Expression
 }
 
-sealed interface TypeDecl {
-    abstract class ScalarTypeDecl(
+sealed interface TypeDecl : AstNode {
+    sealed class ScalarTypeDecl(
         val name: String,
     ) : TypeDecl
 
@@ -301,7 +303,7 @@ sealed interface TypeDecl {
 
     data object U32 : ScalarTypeDecl("u32")
 
-    abstract class FloatTypeDecl(
+    sealed class FloatTypeDecl(
         name: String,
     ) : ScalarTypeDecl(name)
 
@@ -309,7 +311,7 @@ sealed interface TypeDecl {
 
     data object F16 : FloatTypeDecl("f16")
 
-    abstract class VectorTypeDecl(
+    sealed class VectorTypeDecl(
         var elementType: ScalarTypeDecl,
     ) : TypeDecl {
         abstract val name: String
@@ -336,7 +338,7 @@ sealed interface TypeDecl {
             get() = "vec4"
     }
 
-    abstract class MatrixTypeDecl(
+    sealed class MatrixTypeDecl(
         var elementType: FloatTypeDecl,
     ) : TypeDecl {
         abstract val name: String
@@ -426,9 +428,9 @@ class ContinuingStatement(
     val attributes: MutableList<Attribute>,
     val statements: MutableList<Statement>,
     var breakIfExpr: Expression?,
-)
+) : AstNode
 
-sealed interface CaseSelectors {
+sealed interface CaseSelectors : AstNode {
     data object DefaultAlone : CaseSelectors
 
     class ExpressionsOrDefault(
@@ -440,17 +442,9 @@ sealed interface CaseSelectors {
 class SwitchClause(
     var caseSelectors: CaseSelectors,
     var compoundStatement: Statement.Compound,
-)
+) : AstNode
 
-class VariableDecl(
-    var name: String,
-    var addressSpace: AddressSpace?,
-    var accessMode: AccessMode?,
-    var type: TypeDecl?,
-    var initializer: Expression?,
-)
-
-sealed interface Statement {
+sealed interface Statement : AstNode {
     class Return(
         var expr: Expression?,
     ) : Statement
@@ -511,7 +505,11 @@ sealed interface Statement {
     ) : ForInit
 
     class Variable(
-        var variableDecl: VariableDecl,
+        var name: String,
+        var addressSpace: AddressSpace?,
+        var accessMode: AccessMode?,
+        var type: TypeDecl?,
+        var initializer: Expression?,
     ) : ForInit
 
     class Assignment(
@@ -552,9 +550,9 @@ class ParameterDecl(
     val attributes: MutableList<Attribute>,
     var name: String,
     var typeDecl: TypeDecl,
-)
+) : AstNode
 
-sealed interface GlobalDecl {
+sealed interface GlobalDecl : AstNode {
     class Constant(
         var name: String,
         var type: TypeDecl?,
@@ -570,7 +568,11 @@ sealed interface GlobalDecl {
 
     class Variable(
         val attributes: MutableList<Attribute>,
-        var variableDecl: VariableDecl,
+        var name: String,
+        var addressSpace: AddressSpace?,
+        var accessMode: AccessMode?,
+        var type: TypeDecl?,
+        var initializer: Expression?,
     ) : GlobalDecl
 
     class Function(
@@ -602,4 +604,4 @@ class StructMember(
     val attributes: MutableList<Attribute>,
     var name: String,
     var type: TypeDecl,
-)
+) : AstNode
