@@ -170,7 +170,8 @@ fun <T> traverse(
             node.globalDecls.forEach(actionWithState)
         }
         is TypeDecl.Array -> {
-            TODO()
+            actionWithState(node.elementType)
+            node.elementCount?.let(actionWithState)
         }
         is TypeDecl.MatrixTypeDecl -> {
             TODO()

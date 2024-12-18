@@ -397,9 +397,9 @@ private fun resolveAstNode(
         is Expression.BoolValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.Bool)
         is Expression.I32ValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.I32)
         is Expression.U32ValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.U32)
-        is Expression.VectorValueConstructor -> TODO()
-        is Expression.MatrixValueConstructor -> TODO()
-        is Expression.ArrayValueConstructor -> TODO()
+        is Expression.VectorValueConstructor -> resolveVectorValueConstructor(node, resolverState)
+        is Expression.MatrixValueConstructor -> resolveMatrixValueConstructor(node, resolverState)
+        is Expression.ArrayValueConstructor -> resolveArrayValueConstructor(node, resolverState)
         is Expression.StructValueConstructor -> {
             when (val scopeEntry = resolverState.currentScope.getEntry(node.typeName)) {
                 is ScopeEntry.Struct -> {
@@ -414,6 +414,62 @@ private fun resolveAstNode(
             // No action
         }
     }
+}
+
+private fun resolveVectorValueConstructor(
+    node: Expression.VectorValueConstructor,
+    resolverState: ResolverState,
+) {
+    val elementType: Type.Scalar =
+        if (node.elementType != null) {
+            resolveTypeDecl(node.elementType!!, resolverState) as Type.Scalar
+        } else {
+            var candidateElementType: Type.Scalar? = null
+            for (arg in node.args) {
+                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg)
+                when (elementTypeForArg) {
+                    is Type.Scalar -> {
+                        // Nothing to do
+                    }
+                    is Type.Vector -> {
+                        elementTypeForArg = elementTypeForArg.elementType
+                    }
+                    else -> {
+                        throw RuntimeException("A vector may only be constructed from vectors and scalars.")
+                    }
+                }
+                if (candidateElementType == null ||
+                    candidateElementType is Type.AbstractInteger &&
+                    elementTypeForArg is Type.Integer ||
+                    candidateElementType is Type.AbstractFloat &&
+                    elementTypeForArg is Type.AbstractFloat
+                ) {
+                    candidateElementType = elementTypeForArg
+                } else if (candidateElementType != elementTypeForArg) {
+                    throw RuntimeException("Vector constructed from incompatible mix of element types.")
+                }
+            }
+            candidateElementType!!
+        }
+    when (node) {
+        is Expression.Vec2ValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.Vec2(elementType))
+        is Expression.Vec3ValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.Vec3(elementType))
+        is Expression.Vec4ValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.Vec4(elementType))
+    }
+}
+
+private fun resolveMatrixValueConstructor(
+    node: Expression.MatrixValueConstructor,
+    resolverState: ResolverState,
+) {
+    TODO()
+}
+
+private fun resolveArrayValueConstructor(
+    node: Expression.ArrayValueConstructor,
+    resolverState: ResolverState,
+) {
+    TODO()
 }
 
 private fun resolveFunctionCallExpression(
