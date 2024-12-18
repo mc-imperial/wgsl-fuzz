@@ -137,7 +137,8 @@ fun <T> traverse(
             actionWithState(node.target)
         }
         is Statement.Value -> {
-            TODO()
+            node.type?.let(actionWithState)
+            node.initializer.let(actionWithState)
         }
         is Statement.Variable -> {
             node.type?.let(actionWithState)
@@ -158,7 +159,8 @@ fun <T> traverse(
             actionWithState(node.body)
         }
         is StructMember -> {
-            TODO()
+            node.attributes.forEach(actionWithState)
+            actionWithState(node.type)
         }
         is SwitchClause -> {
             TODO()
@@ -174,10 +176,10 @@ fun <T> traverse(
             TODO()
         }
         is TypeDecl.NamedType -> {
-            TODO()
+            node.templateArgs.forEach(actionWithState)
         }
         is TypeDecl.Pointer -> {
-            TODO()
+            actionWithState(node.pointeeType)
         }
         is TypeDecl.ScalarTypeDecl -> {
             // Nothing to do

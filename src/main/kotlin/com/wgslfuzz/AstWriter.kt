@@ -297,7 +297,7 @@ class AstWriter(
                 out.print("ptr<")
                 emit(typeDecl.addressSpace)
                 out.print(", ")
-                emit(typeDecl.targetType)
+                emit(typeDecl.pointeeType)
                 typeDecl.accessMode?.let {
                     out.print(", ")
                     emit(it)

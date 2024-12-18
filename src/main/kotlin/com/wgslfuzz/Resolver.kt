@@ -21,6 +21,26 @@ sealed interface ScopeEntry {
         override val astNode: Statement.Variable,
         override val type: Type,
     ) : TypedDecl
+
+    class LocalValue(
+        override val astNode: Statement.Value,
+        override val type: Type,
+    ) : TypedDecl
+
+    class GlobalVariable(
+        override val astNode: GlobalDecl.Variable,
+        override val type: Type,
+    ) : TypedDecl
+
+    class Struct(
+        override val astNode: GlobalDecl.Struct,
+        override val type: Type.Struct,
+    ) : TypedDecl
+
+    class TypeAlias(
+        override val astNode: GlobalDecl.TypeAlias,
+        override val type: Type,
+    ) : TypedDecl
 }
 
 interface Scope {
@@ -63,7 +83,8 @@ private class ResolvedEnvironmentImpl : ResolvedEnvironment {
         expressionTypes[expression] = type
     }
 
-    override fun typeOf(expression: Expression): Type = expressionTypes[expression]!!
+    override fun typeOf(expression: Expression): Type =
+        expressionTypes[expression] ?: throw UnsupportedOperationException("No type for $expression")
 
     override fun typeOf(functionDecl: GlobalDecl.Function): FunctionType {
         TODO("Not yet implemented")
@@ -219,15 +240,86 @@ private fun resolveAstNode(
     // TODO - consider cutting off traversal so that type declarations are not visited as these are handled separately
     traverse(::resolveAstNode, node, resolverState)
     when (node) {
-        is Statement.Variable -> {
+        is GlobalDecl.Variable -> {
             val type: Type =
                 node.type?.let {
                     resolveTypeDecl(node.type!!, resolverState)
-                } ?: TODO()
+                } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
+            if (type.isAbstract()) {
+                TODO()
+            }
+            resolverState.currentScope.addEntry(
+                node.name,
+                ScopeEntry.GlobalVariable(node, type),
+            )
+        }
+        is GlobalDecl.Struct -> {
+            resolverState.currentScope.addEntry(
+                node.name,
+                ScopeEntry.Struct(
+                    astNode = node,
+                    type =
+                        Type.Struct(
+                            name = node.name,
+                            members =
+                                node.members
+                                    .map {
+                                        it.name to resolveTypeDecl(it.type, resolverState)
+                                    }.toMap(),
+                        ),
+                ),
+            )
+        }
+        is Statement.Value -> {
+            val type: Type =
+                node.type?.let {
+                    resolveTypeDecl(node.type!!, resolverState)
+                } ?: resolverState.resolvedEnvironment.typeOf(node.initializer)
+            if (type.isAbstract()) {
+                TODO()
+            }
+            resolverState.currentScope.addEntry(
+                node.name,
+                ScopeEntry.LocalValue(node, type),
+            )
+        }
+        is Statement.Variable -> {
+            var type: Type =
+                node.type?.let {
+                    resolveTypeDecl(node.type!!, resolverState)
+                } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
+            if (type.isAbstract()) {
+                type = concretizeInitializerType(type)
+            }
             resolverState.currentScope.addEntry(
                 node.name,
                 ScopeEntry.LocalVariable(node, type),
             )
+        }
+        is Expression.FunctionCall -> {
+            resolveFunctionCallExpression(node, resolverState)
+        }
+        is Expression.MemberLookup -> {
+            val receiverType = resolverState.resolvedEnvironment.typeOf(node.receiver)
+            when (receiverType) {
+                is Type.Struct -> {
+                    resolverState.resolvedEnvironment.recordType(
+                        node,
+                        receiverType.members[node.memberName]
+                            ?: throw RuntimeException("Struct with type $receiverType does not have a member ${node.memberName}"),
+                    )
+                }
+                is Type.Vector -> {
+                    when (node.memberName) {
+                        "x", "y", "z", "w" -> {
+                            // We could check whether the vector index exists, e.g. using z on a vec2 is not be allowed.
+                            resolverState.resolvedEnvironment.recordType(node, receiverType.elementType)
+                        }
+                        else -> TODO()
+                    }
+                }
+                else -> TODO()
+            }
         }
         is Expression.IntLiteral -> {
             val type =
@@ -236,7 +328,7 @@ private fun resolveAstNode(
                 } else if (node.text.endsWith("i")) {
                     Type.I32
                 } else {
-                    Type.AbstractInt
+                    Type.AbstractInteger
                 }
             resolverState.resolvedEnvironment.recordType(node, type)
         }
@@ -251,7 +343,7 @@ private fun resolveAstNode(
                         resolverState.resolvedEnvironment.recordType(
                             node,
                             when (resolverState.resolvedEnvironment.typeOf(node.lhs)) {
-                                is Type.ScalarType -> Type.Bool
+                                is Type.Scalar -> Type.Bool
                                 else -> TODO()
                             },
                         )
@@ -262,7 +354,7 @@ private fun resolveAstNode(
                     val resultType =
                         if (lhsType is Type.I32 && rhsType is Type.I32) {
                             Type.I32
-                        } else if (lhsType is Type.I32 && rhsType is Type.AbstractInt) {
+                        } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
                             Type.I32
                         } else {
                             TODO()
@@ -270,6 +362,23 @@ private fun resolveAstNode(
                     resolverState.resolvedEnvironment.recordType(node, resultType)
                 }
                 else -> TODO("Not implemented support for ${node.operator}")
+            }
+        }
+        is Expression.Unary -> {
+            when (node.operator) {
+                UnaryOperator.DEREFERENCE -> {
+                    val pointerType = resolverState.resolvedEnvironment.typeOf(node.target)
+                    if (pointerType !is Type.Pointer) {
+                        throw RuntimeException("Dereference applied to expression $node with non-pointer type")
+                    }
+                    resolverState.resolvedEnvironment.recordType(node, pointerType.pointeeType)
+                }
+                UnaryOperator.ADDRESS_OF -> {
+                    resolveAddressOfExpression(node, resolverState)
+                }
+                else -> {
+                    TODO("Not implemented support for ${node.operator}")
+                }
             }
         }
         is Expression.Paren -> {
@@ -285,19 +394,178 @@ private fun resolveAstNode(
                 }
             }
         }
+        is Expression.BoolValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.Bool)
+        is Expression.I32ValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.I32)
+        is Expression.U32ValueConstructor -> resolverState.resolvedEnvironment.recordType(node, Type.U32)
+        is Expression.VectorValueConstructor -> TODO()
+        is Expression.MatrixValueConstructor -> TODO()
+        is Expression.ArrayValueConstructor -> TODO()
+        is Expression.StructValueConstructor -> {
+            when (val scopeEntry = resolverState.currentScope.getEntry(node.typeName)) {
+                is ScopeEntry.Struct -> {
+                    resolverState.resolvedEnvironment.recordType(node, scopeEntry.type)
+                }
+                else -> {
+                    throw RuntimeException("Attempt to construct a struct with constructor ${node.typeName}, which is not a struct type.")
+                }
+            }
+        }
         else -> {
             // No action
         }
     }
 }
 
-private fun resolveFloatTypeDecl(floatTypeDecl: TypeDecl.FloatTypeDecl): Type.FloatType =
+private fun resolveFunctionCallExpression(
+    node: Expression.FunctionCall,
+    resolverState: ResolverState,
+) {
+    when (val scopeEntry = resolverState.currentScope.getEntry(node.callee)) {
+        null -> {
+            when (node.callee) {
+                "atomicLoad" -> {
+                    if (node.args.size != 1) {
+                        throw RuntimeException("atomicLoad builtin takes one argument")
+                    }
+                    val argType = resolverState.resolvedEnvironment.typeOf(node.args[0])
+                    if (argType !is Type.Pointer || argType.pointeeType !is Type.Atomic) {
+                        throw RuntimeException("atomicLoad requires a pointer to an atomic integer")
+                    }
+                    resolverState.resolvedEnvironment.recordType(node, argType.pointeeType.targetType)
+                }
+                "cross" -> {
+                    if (node.args.size != 2) {
+                        throw RuntimeException("cross builtin takes two arguments")
+                    }
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(node.args[0])
+                    val arg2Type = resolverState.resolvedEnvironment.typeOf(node.args[1])
+                    if (arg1Type !is Type.Vector || arg2Type !is Type.Vector) {
+                        throw RuntimeException("cross builtin requires vector arguments")
+                    }
+                    if (arg1Type.width != 3 || arg2Type.width != 3) {
+                        throw RuntimeException("cross builtin requires vec3 arguments")
+                    }
+                    if (arg1Type.elementType !is Type.Float || arg2Type.elementType !is Type.Float) {
+                        throw RuntimeException("cross builtin only works with float vectors")
+                    }
+                    if (arg1Type.elementType != arg2Type.elementType) {
+                        throw RuntimeException("Mismatched vector elemenet types for cross builtin")
+                    }
+                    resolverState.resolvedEnvironment.recordType(node, arg1Type)
+                }
+                "mat2x2f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat2x2(Type.F32))
+                "mat2x3f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat2x3(Type.F32))
+                "mat2x4f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat2x4(Type.F32))
+                "mat3x2f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat3x2(Type.F32))
+                "mat3x3f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat3x3(Type.F32))
+                "mat3x4f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat3x4(Type.F32))
+                "mat4x2f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat4x2(Type.F32))
+                "mat4x3f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat4x3(Type.F32))
+                "mat4x4f" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat4x4(Type.F32))
+                "mat2x2h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat2x2(Type.F16))
+                "mat2x3h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat2x3(Type.F16))
+                "mat2x4h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat2x4(Type.F16))
+                "mat3x2h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat3x2(Type.F16))
+                "mat3x3h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat3x3(Type.F16))
+                "mat3x4h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat3x4(Type.F16))
+                "mat4x2h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat4x2(Type.F16))
+                "mat4x3h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat4x3(Type.F16))
+                "mat4x4h" -> resolverState.resolvedEnvironment.recordType(node, Type.Mat4x4(Type.F16))
+                "vec2i" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec2(Type.I32))
+                "vec3i" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec3(Type.I32))
+                "vec4i" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec4(Type.I32))
+                "vec2u" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec2(Type.U32))
+                "vec3u" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec3(Type.U32))
+                "vec4u" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec4(Type.U32))
+                "vec2f" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec2(Type.F32))
+                "vec3f" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec3(Type.F32))
+                "vec4f" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec4(Type.F32))
+                "vec2h" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec2(Type.F16))
+                "vec3h" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec3(Type.F16))
+                "vec4h" -> resolverState.resolvedEnvironment.recordType(node, Type.Vec4(Type.F16))
+                else -> TODO("Unsupported builtin function ${node.callee}")
+            }
+        }
+        is ScopeEntry.Function -> {
+            resolverState.resolvedEnvironment.recordType(
+                node,
+                scopeEntry.type.returnType
+                    ?: throw RuntimeException("Call expression used with function ${node.callee}, which does not return a value."),
+            )
+        }
+
+        else -> {
+            throw RuntimeException("Function call attempted on unknown callee ${node.callee}")
+        }
+    }
+}
+
+private fun resolveAddressOfExpression(
+    node: Expression.Unary,
+    resolverState: ResolverState,
+) {
+    var target = node.target
+    while (target !is Expression.Identifier) {
+        when (target) {
+            is Expression.Paren -> target = target.target
+            is Expression.MemberLookup -> target = target.receiver
+            is Expression.Unary -> {
+                if (target.operator == UnaryOperator.DEREFERENCE) {
+                    target = target.target
+                } else {
+                    throw RuntimeException("Unsupported use of unary operator ${target.operator} under address-of")
+                }
+            }
+            else -> throw RuntimeException("Unsupported expression $target under address-of")
+        }
+    }
+    val targetType = resolverState.resolvedEnvironment.typeOf(target)
+    val pointeeType = resolverState.resolvedEnvironment.typeOf(node.target)
+    if (targetType is Type.Pointer) {
+        resolverState.resolvedEnvironment.recordType(
+            node,
+            Type.Pointer(
+                pointeeType = pointeeType,
+                addressSpace = targetType.addressSpace,
+                accessMode = targetType.accessMode,
+            ),
+        )
+    } else {
+        when (val scopeEntry = resolverState.currentScope.getEntry(target.name)) {
+            is ScopeEntry.GlobalVariable -> {
+                resolverState.resolvedEnvironment.recordType(
+                    node,
+                    Type.Pointer(
+                        pointeeType = pointeeType,
+                        // The spec seems to indicate that "handle" is the default for module-level variable declarations
+                        // for which no address space is specified.
+                        addressSpace = scopeEntry.astNode.addressSpace ?: AddressSpace.HANDLE,
+                        accessMode = scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
+                    ),
+                )
+            }
+            is ScopeEntry.LocalVariable -> {
+                resolverState.resolvedEnvironment.recordType(
+                    node,
+                    Type.Pointer(
+                        pointeeType = pointeeType,
+                        addressSpace = scopeEntry.astNode.addressSpace ?: AddressSpace.FUNCTION,
+                        accessMode = scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
+                    ),
+                )
+            }
+            else -> TODO("Unsupported target for address-of - scope entry is $scopeEntry")
+        }
+    }
+}
+
+private fun resolveFloatTypeDecl(floatTypeDecl: TypeDecl.FloatTypeDecl): Type.Float =
     when (floatTypeDecl) {
         TypeDecl.F16 -> Type.F16
         TypeDecl.F32 -> Type.F32
     }
 
-private fun resolveScalarTypeDecl(scalarTypeDecl: TypeDecl.ScalarTypeDecl): Type.ScalarType =
+private fun resolveScalarTypeDecl(scalarTypeDecl: TypeDecl.ScalarTypeDecl): Type.Scalar =
     when (scalarTypeDecl) {
         is TypeDecl.FloatTypeDecl -> resolveFloatTypeDecl(scalarTypeDecl)
         TypeDecl.Bool -> Type.Bool
@@ -305,7 +573,7 @@ private fun resolveScalarTypeDecl(scalarTypeDecl: TypeDecl.ScalarTypeDecl): Type
         TypeDecl.U32 -> Type.U32
     }
 
-private fun resolveVectorTypeDecl(vectorTypeDecl: TypeDecl.VectorTypeDecl): Type.VectorType {
+private fun resolveVectorTypeDecl(vectorTypeDecl: TypeDecl.VectorTypeDecl): Type.Vector {
     val elementType = resolveScalarTypeDecl(vectorTypeDecl.elementType)
     return when (vectorTypeDecl) {
         is TypeDecl.Vec2 -> Type.Vec2(elementType)
@@ -314,7 +582,7 @@ private fun resolveVectorTypeDecl(vectorTypeDecl: TypeDecl.VectorTypeDecl): Type
     }
 }
 
-private fun resolveMatrixTypeDecl(matrixTypeDecl: TypeDecl.MatrixTypeDecl): Type.MatrixType {
+private fun resolveMatrixTypeDecl(matrixTypeDecl: TypeDecl.MatrixTypeDecl): Type.Matrix {
     val elementType = resolveFloatTypeDecl(matrixTypeDecl.elementType)
     return when (matrixTypeDecl) {
         is TypeDecl.Mat2x2 -> {
@@ -355,6 +623,33 @@ private fun resolveMatrixTypeDecl(matrixTypeDecl: TypeDecl.MatrixTypeDecl): Type
     }
 }
 
+private fun concretizeInitializerType(type: Type): Type =
+    when (type) {
+        is Type.AbstractInteger -> Type.I32
+        is Type.AbstractFloat -> Type.F32
+        is Type.Vec2 -> Type.Vec2(concretizeInitializerType(type.elementType) as Type.Scalar)
+        is Type.Vec3 -> Type.Vec3(concretizeInitializerType(type.elementType) as Type.Scalar)
+        is Type.Vec4 -> Type.Vec4(concretizeInitializerType(type.elementType) as Type.Scalar)
+        is Type.Mat2x2 -> Type.Mat2x2(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat2x3 -> Type.Mat2x3(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat2x4 -> Type.Mat2x4(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat3x2 -> Type.Mat3x2(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat3x3 -> Type.Mat3x3(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat3x4 -> Type.Mat3x4(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat4x2 -> Type.Mat4x2(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat4x3 -> Type.Mat4x3(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Mat4x4 -> Type.Mat4x4(concretizeInitializerType(type.elementType) as Type.Float)
+        is Type.Array ->
+            Type.Array(
+                elementType = concretizeInitializerType(type.elementType),
+                elementCount = type.elementCount,
+            )
+        else -> {
+            assert(!type.isAbstract())
+            throw RuntimeException("Attempt to concretize non-abstract type.")
+        }
+    }
+
 private fun evaluateToInt(expression: Expression): Int? {
     if (expression is Expression.IntLiteral) {
         if (expression.text.endsWith("u") || expression.text.endsWith("i")) {
@@ -375,8 +670,49 @@ private fun resolveTypeDecl(
                 elementType = resolveTypeDecl(typeDecl.elementType, resolverState),
                 elementCount = typeDecl.elementCount?.let(::evaluateToInt),
             )
-        is TypeDecl.NamedType -> TODO()
-        is TypeDecl.Pointer -> TODO()
+        is TypeDecl.NamedType -> {
+            when (typeDecl.name) {
+                "vec2f" -> Type.Vec3(Type.F32)
+                "vec3f" -> Type.Vec3(Type.F32)
+                "vec4f" -> Type.Vec3(Type.F32)
+                "vec2i" -> Type.Vec3(Type.I32)
+                "vec3i" -> Type.Vec3(Type.I32)
+                "vec4i" -> Type.Vec3(Type.I32)
+                "vec2u" -> Type.Vec3(Type.U32)
+                "vec3u" -> Type.Vec3(Type.U32)
+                "vec4u" -> Type.Vec3(Type.U32)
+                "atomic" -> {
+                    if (typeDecl.templateArgs.size != 1) {
+                        throw RuntimeException("Atomic type must have exactly one template argument")
+                    }
+                    when (resolveTypeDecl(typeDecl.templateArgs[0], resolverState)) {
+                        Type.I32 -> Type.AtomicI32
+                        Type.U32 -> Type.AtomicU32
+                        else -> throw RuntimeException("Argument to atomic type must be u32 or i32")
+                    }
+                }
+                else -> {
+                    when (val scopeEntry = resolverState.currentScope.getEntry(typeDecl.name)) {
+                        is ScopeEntry.Struct -> {
+                            scopeEntry.type
+                        }
+                        else -> {
+                            TODO("Unknown typed declaration: ${typeDecl.name}")
+                        }
+                    }
+                }
+            }
+        }
+        is TypeDecl.Pointer ->
+            Type.Pointer(
+                pointeeType =
+                    resolveTypeDecl(
+                        typeDecl.pointeeType,
+                        resolverState,
+                    ),
+                addressSpace = typeDecl.addressSpace,
+                accessMode = typeDecl.accessMode ?: AccessMode.READ_WRITE,
+            )
         is TypeDecl.ScalarTypeDecl -> resolveScalarTypeDecl(typeDecl)
         is TypeDecl.VectorTypeDecl -> resolveVectorTypeDecl(typeDecl)
         is TypeDecl.MatrixTypeDecl -> resolveMatrixTypeDecl(typeDecl)

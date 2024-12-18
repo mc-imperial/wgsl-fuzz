@@ -597,7 +597,7 @@ private class AstBuilder(
         if (ctx.PTR() != null) {
             return TypeDecl.Pointer(
                 addressSpace = handleAddressSpace(ctx.address_space.text),
-                targetType = visitType_decl(ctx.type_decl()),
+                pointeeType = visitType_decl(ctx.type_decl()),
                 accessMode = ctx.access_mode?.text?.let(::handleAccessMode),
             )
         }

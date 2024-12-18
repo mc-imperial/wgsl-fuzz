@@ -419,7 +419,7 @@ sealed interface TypeDecl : AstNode {
 
     class Pointer(
         var addressSpace: AddressSpace,
-        var targetType: TypeDecl,
+        var pointeeType: TypeDecl,
         var accessMode: AccessMode?,
     ) : TypeDecl
 }
