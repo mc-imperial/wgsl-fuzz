@@ -65,6 +65,7 @@ private class ScopeImpl(
         name: String,
         node: ScopeEntry,
     ) {
+        assert(name !in entries.keys)
         entries[name] = node
     }
 
@@ -415,25 +416,20 @@ private fun resolveExpressionType(
                 else -> TODO("Not implemented support for ${expression.operator}")
             }
         }
-//        is Expression.Unary -> {
-//            when (node.operator) {
-//                UnaryOperator.DEREFERENCE -> {
-//                    val pointerType = resolverState.resolvedEnvironment.typeOf(node.target)
-//                    if (pointerType !is Type.Pointer) {
-//                        throw RuntimeException("Dereference applied to expression $node with non-pointer type")
-//                    }
-//                    resolverState.resolvedEnvironment.recordType(node, pointerType.pointeeType)
-//                }
-//
-//                UnaryOperator.ADDRESS_OF -> {
-//                    resolveAddressOfExpression(node, resolverState)
-//                }
-//
-//                else -> {
-//                    TODO("Not implemented support for ${node.operator}")
-//                }
-//            }
-//        }
+        is Expression.Unary ->
+            when (expression.operator) {
+                UnaryOperator.DEREFERENCE -> {
+                    val pointerType = resolverState.resolvedEnvironment.typeOf(expression.target)
+                    if (pointerType !is Type.Pointer) {
+                        throw RuntimeException("Dereference applied to expression $expression with non-pointer type")
+                    }
+                    pointerType.pointeeType
+                }
+                UnaryOperator.ADDRESS_OF -> {
+                    resolveTypeOfAddressOfExpression(expression, resolverState)
+                }
+                else -> TODO("Not implemented support for ${expression.operator}")
+            }
         is Expression.Paren -> resolverState.resolvedEnvironment.typeOf(expression.target)
         is Expression.Identifier ->
             when (val scopeEntry = resolverState.currentScope.getEntry(expression.name)) {
@@ -494,9 +490,54 @@ private fun resolveTypeOfVectorValueConstructor(
 }
 
 private fun resolveTypeOfMatrixValueConstructor(
-    node: Expression.MatrixValueConstructor,
+    expression: Expression.MatrixValueConstructor,
     resolverState: ResolverState,
-): Type.Matrix = TODO()
+): Type.Matrix {
+    val elementType: Type.Float =
+        if (expression.elementType != null) {
+            resolveTypeDecl(expression.elementType!!, resolverState) as Type.Float
+        } else {
+            var candidateElementType: Type.Scalar? = null
+            for (arg in expression.args) {
+                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg)
+                when (elementTypeForArg) {
+                    is Type.Float -> {
+                        // Nothing to do
+                    }
+                    is Type.Vector -> {
+                        elementTypeForArg = elementTypeForArg.elementType
+                    }
+                    is Type.Matrix -> {
+                        elementTypeForArg = elementTypeForArg.elementType
+                    }
+                    else -> {
+                        throw RuntimeException("A matrix may only be constructed from matrices, vectors and scalars.")
+                    }
+                }
+                if (candidateElementType == null || candidateElementType.isAbstractionOf(elementTypeForArg)) {
+                    candidateElementType = (elementTypeForArg as Type.Scalar) // Kotlin typechecker bug? This "as" should not be needed.
+                } else if (!elementTypeForArg.isAbstractionOf(candidateElementType)) {
+                    throw RuntimeException("Matrix constructed from incompatible mix of element types.")
+                }
+            }
+            when (candidateElementType) {
+                is Type.Float -> candidateElementType
+                is Type.AbstractInteger -> Type.AbstractFloat
+                else -> throw RuntimeException("Invalid types provided to matrix constructor.")
+            }
+        }
+    return when (expression) {
+        is Expression.Mat2x2ValueConstructor -> Type.Matrix(2, 2, elementType)
+        is Expression.Mat2x3ValueConstructor -> Type.Matrix(2, 3, elementType)
+        is Expression.Mat2x4ValueConstructor -> Type.Matrix(2, 4, elementType)
+        is Expression.Mat3x2ValueConstructor -> Type.Matrix(3, 2, elementType)
+        is Expression.Mat3x3ValueConstructor -> Type.Matrix(3, 3, elementType)
+        is Expression.Mat3x4ValueConstructor -> Type.Matrix(3, 4, elementType)
+        is Expression.Mat4x2ValueConstructor -> Type.Matrix(4, 2, elementType)
+        is Expression.Mat4x3ValueConstructor -> Type.Matrix(4, 3, elementType)
+        is Expression.Mat4x4ValueConstructor -> Type.Matrix(4, 4, elementType)
+    }
+}
 
 private fun resolveTypeOfArrayValueConstructor(
     expression: Expression.ArrayValueConstructor,
@@ -634,11 +675,11 @@ private fun resolveTypeOfFunctionCallExpression(
         else -> throw RuntimeException("Function call attempted on unknown callee ${functionCallExpression.callee}")
     }
 
-private fun resolveAddressOfExpression(
-    node: Expression.Unary,
+private fun resolveTypeOfAddressOfExpression(
+    expression: Expression.Unary,
     resolverState: ResolverState,
-) {
-    var target = node.target
+): Type {
+    var target = expression.target
     while (target !is Expression.Identifier) {
         when (target) {
             is Expression.Paren -> target = target.target
@@ -654,40 +695,29 @@ private fun resolveAddressOfExpression(
         }
     }
     val targetType = resolverState.resolvedEnvironment.typeOf(target)
-    val pointeeType = resolverState.resolvedEnvironment.typeOf(node.target)
-    if (targetType is Type.Pointer) {
-        resolverState.resolvedEnvironment.recordType(
-            node,
-            Type.Pointer(
-                pointeeType = pointeeType,
-                addressSpace = targetType.addressSpace,
-                accessMode = targetType.accessMode,
-            ),
+    val pointeeType = resolverState.resolvedEnvironment.typeOf(expression.target)
+    return if (targetType is Type.Pointer) {
+        Type.Pointer(
+            pointeeType = pointeeType,
+            addressSpace = targetType.addressSpace,
+            accessMode = targetType.accessMode,
         )
     } else {
         when (val scopeEntry = resolverState.currentScope.getEntry(target.name)) {
-            is ScopeEntry.GlobalVariable -> {
-                resolverState.resolvedEnvironment.recordType(
-                    node,
-                    Type.Pointer(
-                        pointeeType = pointeeType,
-                        // The spec seems to indicate that "handle" is the default for module-level variable declarations
-                        // for which no address space is specified.
-                        addressSpace = scopeEntry.astNode.addressSpace ?: AddressSpace.HANDLE,
-                        accessMode = scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
-                    ),
+            is ScopeEntry.GlobalVariable ->
+                Type.Pointer(
+                    pointeeType = pointeeType,
+                    // The spec seems to indicate that "handle" is the default for module-level variable declarations
+                    // for which no address space is specified.
+                    addressSpace = scopeEntry.astNode.addressSpace ?: AddressSpace.HANDLE,
+                    accessMode = scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
                 )
-            }
-            is ScopeEntry.LocalVariable -> {
-                resolverState.resolvedEnvironment.recordType(
-                    node,
-                    Type.Pointer(
-                        pointeeType = pointeeType,
-                        addressSpace = scopeEntry.astNode.addressSpace ?: AddressSpace.FUNCTION,
-                        accessMode = scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
-                    ),
+            is ScopeEntry.LocalVariable ->
+                Type.Pointer(
+                    pointeeType = pointeeType,
+                    addressSpace = scopeEntry.astNode.addressSpace ?: AddressSpace.FUNCTION,
+                    accessMode = scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
                 )
-            }
             else -> TODO("Unsupported target for address-of - scope entry is $scopeEntry")
         }
     }
