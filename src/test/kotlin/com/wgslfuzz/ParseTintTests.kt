@@ -69,6 +69,8 @@ class ParseTintTests {
         val byteOutputStream = ByteArrayOutputStream()
         try {
             val tu = parseFromFile(filename = wgslTestFilename, errorListener = errorListener)
+            // TODO: comment the following back in to test whether resolving works.
+            // resolve(tu)
             AstWriter(PrintStream(byteOutputStream)).emit(tu)
             parseFromString(wgslString = byteOutputStream.toString(), errorListener = errorListener)
         } catch (e: Exception) {

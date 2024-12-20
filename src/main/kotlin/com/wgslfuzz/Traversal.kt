@@ -131,7 +131,7 @@ fun <T> traverse(
             actionWithState(node.target)
         }
         is Statement.FunctionCall -> {
-            TODO()
+            node.args.forEach(actionWithState)
         }
         is Statement.Increment -> {
             actionWithState(node.target)
@@ -145,13 +145,20 @@ fun <T> traverse(
             node.initializer?.let(actionWithState)
         }
         is Statement.Loop -> {
-            TODO()
+            node.attributesAtStart.forEach(actionWithState)
+            node.attributesBeforeBody.forEach(actionWithState)
+            // TODO: Perhaps this needs to be reformulated as a compound statement, as a new scope should be opened here.
+            node.statements.forEach(actionWithState)
+            node.continuingStatement?.let(actionWithState)
         }
         is Statement.Return -> {
             node.expr?.let(actionWithState)
         }
         is Statement.Switch -> {
-            TODO()
+            node.attributesAtStart.forEach(actionWithState)
+            actionWithState(node.expression)
+            node.attributesBeforeBody.forEach(actionWithState)
+            node.clauses.forEach(actionWithState)
         }
         is Statement.While -> {
             node.attributes.forEach(actionWithState)
@@ -163,7 +170,8 @@ fun <T> traverse(
             actionWithState(node.type)
         }
         is SwitchClause -> {
-            TODO()
+            actionWithState(node.caseSelectors)
+            actionWithState(node.compoundStatement)
         }
         is TranslationUnit -> {
             node.directives.forEach(actionWithState)
@@ -174,7 +182,7 @@ fun <T> traverse(
             node.elementCount?.let(actionWithState)
         }
         is TypeDecl.MatrixTypeDecl -> {
-            TODO()
+            actionWithState(node.elementType)
         }
         is TypeDecl.NamedType -> {
             node.templateArgs.forEach(actionWithState)

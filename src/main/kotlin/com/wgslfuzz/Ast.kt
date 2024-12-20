@@ -163,12 +163,12 @@ sealed interface Expression : AstNode {
         val args: MutableList<Expression>,
     ) : Expression
 
-    abstract class ValueConstructor(
+    sealed class ValueConstructor(
         var typeName: String,
         val args: MutableList<Expression>,
     ) : Expression
 
-    abstract class ScalarValueConstructor(
+    sealed class ScalarValueConstructor(
         scalarTypeName: String,
         args: MutableList<Expression>,
     ) : ValueConstructor(scalarTypeName, args)
@@ -193,7 +193,7 @@ sealed interface Expression : AstNode {
         args: MutableList<Expression>,
     ) : ScalarValueConstructor("f32", args)
 
-    abstract class VectorValueConstructor(
+    sealed class VectorValueConstructor(
         vectorTypeName: String,
         var elementType: TypeDecl.ScalarTypeDecl?,
         args: MutableList<Expression>,
@@ -214,7 +214,7 @@ sealed interface Expression : AstNode {
         args: MutableList<Expression>,
     ) : VectorValueConstructor("vec4", elementType, args)
 
-    abstract class MatrixValueConstructor(
+    sealed class MatrixValueConstructor(
         matrixTypeName: String,
         var elementType: TypeDecl.FloatTypeDecl?,
         args: MutableList<Expression>,
