@@ -244,3 +244,159 @@ class FunctionType(
     val argTypes: List<Type>,
     val returnType: Type?,
 )
+
+val FrexpResultF16 =
+    Type.Struct(
+        name = "__frexp_result_f16",
+        members = mapOf("fract" to Type.F16, "exp" to Type.I32),
+    )
+
+val FrexpResultVec2F16 =
+    Type.Struct(
+        name = "__frexp_result_vec2_f16",
+        members = mapOf("fract" to Type.Vector(2, Type.F16), "exp" to Type.Vector(2, Type.I32)),
+    )
+
+val FrexpResultVec3F16 =
+    Type.Struct(
+        name = "__frexp_result_vec3_f16",
+        members = mapOf("fract" to Type.Vector(3, Type.F16), "exp" to Type.Vector(3, Type.I32)),
+    )
+
+val FrexpResultVec4F16 =
+    Type.Struct(
+        name = "__frexp_result_vec4_f16",
+        members = mapOf("fract" to Type.Vector(4, Type.F16), "exp" to Type.Vector(4, Type.I32)),
+    )
+
+val FrexpResultF32 =
+    Type.Struct(
+        name = "__frexp_result_f32",
+        members = mapOf("fract" to Type.F32, "exp" to Type.I32),
+    )
+
+val FrexpResultVec2F32 =
+    Type.Struct(
+        name = "__frexp_result_vec2_f32",
+        members = mapOf("fract" to Type.Vector(2, Type.F32), "exp" to Type.Vector(2, Type.I32)),
+    )
+
+val FrexpResultVec3F32 =
+    Type.Struct(
+        name = "__frexp_result_vec3_f32",
+        members = mapOf("fract" to Type.Vector(3, Type.F32), "exp" to Type.Vector(3, Type.I32)),
+    )
+
+val FrexpResultVec4F32 =
+    Type.Struct(
+        name = "__frexp_result_vec4_f32",
+        members = mapOf("fract" to Type.Vector(4, Type.F32), "exp" to Type.Vector(4, Type.I32)),
+    )
+
+val FrexpResultAbstract =
+    Type.Struct(
+        name = "__frexp_result_abstract",
+        members = mapOf("fract" to Type.AbstractFloat, "exp" to Type.AbstractInteger),
+    )
+
+val FrexpResultVec2Abstract =
+    Type.Struct(
+        name = "__frexp_result_vec2_abstract",
+        members = mapOf("fract" to Type.Vector(2, Type.AbstractFloat), "exp" to Type.Vector(2, Type.AbstractInteger)),
+    )
+
+val FrexpResultVec3Abstract =
+    Type.Struct(
+        name = "__frexp_result_vec3_abstract",
+        members = mapOf("fract" to Type.Vector(3, Type.AbstractFloat), "exp" to Type.Vector(3, Type.AbstractInteger)),
+    )
+
+val FrexpResultVec4Abstract =
+    Type.Struct(
+        name = "__frexp_result_vec4_abstract",
+        members = mapOf("fract" to Type.Vector(4, Type.AbstractFloat), "exp" to Type.Vector(4, Type.AbstractInteger)),
+    )
+
+val ModfResultF16 =
+    Type.Struct(
+        name = "__modf_result_f16",
+        members = mapOf("fract" to Type.F16, "whole" to Type.F16),
+    )
+
+val ModfResultVec2F16 =
+    Type.Struct(
+        name = "__modf_result_vec2_f16",
+        members = mapOf("fract" to Type.Vector(2, Type.F16), "whole" to Type.Vector(2, Type.F16)),
+    )
+
+val ModfResultVec3F16 =
+    Type.Struct(
+        name = "__modf_result_vec3_f16",
+        members = mapOf("fract" to Type.Vector(3, Type.F16), "whole" to Type.Vector(3, Type.F16)),
+    )
+
+val ModfResultVec4F16 =
+    Type.Struct(
+        name = "__modf_result_vec4_f16",
+        members = mapOf("fract" to Type.Vector(4, Type.F16), "whole" to Type.Vector(4, Type.F16)),
+    )
+
+val ModfResultF32 =
+    Type.Struct(
+        name = "__modf_result_f32",
+        members = mapOf("fract" to Type.F32, "whole" to Type.F32),
+    )
+
+val ModfResultVec2F32 =
+    Type.Struct(
+        name = "__modf_result_vec2_f32",
+        members = mapOf("fract" to Type.Vector(2, Type.F32), "whole" to Type.Vector(2, Type.F32)),
+    )
+
+val ModfResultVec3F32 =
+    Type.Struct(
+        name = "__modf_result_vec3_f32",
+        members = mapOf("fract" to Type.Vector(3, Type.F32), "whole" to Type.Vector(3, Type.F32)),
+    )
+
+val ModfResultVec4F32 =
+    Type.Struct(
+        name = "__modf_result_vec4_f32",
+        members = mapOf("fract" to Type.Vector(4, Type.F32), "whole" to Type.Vector(4, Type.F32)),
+    )
+
+val ModfResultAbstract =
+    Type.Struct(
+        name = "__modf_result_abstract",
+        members = mapOf("fract" to Type.AbstractFloat, "whole" to Type.AbstractFloat),
+    )
+
+val ModfResultVec2Abstract =
+    Type.Struct(
+        name = "__modf_result_vec2_abstract",
+        members = mapOf("fract" to Type.Vector(2, Type.AbstractFloat), "whole" to Type.Vector(2, Type.AbstractFloat)),
+    )
+
+val ModfResultVec3Abstract =
+    Type.Struct(
+        name = "__modf_result_vec3_abstract",
+        members = mapOf("fract" to Type.Vector(3, Type.AbstractFloat), "whole" to Type.Vector(3, Type.AbstractFloat)),
+    )
+
+val ModfResultVec4Abstract =
+    Type.Struct(
+        name = "__modf_result_vec4_abstract",
+        members = mapOf("fract" to Type.Vector(4, Type.AbstractFloat), "whole" to Type.Vector(4, Type.AbstractFloat)),
+    )
+
+val AtomicCompareExchangeResultI32 =
+    Type.Struct(
+        name = "__atomic_compare_exchange_result_I32",
+        members = mapOf("old_value" to Type.I32, "exchanged" to Type.Bool),
+    )
+
+val AtomicCompareExchangeResultU32 =
+    Type.Struct(
+        name = "__atomic_compare_exchange_result_U32",
+        members = mapOf("old_value" to Type.U32, "exchanged" to Type.Bool),
+    )

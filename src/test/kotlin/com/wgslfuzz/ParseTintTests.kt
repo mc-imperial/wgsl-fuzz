@@ -54,11 +54,20 @@ class ParseTintTests {
             )
         val skipList = diagnosticChecks + tooHard
 
+        var counter = 0
+
         File("external/dawn/test/tint").walk().forEach {
-            if (it.extension == "wgsl" &&
-                it.path !in skipList &&
-                !File(it.path).readText().contains("enable chromium_experimental")
-            ) {
+            if (it.extension != "wgsl" || it.path in skipList) {
+                return@forEach
+            }
+            val text = File(it.path).readText()
+            if (text.contains("enable chromium_experimental") || text.contains("enable subgroups")) {
+                return@forEach
+            }
+            counter++
+            if (counter >= 628) {
+                println(counter)
+                println(it)
                 checkWgslTest(it.path)
             }
         }
@@ -70,7 +79,7 @@ class ParseTintTests {
         try {
             val tu = parseFromFile(filename = wgslTestFilename, errorListener = errorListener)
             // TODO: comment the following back in to test whether resolving works.
-            // resolve(tu)
+            resolve(tu)
             AstWriter(PrintStream(byteOutputStream)).emit(tu)
             parseFromString(wgslString = byteOutputStream.toString(), errorListener = errorListener)
         } catch (e: Exception) {

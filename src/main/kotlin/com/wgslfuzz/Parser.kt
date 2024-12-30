@@ -188,7 +188,12 @@ private class AstBuilder(
                     }?.toMutableList() ?: mutableListOf(),
             returnType =
                 ctx.function_header().type_decl()?.let(::visitType_decl),
-            body = visitCompound_statement(ctx.compound_statement()),
+            body =
+                ctx
+                    .compound_statement()
+                    .statement()
+                    .map(::visitStatement)
+                    .toMutableList(),
         )
 
     override fun visitGlobal_decl(ctx: WGSLParser.Global_declContext): GlobalDecl = super.visitGlobal_decl(ctx) as GlobalDecl
@@ -319,7 +324,12 @@ private class AstBuilder(
                         throw UnsupportedOperationException("Unsupported 'for' update statement.")
                     }
                 },
-            body = visitCompound_statement(ctx.compound_statement()),
+            body =
+                ctx
+                    .compound_statement()
+                    .statement()
+                    .map(::visitStatement)
+                    .toMutableList(),
         )
 
     override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While =

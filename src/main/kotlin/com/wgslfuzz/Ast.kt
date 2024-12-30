@@ -482,7 +482,9 @@ sealed interface Statement : AstNode {
         var init: ForInit?,
         var condition: Expression?,
         var update: ForUpdate?,
-        val body: Compound,
+        // For scoping reasons the body is represented as a statement list, rather than a compound statement,
+        // because the scope of the body includes declarations occurring in the header.
+        val body: MutableList<Statement>,
     ) : Statement
 
     class While(
@@ -580,7 +582,7 @@ sealed interface GlobalDecl : AstNode {
         var name: String,
         val parameters: MutableList<ParameterDecl>,
         var returnType: TypeDecl?,
-        var body: Statement.Compound,
+        val body: MutableList<Statement>,
     ) : GlobalDecl
 
     class Struct(

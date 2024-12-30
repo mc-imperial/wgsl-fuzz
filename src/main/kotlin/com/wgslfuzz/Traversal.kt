@@ -66,7 +66,7 @@ fun <T> traverse(
             node.attributes.forEach(actionWithState)
             node.parameters.forEach(actionWithState)
             node.returnType?.let(actionWithState)
-            actionWithState(node.body)
+            node.body.forEach(actionWithState)
         }
         is GlobalDecl.Override -> {
             node.attributes.forEach(actionWithState)
@@ -121,7 +121,7 @@ fun <T> traverse(
             node.init?.let(actionWithState)
             node.condition?.let(actionWithState)
             node.update?.let(actionWithState)
-            actionWithState(node.body)
+            node.body.forEach(actionWithState)
         }
         is Statement.Assignment -> {
             node.lhsExpression?.let(actionWithState)

@@ -377,7 +377,13 @@ class AstWriter(
             out.print("; ")
             update?.let { emit(it, true) }
             out.print(")\n")
-            emit(body)
+            emitIndent()
+            out.print("{\n")
+            increaseIndent()
+            body.forEach(::emit)
+            decreaseIndent()
+            emitIndent()
+            out.print("}\n")
         }
     }
 
@@ -721,7 +727,13 @@ class AstWriter(
                 emit(returnType!!)
             }
             out.print("\n")
-            emit(body)
+            emitIndent()
+            out.print("{\n")
+            increaseIndent()
+            body.forEach(::emit)
+            decreaseIndent()
+            emitIndent()
+            out.print("}\n")
         }
     }
 
