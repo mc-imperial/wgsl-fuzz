@@ -469,6 +469,7 @@ private fun resolveExpressionType(
                     assert(resolverState.resolvedEnvironment.typeOf(expression.target) == Type.Bool)
                     Type.Bool
                 }
+                UnaryOperator.MINUS -> resolverState.resolvedEnvironment.typeOf(expression.target)
                 else -> TODO("Not implemented support for ${expression.operator}")
             }
         is Expression.Paren -> resolverState.resolvedEnvironment.typeOf(expression.target)
@@ -617,8 +618,8 @@ private fun resolveTypeOfFunctionCallExpression(
             when (functionCallExpression.callee) {
                 // 1-argument functions with return type same as argument type
                 "abs", "acos", "acosh", "asin", "asinh", "atan", "atanh", "ceil", "cos", "cosh", "degrees", "dpdx",
-                "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "exp", "exp2", "fwidth", "fwidthCoarse",
-                "fwidthFine", "inverseSqrt", "sin", "sinh", "sqrt", "tan", "tanh",
+                "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "exp", "exp2", "fract", "fwidth",
+                "fwidthCoarse", "fwidthFine", "inverseSqrt", "log", "log2", "sin", "sinh", "sqrt", "tan", "tanh",
                 -> {
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("${functionCallExpression.callee} requires one argument.")
@@ -674,6 +675,12 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("atomicLoad requires a pointer to an atomic integer")
                     }
                     argType.pointeeType.targetType
+                }
+                "bitcast" -> {
+                    if (functionCallExpression.templateParameter == null) {
+                        throw RuntimeException("bitcast requires a template parameter for the target type.")
+                    }
+                    resolveTypeDecl(functionCallExpression.templateParameter!!, resolverState)
                 }
                 "countLeadingZeros", "countOneBits", "countTrailingZeros" -> {
                     if (functionCallExpression.args.size != 1) {
@@ -829,6 +836,7 @@ private fun resolveTypeOfFunctionCallExpression(
                         findCommonType(functionCallExpression.args.dropLast(1), resolverState)
                     }
                 }
+                "textureGatherCompare" -> Type.Vector(4, Type.F32)
                 "textureSample" -> {
                     if (functionCallExpression.args.size < 1) {
                         throw RuntimeException("Not enough arguments provided to textureSample.")
@@ -849,8 +857,12 @@ private fun resolveTypeOfFunctionCallExpression(
                         }
                     }
                 }
+                "textureSampleBaseClampToEdge" -> Type.Vector(4, Type.F32)
                 "textureSampleCompareLevel" -> Type.F32
                 "textureSampleGrad" -> Type.Vector(4, Type.F32)
+                "unpack4x8snorm", "unpack4x8unorm", "unpack2x16snorm", "unpack2x16unorm", "unpack2x16float" -> Type.Vector(4, Type.F32)
+                "unpack4xI8" -> Type.Vector(4, Type.I32)
+                "unpack4xU8" -> Type.Vector(4, Type.U32)
                 "vec2i" -> Type.Vector(2, Type.I32)
                 "vec3i" -> Type.Vector(3, Type.I32)
                 "vec4i" -> Type.Vector(4, Type.I32)
@@ -1129,6 +1141,17 @@ private fun resolveTypeDecl(
                         "texture_depth_2d_array" -> Type.Texture.Depth2DArray
                         "texture_depth_cube" -> Type.Texture.DepthCube
                         "texture_depth_cube_array" -> Type.Texture.DepthCubeArray
+                        "texture_external" -> Type.Texture.External
+                        "texture_storage_1d" -> {
+                            if (typeDecl.templateArgs.size != 2) {
+                                throw RuntimeException("${typeDecl.name} requires Format and Access template arguments.")
+                            }
+                            val templateArgs = typeDecl.templateArgs
+                            TODO()
+                        }
+                        "texture_storage_2d" -> TODO()
+                        "texture_storage_2d_array" -> TODO()
+                        "texture_storage_3d" -> TODO()
                         "vec2f" -> Type.Vector(3, Type.F32)
                         "vec3f" -> Type.Vector(3, Type.F32)
                         "vec4f" -> Type.Vector(3, Type.F32)
