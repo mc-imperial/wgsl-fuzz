@@ -1,25 +1,5 @@
 package com.wgslfuzz
 
-enum class TexelFormat {
-    RGBA8UNORM,
-    RGBA8SNORM,
-    RGBA8UINT,
-    RGBA8SINT,
-    RGBA16UINT,
-    RGBA16SINT,
-    RGBA16FLOAT,
-    R32UINT,
-    R32SINT,
-    R32FLOAT,
-    RG32UINT,
-    RG32SINT,
-    RG32FLOAT,
-    RGBA32UINT,
-    RGBA32SINT,
-    RGBA32FLOAT,
-    BGRA8UNORM,
-}
-
 sealed interface Type {
     fun isAbstract(): Boolean
 

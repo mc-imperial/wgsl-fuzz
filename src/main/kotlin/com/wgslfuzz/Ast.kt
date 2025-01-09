@@ -11,12 +11,6 @@ class TranslationUnit(
     val globalDecls: MutableList<GlobalDecl>,
 ) : AstNode
 
-enum class AccessMode {
-    READ,
-    WRITE,
-    READ_WRITE,
-}
-
 enum class AddressSpace {
     FUNCTION,
     PRIVATE,
@@ -414,7 +408,6 @@ sealed interface TypeDecl : AstNode {
 
     class NamedType(
         var name: String,
-        val templateArgs: MutableList<TypeDecl>,
     ) : TypeDecl
 
     class Pointer(
@@ -422,6 +415,84 @@ sealed interface TypeDecl : AstNode {
         var pointeeType: TypeDecl,
         var accessMode: AccessMode?,
     ) : TypeDecl
+
+    class Atomic(
+        var targetType: TypeDecl,
+    ) : TypeDecl
+
+    data object SamplerRegular : TypeDecl
+
+    data object SamplerComparison : TypeDecl
+
+    // Sampled Texture Types
+
+    class TextureSampled1D(
+        var sampledType: TypeDecl,
+    ) : TypeDecl
+
+    class TextureSampled2D(
+        var sampledType: TypeDecl,
+    ) : TypeDecl
+
+    class TextureSampled2DArray(
+        var sampledType: TypeDecl,
+    ) : TypeDecl
+
+    class TextureSampled3D(
+        var sampledType: TypeDecl,
+    ) : TypeDecl
+
+    class TextureSampledCube(
+        var sampledType: TypeDecl,
+    ) : TypeDecl
+
+    class TextureSampledCubeArray(
+        var sampledType: TypeDecl,
+    ) : TypeDecl
+
+    // Multisampled Texture Types
+
+    class TextureMultisampled2d(
+        var sampledType: TypeDecl,
+    ) : TypeDecl
+
+    data object TextureDepthMultisampled2D : TypeDecl
+
+    // External Sampled Texture Types
+
+    data object TextureExternal : TypeDecl
+
+    // Storage Texture Types
+
+    data class TextureStorage1D(
+        var format: TexelFormat,
+        var accessMode: AccessMode,
+    ) : TypeDecl
+
+    data class TextureStorage2D(
+        var format: TexelFormat,
+        var accessMode: AccessMode,
+    ) : TypeDecl
+
+    data class TextureStorage2DArray(
+        var format: TexelFormat,
+        var accessMode: AccessMode,
+    ) : TypeDecl
+
+    data class TextureStorage3D(
+        var format: TexelFormat,
+        var accessMode: AccessMode,
+    ) : TypeDecl
+
+    // Depth Texture Types
+
+    data object TextureDepth2D : TypeDecl
+
+    data object TextureDepth2DArray : TypeDecl
+
+    data object TextureDepthCube : TypeDecl
+
+    data object TextureDepthCubeArray : TypeDecl
 }
 
 class ContinuingStatement(

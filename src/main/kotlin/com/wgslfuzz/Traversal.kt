@@ -185,7 +185,7 @@ fun <T> traverse(
             actionWithState(node.elementType)
         }
         is TypeDecl.NamedType -> {
-            node.templateArgs.forEach(actionWithState)
+            // Nothing to do
         }
         is TypeDecl.Pointer -> {
             actionWithState(node.pointeeType)
@@ -195,6 +195,66 @@ fun <T> traverse(
         }
         is TypeDecl.VectorTypeDecl -> {
             actionWithState(node.elementType)
+        }
+        is TypeDecl.Atomic -> {
+            actionWithState(node.targetType)
+        }
+        TypeDecl.SamplerComparison -> {
+            // Nothing to do
+        }
+        TypeDecl.SamplerRegular -> {
+            // Nothing to do
+        }
+        TypeDecl.TextureDepth2D -> {
+            // Nothing to do
+        }
+        TypeDecl.TextureDepth2DArray -> {
+            // Nothing to do
+        }
+        TypeDecl.TextureDepthCube -> {
+            // Nothing to do
+        }
+        TypeDecl.TextureDepthCubeArray -> {
+            // Nothing to do
+        }
+        TypeDecl.TextureDepthMultisampled2D -> {
+            // Nothing to do
+        }
+        TypeDecl.TextureExternal -> {
+            // Nothing to do
+        }
+        is TypeDecl.TextureMultisampled2d -> {
+            actionWithState(node.sampledType)
+        }
+        is TypeDecl.TextureSampled1D -> {
+            actionWithState(node.sampledType)
+        }
+        is TypeDecl.TextureSampled2D -> {
+            actionWithState(node.sampledType)
+        }
+        is TypeDecl.TextureSampled2DArray -> {
+            actionWithState(node.sampledType)
+        }
+        is TypeDecl.TextureSampled3D -> {
+            actionWithState(node.sampledType)
+        }
+        is TypeDecl.TextureSampledCube -> {
+            actionWithState(node.sampledType)
+        }
+        is TypeDecl.TextureSampledCubeArray -> {
+            actionWithState(node.sampledType)
+        }
+        is TypeDecl.TextureStorage1D -> {
+            // Nothing to do
+        }
+        is TypeDecl.TextureStorage2D -> {
+            // Nothing to do
+        }
+        is TypeDecl.TextureStorage2DArray -> {
+            // Nothing to do
+        }
+        is TypeDecl.TextureStorage3D -> {
+            // Nothing to do
         }
     }
 }

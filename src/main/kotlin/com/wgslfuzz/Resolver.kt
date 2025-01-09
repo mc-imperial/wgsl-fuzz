@@ -1119,39 +1119,6 @@ private fun resolveTypeDecl(
                 }
                 null -> {
                     when (typeDecl.name) {
-                        "atomic" -> {
-                            if (typeDecl.templateArgs.size != 1) {
-                                throw RuntimeException("Atomic type must have exactly one template argument")
-                            }
-                            when (resolveTypeDecl(typeDecl.templateArgs[0], resolverState)) {
-                                Type.I32 -> Type.AtomicI32
-                                Type.U32 -> Type.AtomicU32
-                                else -> throw RuntimeException("Argument to atomic type must be u32 or i32")
-                            }
-                        }
-                        "sampler" -> Type.SamplerRegular
-                        "sampler_comparison" -> Type.SamplerComparison
-                        "texture_1d" -> Type.Texture.Sampled1D(getSampledType(typeDecl, resolverState))
-                        "texture_2d" -> Type.Texture.Sampled2D(getSampledType(typeDecl, resolverState))
-                        "texture_2d_array" -> Type.Texture.Sampled2DArray(getSampledType(typeDecl, resolverState))
-                        "texture_3d" -> Type.Texture.Sampled3D(getSampledType(typeDecl, resolverState))
-                        "texture_cube" -> Type.Texture.SampledCube(getSampledType(typeDecl, resolverState))
-                        "texture_cube_array" -> Type.Texture.SampledCubeArray(getSampledType(typeDecl, resolverState))
-                        "texture_depth_2d" -> Type.Texture.Depth2D
-                        "texture_depth_2d_array" -> Type.Texture.Depth2DArray
-                        "texture_depth_cube" -> Type.Texture.DepthCube
-                        "texture_depth_cube_array" -> Type.Texture.DepthCubeArray
-                        "texture_external" -> Type.Texture.External
-                        "texture_storage_1d" -> {
-                            if (typeDecl.templateArgs.size != 2) {
-                                throw RuntimeException("${typeDecl.name} requires Format and Access template arguments.")
-                            }
-                            val templateArgs = typeDecl.templateArgs
-                            TODO()
-                        }
-                        "texture_storage_2d" -> TODO()
-                        "texture_storage_2d_array" -> TODO()
-                        "texture_storage_3d" -> TODO()
                         "vec2f" -> Type.Vector(3, Type.F32)
                         "vec3f" -> Type.Vector(3, Type.F32)
                         "vec4f" -> Type.Vector(3, Type.F32)
@@ -1182,6 +1149,67 @@ private fun resolveTypeDecl(
         is TypeDecl.ScalarTypeDecl -> resolveScalarTypeDecl(typeDecl)
         is TypeDecl.VectorTypeDecl -> resolveVectorTypeDecl(typeDecl)
         is TypeDecl.MatrixTypeDecl -> resolveMatrixTypeDecl(typeDecl)
+        is TypeDecl.Atomic -> {
+            when (resolveTypeDecl(typeDecl.targetType, resolverState)) {
+                Type.I32 -> Type.AtomicI32
+                Type.U32 -> Type.AtomicU32
+                else -> throw RuntimeException("Inappropriate target type for atomic type.")
+            }
+        }
+        TypeDecl.SamplerComparison -> Type.SamplerComparison
+        TypeDecl.SamplerRegular -> Type.SamplerRegular
+        TypeDecl.TextureDepth2D -> Type.Texture.Depth2D
+        TypeDecl.TextureDepth2DArray -> Type.Texture.Depth2DArray
+        TypeDecl.TextureDepthCube -> Type.Texture.DepthCube
+        TypeDecl.TextureDepthCubeArray -> Type.Texture.DepthCubeArray
+        TypeDecl.TextureDepthMultisampled2D -> Type.Texture.DepthMultisampled2D
+        TypeDecl.TextureExternal -> Type.Texture.External
+        is TypeDecl.TextureMultisampled2d -> {
+            when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
+                is Type.Scalar -> Type.Texture.Multisampled2d(sampledType)
+                else -> throw RuntimeException("texture_multisampled_2d requires a scalar sampler type.")
+            }
+        }
+        is TypeDecl.TextureSampled1D -> {
+            when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
+                is Type.Scalar -> Type.Texture.Sampled1D(sampledType)
+                else -> throw RuntimeException("texture_1d requires a scalar sampler type.")
+            }
+        }
+        is TypeDecl.TextureSampled2D -> {
+            when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
+                is Type.Scalar -> Type.Texture.Sampled2D(sampledType)
+                else -> throw RuntimeException("texture_2d requires a scalar sampler type.")
+            }
+        }
+        is TypeDecl.TextureSampled2DArray -> {
+            when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
+                is Type.Scalar -> Type.Texture.Sampled2DArray(sampledType)
+                else -> throw RuntimeException("texture_2d_array requires a scalar sampler type.")
+            }
+        }
+        is TypeDecl.TextureSampled3D -> {
+            when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
+                is Type.Scalar -> Type.Texture.Sampled3D(sampledType)
+                else -> throw RuntimeException("texture_3d requires a scalar sampler type.")
+            }
+        }
+        is TypeDecl.TextureSampledCube -> {
+            when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
+                is Type.Scalar -> Type.Texture.SampledCube(sampledType)
+                else -> throw RuntimeException("texture_cube requires a scalar sampler type.")
+            }
+        }
+        is TypeDecl.TextureSampledCubeArray -> {
+            when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
+                is Type.Scalar -> Type.Texture.SampledCubeArray(sampledType)
+                else -> throw RuntimeException("texture_cube_array requires a scalar sampler type.")
+            }
+        }
+        is TypeDecl.TextureStorage1D -> Type.Texture.Storage1D(typeDecl.format, typeDecl.accessMode)
+        is TypeDecl.TextureStorage2D -> Type.Texture.Storage2D(typeDecl.format, typeDecl.accessMode)
+        is TypeDecl.TextureStorage2DArray -> Type.Texture.Storage2DArray(typeDecl.format, typeDecl.accessMode)
+        is TypeDecl.TextureStorage3D -> Type.Texture.Storage3D(typeDecl.format, typeDecl.accessMode)
     }
 
 private fun resolveFunctionHeader(
@@ -1227,19 +1255,6 @@ private fun resolveFunctionBody(
         }
     }
 }
-
-private fun getSampledType(
-    typeDecl: TypeDecl.NamedType,
-    resolverState: ResolverState,
-): Type.Scalar =
-    if (typeDecl.templateArgs.size == 1) {
-        when (val sampledType = resolveTypeDecl(typeDecl.templateArgs[0], resolverState)) {
-            Type.I32, Type.U32, Type.F32 -> sampledType as Type.Scalar
-            else -> throw RuntimeException("Sampled type must be f32, i32 or u32.")
-        }
-    } else {
-        throw RuntimeException("Texture type requires a sampled type argument.")
-    }
 
 fun resolve(tu: TranslationUnit): ResolvedEnvironment {
     val (topLevelNameDependencies, nameToDecl) = collectTopLevelNameDependencies(tu)

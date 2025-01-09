@@ -160,7 +160,13 @@ struct_member: attribute* IDENT COLON type_decl;
 
 type_alias_decl: ALIAS IDENT EQUAL type_decl;
 
-type_decl: IDENT (LESS_THAN type_decl (COMMA type_decl)* COMMA? GREATER_THAN)? | type_decl_without_ident;
+type_decl_template_arg: FLOAT16
+                      | FLOAT32
+                      | INT32
+                      | UINT32
+                      | IDENT;
+
+type_decl: IDENT (LESS_THAN type_decl_template_arg (COMMA type_decl_template_arg)* COMMA? GREATER_THAN)? | type_decl_without_ident;
 
 type_decl_without_ident: BOOL
                        | FLOAT16

@@ -3,6 +3,7 @@ package com.wgslfuzz
 import com.wgslfuzz.WGSLParser.AttributeContext
 import com.wgslfuzz.WGSLParser.Postfix_expressionContext
 import com.wgslfuzz.WGSLParser.Translation_unitContext
+import com.wgslfuzz.WGSLParser.Type_decl_template_argContext
 import org.antlr.v4.runtime.ANTLRErrorListener
 import org.antlr.v4.runtime.BailErrorStrategy
 import org.antlr.v4.runtime.CharStreams
@@ -618,14 +619,92 @@ private class AstBuilder(
         if (ctx.type_decl_without_ident() != null) {
             visitType_decl_without_ident(ctx.type_decl_without_ident())
         } else {
-            TypeDecl.NamedType(
-                name = ctx.IDENT().text,
-                templateArgs =
-                    ctx
-                        .type_decl()
-                        .map(::visitType_decl)
-                        .toMutableList(),
-            )
+            when (ctx.IDENT().text) {
+                "atomic" -> TypeDecl.Atomic(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "sampler" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("sampler does not take template parameters.")
+                    }
+                    TypeDecl.SamplerRegular
+                }
+                "sampler_comparison" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("sampler_comparison does not take template parameters.")
+                    }
+                    TypeDecl.SamplerComparison
+                }
+                "texture_1d" -> TypeDecl.TextureSampled1D(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "texture_2d" -> TypeDecl.TextureSampled2D(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "texture_2d_array" -> TypeDecl.TextureSampled2DArray(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "texture_3d" -> TypeDecl.TextureSampled3D(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "texture_cube" -> TypeDecl.TextureSampledCube(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "texture_cube_array" -> TypeDecl.TextureSampledCubeArray(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "texture_multisampled_2d" -> TypeDecl.TextureMultisampled2d(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
+                "texture_depth_multisampled_2d" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("texture_depth_multisampled_2d does not take template parameters.")
+                    }
+                    TypeDecl.TextureDepthMultisampled2D
+                }
+                "texture_external" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("texture_external does not take template parameters.")
+                    }
+                    TypeDecl.TextureExternal
+                }
+                "texture_storage_1d" ->
+                    TypeDecl.TextureStorage1D(
+                        format = getTextureStorageFormatTemplateArg(ctx.type_decl_template_arg()),
+                        accessMode = getTextureStorageAccessModeTemplateArg(ctx.type_decl_template_arg()),
+                    )
+                "texture_storage_2d" ->
+                    TypeDecl.TextureStorage2D(
+                        format = getTextureStorageFormatTemplateArg(ctx.type_decl_template_arg()),
+                        accessMode = getTextureStorageAccessModeTemplateArg(ctx.type_decl_template_arg()),
+                    )
+                "texture_storage_2d_array" ->
+                    TypeDecl.TextureStorage2DArray(
+                        format = getTextureStorageFormatTemplateArg(ctx.type_decl_template_arg()),
+                        accessMode = getTextureStorageAccessModeTemplateArg(ctx.type_decl_template_arg()),
+                    )
+                "texture_storage_3d" ->
+                    TypeDecl.TextureStorage3D(
+                        format = getTextureStorageFormatTemplateArg(ctx.type_decl_template_arg()),
+                        accessMode = getTextureStorageAccessModeTemplateArg(ctx.type_decl_template_arg()),
+                    )
+                "texture_depth_2d" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("texture_depth_2d does not take template parameters.")
+                    }
+                    TypeDecl.TextureDepth2D
+                }
+                "texture_depth_2d_array" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("texture_depth_2d_array does not take template parameters.")
+                    }
+                    TypeDecl.TextureDepth2DArray
+                }
+                "texture_depth_cube" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("texture_depth_cube does not take template parameters.")
+                    }
+                    TypeDecl.TextureDepthCube
+                }
+                "texture_depth_cube_array" -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("texture_depth_cube_array does not take template parameters.")
+                    }
+                    TypeDecl.TextureDepthCubeArray
+                }
+                else -> {
+                    if (ctx.type_decl_template_arg().isNotEmpty()) {
+                        throw RuntimeException("Named type should not have template arguments.")
+                    }
+                    TypeDecl.NamedType(
+                        name = ctx.IDENT().text,
+                    )
+                }
+            }
         }
 
     override fun visitShort_circuit_or_expression(ctx: WGSLParser.Short_circuit_or_expressionContext): Expression {
@@ -974,6 +1053,72 @@ private class AstBuilder(
             } else {
                 throw UnsupportedOperationException("Unknown callable value expression.")
             }
+        }
+    }
+
+    private fun getSingleTypeDeclTemplateArg(ctxs: List<Type_decl_template_argContext>): TypeDecl {
+        if (ctxs.size != 1) {
+            throw RuntimeException("Expected a single template parameter.")
+        }
+        val ctx = ctxs[0]
+        return if (ctx.FLOAT16() != null) {
+            TypeDecl.F16
+        } else if (ctx.FLOAT32() != null) {
+            TypeDecl.F32
+        } else if (ctx.INT32() != null) {
+            TypeDecl.I32
+        } else if (ctx.UINT32() != null) {
+            TypeDecl.U32
+        } else {
+            TypeDecl.NamedType(
+                name = ctx.IDENT().text,
+            )
+        }
+    }
+
+    private fun getTextureStorageFormatTemplateArg(ctxs: List<Type_decl_template_argContext>): TexelFormat {
+        if (ctxs.size != 2) {
+            throw RuntimeException("Expected a two template parameters.")
+        }
+        val formatArg = ctxs[0]
+        if (formatArg.IDENT() == null) {
+            throw RuntimeException("No texel format argument found.")
+        }
+        return when (val texelFormat = formatArg.IDENT().text) {
+            "rgba8unorm" -> TexelFormat.RGBA8UNORM
+            "rgba8snorm" -> TexelFormat.RGBA8SNORM
+            "rgba8uint" -> TexelFormat.RGBA8UINT
+            "rgba8sint" -> TexelFormat.RGBA8SINT
+            "rgba16uint" -> TexelFormat.RGBA16UINT
+            "rgba16sint" -> TexelFormat.RGBA16SINT
+            "rgba16float" -> TexelFormat.RGBA16FLOAT
+            "r32uint" -> TexelFormat.R32UINT
+            "r32sint" -> TexelFormat.R32SINT
+            "r32float" -> TexelFormat.R32FLOAT
+            "rg32uint" -> TexelFormat.RG32UINT
+            "rg32sint" -> TexelFormat.RG32SINT
+            "rg32float" -> TexelFormat.RG32FLOAT
+            "rgba32uint" -> TexelFormat.RGBA32UINT
+            "rgba32sint" -> TexelFormat.RGBA32SINT
+            "rgba32float" -> TexelFormat.RGBA32FLOAT
+            "bgra8unorm" -> TexelFormat.BGRA8UNORM
+            else -> throw RuntimeException("Unknown texel format $texelFormat")
+        }
+    }
+
+    private fun getTextureStorageAccessModeTemplateArg(ctxs: List<Type_decl_template_argContext>): AccessMode {
+        if (ctxs.size != 2) {
+            throw RuntimeException("Expected a two template parameters.")
+        }
+        val accessModeArg = ctxs[1]
+        if (accessModeArg.IDENT() == null) {
+            throw RuntimeException("No access mode argument found.")
+        }
+        return when (val accessModeKind = accessModeArg.IDENT().text) {
+            "read" -> AccessMode.READ
+            "write" -> AccessMode.WRITE
+            "read_write" -> AccessMode.READ_WRITE
+            else -> throw RuntimeException("Unknown access mode $accessModeKind")
         }
     }
 

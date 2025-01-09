@@ -31,6 +31,30 @@ class AstWriter(
         )
     }
 
+    fun emit(texelFormat: TexelFormat) {
+        out.print(
+            when (texelFormat) {
+                TexelFormat.RGBA8UNORM -> "rgba8unorm"
+                TexelFormat.RGBA8SNORM -> "rgba8snorm"
+                TexelFormat.RGBA8UINT -> "rgba8uint"
+                TexelFormat.RGBA8SINT -> "rgba8sint"
+                TexelFormat.RGBA16UINT -> "rgba16uint"
+                TexelFormat.RGBA16SINT -> "rgba16sint"
+                TexelFormat.RGBA16FLOAT -> "rgba16float"
+                TexelFormat.R32UINT -> "r32uint"
+                TexelFormat.R32SINT -> "r32sint"
+                TexelFormat.R32FLOAT -> "r32float"
+                TexelFormat.RG32UINT -> "rg32uint"
+                TexelFormat.RG32SINT -> "rg32sint"
+                TexelFormat.RG32FLOAT -> "rg32float"
+                TexelFormat.RGBA32UINT -> "rgba32uint"
+                TexelFormat.RGBA32SINT -> "rgba32sint"
+                TexelFormat.RGBA32FLOAT -> "rgba32float"
+                TexelFormat.BGRA8UNORM -> "bgra8unorm"
+            },
+        )
+    }
+
     fun emit(addressSpace: AddressSpace) {
         out.print(
             when (addressSpace) {
@@ -272,14 +296,6 @@ class AstWriter(
             }
             is TypeDecl.NamedType -> {
                 out.print(typeDecl.name)
-                if (typeDecl.templateArgs.isNotEmpty()) {
-                    out.print("<")
-                    typeDecl.templateArgs.forEach {
-                        emit(it)
-                        out.print(", ")
-                    }
-                    out.print(">")
-                }
             }
             is TypeDecl.Array -> {
                 out.print("array")
@@ -302,6 +318,83 @@ class AstWriter(
                     out.print(", ")
                     emit(it)
                 }
+                out.print(">")
+            }
+
+            is TypeDecl.Atomic -> {
+                out.print("atomic<")
+                emit(typeDecl.targetType)
+                out.print(">")
+            }
+            TypeDecl.SamplerComparison -> out.print("sampler_comparison")
+            TypeDecl.SamplerRegular -> out.print("sampler")
+            TypeDecl.TextureDepth2D -> out.print("texture_depth_2d")
+            TypeDecl.TextureDepth2DArray -> out.print("texture_depth_2d_array")
+            TypeDecl.TextureDepthCube -> out.print("texture_depth_cube")
+            TypeDecl.TextureDepthCubeArray -> out.print("texture_depth_cube_array")
+            TypeDecl.TextureDepthMultisampled2D -> out.print("texture_depth_multisampled_2d")
+            TypeDecl.TextureExternal -> out.print("texture_external")
+            is TypeDecl.TextureMultisampled2d -> {
+                out.print("texture_multisampled_2d<")
+                emit(typeDecl.sampledType)
+                out.print(">")
+            }
+            is TypeDecl.TextureSampled1D -> {
+                out.print("texture_1d<")
+                emit(typeDecl.sampledType)
+                out.print(">")
+            }
+            is TypeDecl.TextureSampled2D -> {
+                out.print("texture_2d<")
+                emit(typeDecl.sampledType)
+                out.print(">")
+            }
+            is TypeDecl.TextureSampled2DArray -> {
+                out.print("texture_2d_array<")
+                emit(typeDecl.sampledType)
+                out.print(">")
+            }
+            is TypeDecl.TextureSampled3D -> {
+                out.print("texture_3d<")
+                emit(typeDecl.sampledType)
+                out.print(">")
+            }
+            is TypeDecl.TextureSampledCube -> {
+                out.print("texture_cube<")
+                emit(typeDecl.sampledType)
+                out.print(">")
+            }
+            is TypeDecl.TextureSampledCubeArray -> {
+                out.print("texture_cube_array<")
+                emit(typeDecl.sampledType)
+                out.print(">")
+            }
+            is TypeDecl.TextureStorage1D -> {
+                out.print("texture_storage_1d<")
+                emit(typeDecl.format)
+                out.print(", ")
+                emit(typeDecl.accessMode)
+                out.print(">")
+            }
+            is TypeDecl.TextureStorage2D -> {
+                out.print("texture_storage_2d<")
+                emit(typeDecl.format)
+                out.print(", ")
+                emit(typeDecl.accessMode)
+                out.print(">")
+            }
+            is TypeDecl.TextureStorage2DArray -> {
+                out.print("texture_storage_2d_array<")
+                emit(typeDecl.format)
+                out.print(", ")
+                emit(typeDecl.accessMode)
+                out.print(">")
+            }
+            is TypeDecl.TextureStorage3D -> {
+                out.print("texture_storage_3d<")
+                emit(typeDecl.format)
+                out.print(", ")
+                emit(typeDecl.accessMode)
                 out.print(">")
             }
         }

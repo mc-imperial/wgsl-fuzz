@@ -61,7 +61,11 @@ class ParseTintTests {
                 return@forEach
             }
             val text = File(it.path).readText()
-            if (text.contains("enable chromium_experimental") || text.contains("enable subgroups")) {
+            if (text.contains("enable chromium_experimental") ||
+                text.contains("chromium_internal_graphite") ||
+                text.contains("chromium_internal_input_attachments") ||
+                text.contains("enable subgroups")
+            ) {
                 return@forEach
             }
             counter++
