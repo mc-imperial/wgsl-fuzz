@@ -615,7 +615,7 @@ private fun resolveTypeOfFunctionCallExpression(
 ): Type =
     when (val scopeEntry = resolverState.currentScope.getEntry(functionCallExpression.callee)) {
         null ->
-            when (functionCallExpression.callee) {
+            when (val calleeName = functionCallExpression.callee) {
                 // 1-argument functions with return type same as argument type
                 // TODO go through these and check which ones support abstract types. Those that don't need
                 //  concretisation
@@ -625,7 +625,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 "round", "saturate", "sign", "sin", "sinh", "sqrt", "tan", "tanh", "trunc",
                 -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("${functionCallExpression.callee} requires one argument.")
+                        throw RuntimeException("$calleeName requires one argument.")
                     } else {
                         resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
                     }
@@ -633,16 +633,16 @@ private fun resolveTypeOfFunctionCallExpression(
                 // 2-argument homogeneous functions with return type same as argument type
                 // TODO go through these and check which ones support abstract types. Those that don't need
                 //  concretisation
-                "atan2", "max", "min", "pow", "reflect" ->
+                "atan2", "max", "min", "pow", "reflect", "step" ->
                     if (functionCallExpression.args.size != 2) {
-                        throw RuntimeException("${functionCallExpression.callee} requires two arguments.")
+                        throw RuntimeException("$calleeName requires two arguments.")
                     } else {
                         findCommonType(functionCallExpression.args, resolverState)
                     }
                 // 3-argument homogeneous functions with return type same as argument type
                 "clamp", "faceForward", "fma", "smoothstep" ->
                     if (functionCallExpression.args.size != 3) {
-                        throw RuntimeException("${functionCallExpression.callee} requires three arguments.")
+                        throw RuntimeException("$calleeName requires three arguments.")
                     } else {
                         findCommonType(functionCallExpression.args, resolverState)
                     }
@@ -650,11 +650,11 @@ private fun resolveTypeOfFunctionCallExpression(
                 "arrayLength" -> Type.U32
                 "atomicAdd", "atomicSub", "atomicMax", "atomicMin", "atomicAnd", "atomicOr", "atomicXor", "atomicExchange" -> {
                     if (functionCallExpression.args.size != 2) {
-                        throw RuntimeException("${functionCallExpression.callee} builtin takes two arguments")
+                        throw RuntimeException("$calleeName builtin takes two arguments")
                     }
                     val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
                     if (argType !is Type.Pointer || argType.pointeeType !is Type.Atomic) {
-                        throw RuntimeException("${functionCallExpression.callee} requires a pointer to an atomic integer")
+                        throw RuntimeException("$calleeName requires a pointer to an atomic integer")
                     }
                     argType.pointeeType.targetType
                 }
@@ -690,7 +690,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "countLeadingZeros", "countOneBits", "countTrailingZeros" -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("${functionCallExpression.callee} requires one argument.")
+                        throw RuntimeException("$calleeName requires one argument.")
                     } else {
                         defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
                     }
@@ -728,6 +728,17 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                     argType.elementType
                 }
+                "distance" -> {
+                    if (functionCallExpression.args.size != 2) {
+                        throw RuntimeException("$calleeName requires two arguments")
+                    }
+                    val commonType = findCommonType(functionCallExpression.args, resolverState)
+                    if (commonType is Type.Vector) {
+                        commonType.elementType
+                    } else {
+                        commonType
+                    }
+                }
                 "dot" -> {
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("dot requires two arguments")
@@ -749,7 +760,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "firstLeadingBit", "firstTrailingBit" ->
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("${functionCallExpression.callee} requires one argument.")
+                        throw RuntimeException("$calleeName requires one argument.")
                     } else {
                         defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
                     }
@@ -795,9 +806,21 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "insertBits" -> {
                     if (functionCallExpression.args.size != 4) {
-                        throw RuntimeException("${functionCallExpression.callee} requires three arguments.")
+                        throw RuntimeException("$calleeName requires three arguments.")
                     } else {
                         defaultConcretizationOf(findCommonType(functionCallExpression.args.dropLast(2), resolverState))
+                    }
+                }
+                "ldexp" -> {
+                    if (functionCallExpression.args.size != 2) {
+                        throw RuntimeException("$calleeName requires two arguments.")
+                    }
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
+                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1])
+                    if (arg1Type.isAbstract() && !arg2Type.isAbstract()) {
+                        defaultConcretizationOf(arg1Type)
+                    } else {
+                        arg1Type
                     }
                 }
                 "length" -> {
@@ -952,9 +975,9 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                 }
                 "textureNumLayers", "textureNumLevels", "textureNumSamples" -> Type.U32
-                "textureSample" -> {
+                "textureSample", "textureSampleLevel" -> {
                     if (functionCallExpression.args.size < 1) {
-                        throw RuntimeException("Not enough arguments provided to textureSample.")
+                        throw RuntimeException("Not enough arguments provided to $calleeName.")
                     } else {
                         when (
                             val textureType =
@@ -964,11 +987,10 @@ private fun resolveTypeOfFunctionCallExpression(
                                 if (textureType.sampledType is Type.F32) {
                                     Type.Vector(4, Type.F32)
                                 } else {
-                                    throw RuntimeException("Incorrect sample type used with textureSample.")
+                                    throw RuntimeException("Incorrect sample type used with $calleeName.")
                                 }
-
                             Type.Texture.Depth2D, Type.Texture.Depth2DArray, Type.Texture.DepthCube, Type.Texture.DepthCubeArray -> Type.F32
-                            else -> throw RuntimeException("First argument to textureSample must be a suitable texture.")
+                            else -> throw RuntimeException("First argument to $calleeName must be a suitable texture.")
                         }
                     }
                 }
@@ -1000,7 +1022,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                     argType.pointeeType
                 }
-                else -> TODO("Unsupported builtin function ${functionCallExpression.callee}")
+                else -> TODO("Unsupported builtin function $calleeName")
             }
         is ScopeEntry.Function ->
             scopeEntry.type.returnType
