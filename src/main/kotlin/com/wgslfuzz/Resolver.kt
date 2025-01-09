@@ -441,7 +441,7 @@ private fun resolveExpressionType(
                 BinaryOperator.EQUAL_EQUAL ->
                     when (lhsType) {
                         is Type.Scalar -> Type.Bool
-                        is Type.Vector -> TODO()
+                        is Type.Vector -> Type.Vector(width = lhsType.width, elementType = Type.Bool)
                         else -> throw RuntimeException("== operator is only supported for scalar and vector types.")
                     }
                 BinaryOperator.SHORT_CIRCUIT_AND ->
@@ -850,6 +850,7 @@ private fun resolveTypeOfFunctionCallExpression(
                         findCommonType(functionCallExpression.args.dropLast(1), resolverState)
                     }
                 }
+                "textureDimensions" -> TODO()
                 "textureGatherCompare" -> Type.Vector(4, Type.F32)
                 "textureNumLayers", "textureNumLevels", "textureNumSamples" -> Type.U32
                 "textureSample" -> {
@@ -872,8 +873,8 @@ private fun resolveTypeOfFunctionCallExpression(
                         }
                     }
                 }
-                "textureSampleBaseClampToEdge" -> Type.Vector(4, Type.F32)
-                "textureSampleCompareLevel" -> Type.F32
+                "textureSampleBaseClampToEdge", "textureSampleBias" -> Type.Vector(4, Type.F32)
+                "textureSampleCompare", "textureSampleCompareLevel" -> Type.F32
                 "textureSampleGrad" -> Type.Vector(4, Type.F32)
                 "unpack4x8snorm", "unpack4x8unorm", "unpack2x16snorm", "unpack2x16unorm", "unpack2x16float" -> Type.Vector(4, Type.F32)
                 "unpack4xI8" -> Type.Vector(4, Type.I32)
