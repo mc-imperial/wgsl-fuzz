@@ -715,6 +715,19 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                     arg1Type
                 }
+                "determinant" -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException("determinant builtin function requires one argument")
+                    }
+                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
+                    if (argType !is Type.Matrix) {
+                        throw RuntimeException("determinant builtin function requires a matrix argument")
+                    }
+                    if (argType.numRows != argType.numCols) {
+                        throw RuntimeException("determinant builtin function requires a square matrix argument")
+                    }
+                    argType.elementType
+                }
                 "dot" -> {
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("dot requires two arguments")
