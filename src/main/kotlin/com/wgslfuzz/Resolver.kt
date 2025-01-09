@@ -837,6 +837,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                 }
                 "textureGatherCompare" -> Type.Vector(4, Type.F32)
+                "textureNumLayers", "textureNumLevels", "textureNumSamples" -> Type.U32
                 "textureSample" -> {
                     if (functionCallExpression.args.size < 1) {
                         throw RuntimeException("Not enough arguments provided to textureSample.")
