@@ -711,6 +711,19 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                     arg1Type
                 }
+                "dot" -> {
+                    if (functionCallExpression.args.size != 2) {
+                        throw RuntimeException("dot requires two arguments")
+                    }
+                    val commonType = findCommonType(functionCallExpression.args, resolverState)
+                    if (commonType is Type.Vector) {
+                        commonType.elementType
+                    } else {
+                        throw RuntimeException("dot requires vector arguments")
+                    }
+                }
+                "dot4U8Packed" -> Type.U32
+                "dot4I8Packed" -> Type.I32
                 "firstLeadingBit" ->
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("${functionCallExpression.callee} requires one argument.")
