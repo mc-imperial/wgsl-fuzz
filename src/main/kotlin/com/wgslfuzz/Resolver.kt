@@ -915,6 +915,29 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                 }
                 "textureGatherCompare" -> Type.Vector(4, Type.F32)
+                "textureLoad" -> {
+                    if (functionCallExpression.args.size < 1) {
+                        throw RuntimeException("textureLoad requires a first argument of texture type")
+                    }
+                    val textureArg = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
+                    if (textureArg !is Type.Texture) {
+                        throw RuntimeException("textureLoad requires a first argument of texture type")
+                    }
+                    when (textureArg) {
+                        Type.Texture.Depth2D, Type.Texture.Depth2DArray, Type.Texture.DepthMultisampled2D -> Type.F32
+                        Type.Texture.External -> Type.Vector(4, Type.F32)
+                        is Type.Texture.Multisampled2d -> Type.Vector(4, textureArg.sampledType)
+                        is Type.Texture.Sampled1D -> Type.Vector(4, textureArg.sampledType)
+                        is Type.Texture.Sampled2D -> Type.Vector(4, textureArg.sampledType)
+                        is Type.Texture.Sampled2DArray -> Type.Vector(4, textureArg.sampledType)
+                        is Type.Texture.Sampled3D -> Type.Vector(4, textureArg.sampledType)
+                        is Type.Texture.Storage1D -> Type.Vector(4, textureArg.format.toVectorElementType())
+                        is Type.Texture.Storage2D -> Type.Vector(4, textureArg.format.toVectorElementType())
+                        is Type.Texture.Storage2DArray -> Type.Vector(4, textureArg.format.toVectorElementType())
+                        is Type.Texture.Storage3D -> Type.Vector(4, textureArg.format.toVectorElementType())
+                        else -> throw RuntimeException("textureLoad does not work on cube textures")
+                    }
+                }
                 "textureNumLayers", "textureNumLevels", "textureNumSamples" -> Type.U32
                 "textureSample" -> {
                     if (functionCallExpression.args.size < 1) {
@@ -1085,6 +1108,27 @@ private fun resolveMatrixTypeDecl(matrixTypeDecl: TypeDecl.MatrixTypeDecl): Type
         }
     }
 }
+
+private fun TexelFormat.toVectorElementType(): Type.Scalar =
+    when (this) {
+        TexelFormat.RGBA8UNORM -> Type.F32
+        TexelFormat.RGBA8SNORM -> Type.F32
+        TexelFormat.RGBA8UINT -> Type.U32
+        TexelFormat.RGBA8SINT -> Type.I32
+        TexelFormat.RGBA16UINT -> Type.U32
+        TexelFormat.RGBA16SINT -> Type.I32
+        TexelFormat.RGBA16FLOAT -> Type.F32
+        TexelFormat.R32UINT -> Type.U32
+        TexelFormat.R32SINT -> Type.I32
+        TexelFormat.R32FLOAT -> Type.F32
+        TexelFormat.RG32UINT -> Type.U32
+        TexelFormat.RG32SINT -> Type.I32
+        TexelFormat.RG32FLOAT -> Type.F32
+        TexelFormat.RGBA32UINT -> Type.U32
+        TexelFormat.RGBA32SINT -> Type.I32
+        TexelFormat.RGBA32FLOAT -> Type.F32
+        TexelFormat.BGRA8UNORM -> Type.F32
+    }
 
 private fun Type.isAbstractionOf(maybeConcretizedVersion: Type): Boolean =
     if (this == maybeConcretizedVersion) {
