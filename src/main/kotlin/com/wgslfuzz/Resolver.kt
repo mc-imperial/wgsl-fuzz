@@ -619,7 +619,8 @@ private fun resolveTypeOfFunctionCallExpression(
                 // 1-argument functions with return type same as argument type
                 "abs", "acos", "acosh", "asin", "asinh", "atan", "atanh", "ceil", "cos", "cosh", "degrees", "dpdx",
                 "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "exp", "exp2", "fract", "fwidth",
-                "fwidthCoarse", "fwidthFine", "inverseSqrt", "log", "log2", "sin", "sinh", "sqrt", "tan", "tanh",
+                "fwidthCoarse", "fwidthFine", "inverseSqrt", "log", "log2", "normalize", "saturate", "sin", "sinh",
+                "sqrt", "tan", "tanh",
                 -> {
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("${functionCallExpression.callee} requires one argument.")
@@ -635,7 +636,7 @@ private fun resolveTypeOfFunctionCallExpression(
                         findCommonType(functionCallExpression.args, resolverState)
                     }
                 // 3-argument homogeneous functions with return type same as argument type
-                "clamp", "fma" ->
+                "clamp", "faceForward", "fma" ->
                     if (functionCallExpression.args.size != 3) {
                         throw RuntimeException("${functionCallExpression.callee} requires three arguments.")
                     } else {
