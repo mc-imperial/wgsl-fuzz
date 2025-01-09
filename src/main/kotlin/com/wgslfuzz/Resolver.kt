@@ -850,7 +850,51 @@ private fun resolveTypeOfFunctionCallExpression(
                         findCommonType(functionCallExpression.args.dropLast(1), resolverState)
                     }
                 }
-                "textureDimensions" -> TODO()
+                "textureDimensions" -> {
+                    if (functionCallExpression.args.size !in 1..2) {
+                        throw RuntimeException("textureDimensions requires two arguments")
+                    }
+                    val textureType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
+                    if (textureType !is Type.Texture) {
+                        throw RuntimeException("Type of first argument to textureDimensions must be a texture")
+                    }
+                    if (functionCallExpression.args.size == 1) {
+                        when (textureType) {
+                            Type.Texture.Depth2D -> Type.Vector(2, Type.U32)
+                            Type.Texture.Depth2DArray -> Type.Vector(2, Type.U32)
+                            Type.Texture.DepthCube -> Type.Vector(2, Type.U32)
+                            Type.Texture.DepthCubeArray -> Type.Vector(2, Type.U32)
+                            Type.Texture.DepthMultisampled2D -> Type.Vector(2, Type.U32)
+                            Type.Texture.External -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Multisampled2d -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Sampled1D -> Type.U32
+                            is Type.Texture.Sampled2D -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Sampled2DArray -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Sampled3D -> Type.Vector(3, Type.U32)
+                            is Type.Texture.SampledCube -> Type.Vector(2, Type.U32)
+                            is Type.Texture.SampledCubeArray -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Storage1D -> Type.U32
+                            is Type.Texture.Storage2D -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Storage2DArray -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Storage3D -> Type.Vector(2, Type.U32)
+                        }
+                    } else {
+                        assert(functionCallExpression.args.size == 2)
+                        when (textureType) {
+                            Type.Texture.Depth2D -> Type.Vector(2, Type.U32)
+                            Type.Texture.Depth2DArray -> Type.Vector(2, Type.U32)
+                            Type.Texture.DepthCube -> Type.Vector(2, Type.U32)
+                            Type.Texture.DepthCubeArray -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Sampled1D -> Type.U32
+                            is Type.Texture.Sampled2D -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Sampled2DArray -> Type.Vector(2, Type.U32)
+                            is Type.Texture.Sampled3D -> Type.Vector(3, Type.U32)
+                            is Type.Texture.SampledCube -> Type.Vector(2, Type.U32)
+                            is Type.Texture.SampledCubeArray -> Type.Vector(2, Type.U32)
+                            else -> throw RuntimeException("Unsuitable texture argument for textureDimensions with level")
+                        }
+                    }
+                }
                 "textureGatherCompare" -> Type.Vector(4, Type.F32)
                 "textureNumLayers", "textureNumLevels", "textureNumSamples" -> Type.U32
                 "textureSample" -> {
