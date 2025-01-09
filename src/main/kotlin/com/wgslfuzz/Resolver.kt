@@ -617,10 +617,12 @@ private fun resolveTypeOfFunctionCallExpression(
         null ->
             when (functionCallExpression.callee) {
                 // 1-argument functions with return type same as argument type
+                // TODO go through these and check which ones support abstract types. Those that don't need
+                //  concretisation
                 "abs", "acos", "acosh", "asin", "asinh", "atan", "atanh", "ceil", "cos", "cosh", "degrees", "dpdx",
                 "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "exp", "exp2", "fract", "fwidth",
-                "fwidthCoarse", "fwidthFine", "inverseSqrt", "log", "log2", "normalize", "saturate", "sin", "sinh",
-                "sqrt", "tan", "tanh",
+                "fwidthCoarse", "fwidthFine", "inverseSqrt", "log", "log2", "normalize", "quantizeToF16", "radians",
+                "round", "saturate", "sign", "sin", "sinh", "sqrt", "tan", "tanh", "trunc",
                 -> {
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("${functionCallExpression.callee} requires one argument.")
@@ -629,20 +631,23 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                 }
                 // 2-argument homogeneous functions with return type same as argument type
-                "atan2", "max", "min", "reflect" ->
+                // TODO go through these and check which ones support abstract types. Those that don't need
+                //  concretisation
+                "atan2", "max", "min", "pow", "reflect" ->
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("${functionCallExpression.callee} requires two arguments.")
                     } else {
                         findCommonType(functionCallExpression.args, resolverState)
                     }
                 // 3-argument homogeneous functions with return type same as argument type
-                "clamp", "faceForward", "fma" ->
+                "clamp", "faceForward", "fma", "smoothstep" ->
                     if (functionCallExpression.args.size != 3) {
                         throw RuntimeException("${functionCallExpression.callee} requires three arguments.")
                     } else {
                         findCommonType(functionCallExpression.args, resolverState)
                     }
                 "all", "any" -> Type.Bool
+                "arrayLength" -> Type.U32
                 "atomicAdd", "atomicSub", "atomicMax", "atomicMin", "atomicAnd", "atomicOr", "atomicXor", "atomicExchange" -> {
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("${functionCallExpression.callee} builtin takes two arguments")
@@ -690,8 +695,6 @@ private fun resolveTypeOfFunctionCallExpression(
                         defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
                     }
                 }
-                "dot4I8Packed" -> Type.I32
-                "dot4U8Packed" -> Type.U32
                 "cross" -> {
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("cross builtin takes two arguments")
@@ -725,7 +728,13 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "dot4U8Packed" -> Type.U32
                 "dot4I8Packed" -> Type.I32
-                "firstLeadingBit" ->
+                "extractBits" -> {
+                    if (functionCallExpression.args.size != 3) {
+                        throw RuntimeException("extractBits expects three arguments")
+                    }
+                    defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
+                }
+                "firstLeadingBit", "firstTrailingBit" ->
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("${functionCallExpression.callee} requires one argument.")
                     } else {
@@ -776,6 +785,16 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("${functionCallExpression.callee} requires three arguments.")
                     } else {
                         defaultConcretizationOf(findCommonType(functionCallExpression.args.dropLast(2), resolverState))
+                    }
+                }
+                "length" -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException("length requires one argument")
+                    }
+                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])) {
+                        is Type.Float -> argType
+                        is Type.Vector -> argType.elementType
+                        else -> throw RuntimeException("Unsupported argument for length builtin function")
                     }
                 }
                 "mat2x2f" -> Type.Matrix(2, 2, Type.F32)

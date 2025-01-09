@@ -69,7 +69,7 @@ class ParseTintTests {
                 return@forEach
             }
             counter++
-            if (counter >= 1960) {
+            if (counter >= 3004) {
                 println(counter)
                 println(it)
                 checkWgslTest(it.path)
