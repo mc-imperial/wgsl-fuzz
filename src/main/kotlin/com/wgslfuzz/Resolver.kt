@@ -107,7 +107,8 @@ private class ResolvedEnvironmentImpl : ResolvedEnvironment {
     }
 
     override fun typeOf(expression: Expression): Type =
-        expressionTypes[expression] ?: throw UnsupportedOperationException("No type for $expression")
+        expressionTypes[expression]
+            ?: throw UnsupportedOperationException("No type for $expression")
 
     override fun typeOf(functionDecl: GlobalDecl.Function): FunctionType {
         TODO("Not yet implemented")
@@ -415,7 +416,7 @@ private fun resolveExpressionType(
                         ?: throw RuntimeException("Struct with type $receiverType does not have a member ${expression.memberName}")
                 is Type.Vector ->
                     // In the following we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
-                    if (expression.memberName in setOf("x", "y", "z", "w")) {
+                    if (expression.memberName in setOf("x", "y", "z", "w", "r", "g", "b", "a")) {
                         receiverType.elementType
                     } else if (isSwizzle(expression.memberName)) {
                         Type.Vector(expression.memberName.length, receiverType.elementType)
@@ -528,7 +529,8 @@ private fun resolveBinary(
         ->
             when (lhsType) {
                 is Type.Scalar -> Type.Bool
-                else -> TODO()
+                is Type.Vector -> Type.Vector(lhsType.width, Type.Bool)
+                else -> TODO("$lhsType")
             }
 
         BinaryOperator.PLUS, BinaryOperator.MINUS, BinaryOperator.DIVIDE, BinaryOperator.MODULO ->
@@ -536,6 +538,24 @@ private fun resolveBinary(
                 lhsType
             } else if (lhsType.isAbstractionOf(rhsType)) {
                 rhsType
+            } else if (lhsType is Type.Vector && rhsType is Type.Scalar) {
+                val lhsElementType = lhsType.elementType
+                if (rhsType.isAbstractionOf(lhsElementType)) {
+                    lhsType
+                } else if (lhsElementType.isAbstractionOf(rhsType)) {
+                    Type.Vector(lhsType.width, rhsType)
+                } else {
+                    TODO("$operator not supported for $lhsType and $rhsType")
+                }
+            } else if (lhsType is Type.Scalar && rhsType is Type.Vector) {
+                val rhsElementType = rhsType.elementType
+                if (rhsElementType.isAbstractionOf(lhsType)) {
+                    Type.Vector(rhsType.width, lhsType)
+                } else if (lhsType.isAbstractionOf(rhsElementType)) {
+                    rhsType
+                } else {
+                    TODO("$operator not supported for $lhsType and $rhsType")
+                }
             } else {
                 TODO("$operator not supported for $lhsType and $rhsType")
             }
@@ -551,6 +571,15 @@ private fun resolveBinary(
                     lhsType
                 } else if (lhsElementType.isAbstractionOf(rhsType)) {
                     Type.Vector(lhsType.width, rhsType)
+                } else {
+                    TODO("$operator not supported for $lhsType and $rhsType")
+                }
+            } else if (lhsType is Type.Scalar && rhsType is Type.Vector) {
+                val rhsElementType = rhsType.elementType
+                if (rhsElementType.isAbstractionOf(lhsType)) {
+                    Type.Vector(rhsType.width, lhsType)
+                } else if (lhsType.isAbstractionOf(rhsElementType)) {
+                    rhsType
                 } else {
                     TODO("$operator not supported for $lhsType and $rhsType")
                 }
@@ -571,7 +600,7 @@ private fun resolveBinary(
                 else -> throw RuntimeException("== operator is only supported for scalar and vector types.")
             }
 
-        BinaryOperator.SHORT_CIRCUIT_AND ->
+        BinaryOperator.SHORT_CIRCUIT_AND, BinaryOperator.SHORT_CIRCUIT_OR ->
             if (lhsType != Type.Bool || rhsType != Type.Bool) {
                 throw RuntimeException("Short circuit && and || operators require bool arguments.")
             } else {
@@ -647,6 +676,7 @@ private fun resolveTypeOfMatrixValueConstructor(
                     is Type.Float -> {
                         // Nothing to do
                     }
+                    is Type.AbstractInteger -> elementTypeForArg = Type.AbstractFloat
                     is Type.Vector -> {
                         elementTypeForArg = elementTypeForArg.elementType
                     }
@@ -686,6 +716,9 @@ private fun resolveTypeOfArrayValueConstructor(
     expression: Expression.ArrayValueConstructor,
     resolverState: ResolverState,
 ): Type.Array {
+    expression.elementCount?.let {
+        traverse(::resolveAstNode, it, resolverState)
+    }
     val elementType: Type =
         expression.elementType?.let { resolveTypeDecl(it, resolverState) } ?: if (expression.args.isEmpty()) {
             throw RuntimeException("Cannot work out element type of empty array constructor.")
@@ -1344,23 +1377,61 @@ private fun defaultConcretizationOf(type: Type): Type =
         else -> type
     }
 
+sealed class EvaluatedValue {
+    class IntIndexed(
+        val mapping: (Int) -> EvaluatedValue,
+    ) : EvaluatedValue()
+
+    class NameIndexed(
+        val mapping: (String) -> EvaluatedValue,
+    ) : EvaluatedValue()
+
+    class Integer(
+        val value: Int,
+    ) : EvaluatedValue()
+}
+
+private fun evaluate(
+    expression: Expression,
+    resolverState: ResolverState,
+): EvaluatedValue =
+    when (expression) {
+        is Expression.IntLiteral ->
+            EvaluatedValue.Integer(
+                if (expression.text.endsWith("u") || expression.text.endsWith("i")) {
+                    expression.text.substring(0, expression.text.length - 1).toInt()
+                } else {
+                    expression.text.toInt()
+                },
+            )
+        is Expression.IndexLookup ->
+            (evaluate(expression.target, resolverState) as EvaluatedValue.IntIndexed).mapping(
+                (evaluate(expression.index, resolverState) as EvaluatedValue.Integer).value,
+            )
+        is Expression.ArrayValueConstructor -> {
+            val arrayType = resolverState.resolvedEnvironment.typeOf(expression) as Type.Array
+            if (arrayType.elementCount == null) {
+                throw RuntimeException("Constant evaluation encountered array with non-constant size.")
+            }
+            if (expression.args.isEmpty()) {
+                TODO()
+            } else if (expression.args.size == arrayType.elementCount) {
+                EvaluatedValue.IntIndexed(mapping = { x -> evaluate(expression.args[x], resolverState) })
+            } else {
+                TODO()
+            }
+        }
+        else -> TODO()
+    }
+
 private fun evaluateToInt(
     expression: Expression,
     resolverState: ResolverState,
-): Int =
-    when (expression) {
-        is Expression.IntLiteral ->
-            if (expression.text.endsWith("u") || expression.text.endsWith("i")) {
-                expression.text.substring(0, expression.text.length - 1).toInt()
-            } else {
-                expression.text.toInt()
-            }
-        else -> throw RuntimeException("Cannot evaluate $expression")
-    }
+): Int = (evaluate(expression, resolverState) as EvaluatedValue.Integer).value
 
 private fun isSwizzle(memberName: String): Boolean =
     memberName.length in (2..4) &&
-        memberName.all { it in setOf('x', 'y', 'z', 'w') }
+        (memberName.all { it in setOf('x', 'y', 'z', 'w') } || memberName.all { it in setOf('r', 'g', 'b', 'a') })
 
 // Throws an exception if the types in the given list do not share a common concretization.
 // Otherwise, returns the common concretization, unless all the types are the same abstract type in which case that type
