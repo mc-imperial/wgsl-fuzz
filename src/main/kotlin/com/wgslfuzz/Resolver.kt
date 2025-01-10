@@ -125,6 +125,7 @@ private fun collectUsedModuleScopeNames(node: AstNode): Set<String> {
         traverse(::collectAction, node, collectedNames)
         when (node) {
             is Expression.Identifier -> collectedNames.add(node.name)
+            is Expression.StructValueConstructor -> collectedNames.add(node.typeName)
             is TypeDecl.NamedType -> {
                 traverse(::collectAction, node, collectedNames)
                 collectedNames.add(node.name)
@@ -299,12 +300,11 @@ private fun resolveAstNode(
         }
         is GlobalDecl.Variable -> {
             val type: Type =
-                node.type?.let {
-                    resolveTypeDecl(node.type!!, resolverState)
-                } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
-            if (type.isAbstract()) {
-                TODO()
-            }
+                defaultConcretizationOf(
+                    node.type?.let {
+                        resolveTypeDecl(node.type!!, resolverState)
+                    } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
+                )
             resolverState.currentScope.addEntry(
                 node.name,
                 ScopeEntry.GlobalVariable(node, type),
