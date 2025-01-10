@@ -950,6 +950,24 @@ private fun resolveTypeOfFunctionCallExpression(
                         }
                     }
                 }
+                "textureGather" -> {
+                    if (functionCallExpression.args.size < 2) {
+                        throw RuntimeException("$calleeName requires at least 2 arguments")
+                    }
+                    when (resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])) {
+                        Type.Texture.Depth2D, Type.Texture.DepthCube, Type.Texture.Depth2DArray, Type.Texture.DepthCubeArray ->
+                            Type.Vector(
+                                4,
+                                Type.F32,
+                            )
+                        else -> {
+                            when (val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1])) {
+                                is Type.Texture.Sampled -> Type.Vector(4, arg2Type.sampledType)
+                                else -> throw RuntimeException("$calleeName requires a suitable texture as its first or second argument")
+                            }
+                        }
+                    }
+                }
                 "textureGatherCompare" -> Type.Vector(4, Type.F32)
                 "textureLoad" -> {
                     if (functionCallExpression.args.size < 1) {
