@@ -695,9 +695,6 @@ private fun resolveTypeOfArrayValueConstructor(
     val elementCount: Int =
         expression.elementCount?.let {
             evaluateToInt(expression.elementCount!!, resolverState)
-                ?: throw RuntimeException(
-                    "An element count is given but cannot be evaluated to an integer value. It may be that the integer evaluator needs to be improved.",
-                )
         } ?: expression.args.size
     return Type.Array(elementType, elementCount)
 }
@@ -1350,16 +1347,16 @@ private fun defaultConcretizationOf(type: Type): Type =
 private fun evaluateToInt(
     expression: Expression,
     resolverState: ResolverState,
-): Int? {
-    // TODO: resolverState is not currently used, but for more sophisticated evaluations it will be needed.
-    if (expression is Expression.IntLiteral) {
-        if (expression.text.endsWith("u") || expression.text.endsWith("i")) {
-            return expression.text.substring(0, expression.text.length - 1).toInt()
-        }
-        return expression.text.toInt()
+): Int =
+    when (expression) {
+        is Expression.IntLiteral ->
+            if (expression.text.endsWith("u") || expression.text.endsWith("i")) {
+                expression.text.substring(0, expression.text.length - 1).toInt()
+            } else {
+                expression.text.toInt()
+            }
+        else -> throw RuntimeException("Cannot evaluate $expression")
     }
-    return null
-}
 
 private fun isSwizzle(memberName: String): Boolean =
     memberName.length in (2..4) &&
