@@ -3,6 +3,14 @@ package com.wgslfuzz
 sealed interface Type {
     fun isAbstract(): Boolean
 
+    class Reference(
+        val storeType: Type,
+        val addressSpace: AddressSpace,
+        val accessMode: AccessMode,
+    ) : Type {
+        override fun isAbstract(): Nothing = throw RuntimeException("It does not make sense to ask whether a reference type is abstract.")
+    }
+
     // Scalar types. These are all data objects - i.e., there is only one instance of each of the specific scalar types
     // (Bool, I32, U32, F16, F32, AbstractInt, AbstractFloat). For this reason, equals and hashCode need not be
     // overridden for scalar types.

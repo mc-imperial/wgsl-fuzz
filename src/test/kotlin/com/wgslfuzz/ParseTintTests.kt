@@ -6,11 +6,11 @@ import java.io.File
 import java.io.PrintStream
 
 class ParseTintTests {
-//     // This test, commented out by default, is useful if you want to check a specific WGSL test case during debugging.
-//     @Test
-//     fun checkSpecificWgslTest() {
-//         checkWgslTest("/home/afd/temp/shader.wgsl")
-//     }
+    // // This test, commented out by default, is useful if you want to check a specific WGSL test case during debugging.
+    // @Test
+    // fun checkSpecificWgslTest() {
+    //    checkWgslTest("/home/afd/temp/shader.wgsl")
+    // }
 
     @Test
     fun parseTintTests() {

@@ -53,6 +53,23 @@ fun <T> traverse(
             actionWithState(node.target)
         }
         is Expression.ValueConstructor -> {
+            when (node) {
+                is Expression.VectorValueConstructor -> node.elementType?.let(actionWithState)
+                is Expression.MatrixValueConstructor -> node.elementType?.let(actionWithState)
+                is Expression.ArrayValueConstructor -> {
+                    node.elementType?.let(actionWithState)
+                    node.elementCount?.let(actionWithState)
+                }
+                is Expression.ScalarValueConstructor -> {
+                    // Nothing to do
+                }
+                is Expression.StructValueConstructor -> {
+                    // Nothing to do
+                }
+                is Expression.TypeAliasValueConstructor -> {
+                    // Nothing to do
+                }
+            }
             node.args.forEach(actionWithState)
         }
         is GlobalDecl.ConstAssert -> {

@@ -80,13 +80,15 @@ private class ScopeImpl(
 sealed interface ResolvedEnvironment {
     fun typeOf(expression: Expression): Type
 
-    fun typeOf(functionDecl: GlobalDecl.Function): FunctionType
+    fun typeOf(lhsExpression: LhsExpression): Type
 
     fun enclosingScope(statement: Statement): Scope
 }
 
 private class ResolvedEnvironmentImpl : ResolvedEnvironment {
     private val expressionTypes: MutableMap<Expression, Type> = mutableMapOf()
+
+    private val lhsExpressionTypes: MutableMap<LhsExpression, Type> = mutableMapOf()
 
     private val statementScopes: MutableMap<Statement, Scope> = mutableMapOf()
 
@@ -96,6 +98,14 @@ private class ResolvedEnvironmentImpl : ResolvedEnvironment {
     ) {
         assert(expression !in expressionTypes.keys)
         expressionTypes[expression] = type
+    }
+
+    fun recordType(
+        lhsExpression: LhsExpression,
+        type: Type,
+    ) {
+        assert(lhsExpression !in lhsExpressionTypes.keys)
+        lhsExpressionTypes[lhsExpression] = type
     }
 
     fun recordScope(
@@ -110,9 +120,9 @@ private class ResolvedEnvironmentImpl : ResolvedEnvironment {
         expressionTypes[expression]
             ?: throw UnsupportedOperationException("No type for $expression")
 
-    override fun typeOf(functionDecl: GlobalDecl.Function): FunctionType {
-        TODO("Not yet implemented")
-    }
+    override fun typeOf(lhsExpression: LhsExpression): Type =
+        lhsExpressionTypes[lhsExpression]
+            ?: throw UnsupportedOperationException("No type for $lhsExpression")
 
     override fun enclosingScope(statement: Statement): Scope =
         statementScopes[statement] ?: throw UnsupportedOperationException("No scope for $statement")
@@ -378,6 +388,7 @@ private fun resolveAstNode(
             )
         }
         is Expression -> resolverState.resolvedEnvironment.recordType(node, resolveExpressionType(node, resolverState))
+        is LhsExpression -> resolverState.resolvedEnvironment.recordType(node, resolveLhsExpressionType(node, resolverState))
         else -> {
             // No action
         }
@@ -488,7 +499,114 @@ private fun resolveExpressionType(
                     expression.typeName,
                 ) as ScopeEntry.TypeAlias
             ).type
-        else -> TODO("Unsupported expression $expression")
+    }
+
+private fun resolveLhsExpressionType(
+    lhsExpression: LhsExpression,
+    resolverState: ResolverState,
+): Type =
+    when (lhsExpression) {
+        is LhsExpression.AddressOf -> {
+            val referenceType = resolverState.resolvedEnvironment.typeOf(lhsExpression.target)
+            if (referenceType !is Type.Reference) {
+                throw RuntimeException(
+                    "Address-of in LHS expression applied to expression ${lhsExpression.target} with non-reference " +
+                        "type.",
+                )
+            }
+            Type.Pointer(referenceType.storeType, referenceType.addressSpace, referenceType.accessMode)
+        }
+        is LhsExpression.Dereference -> {
+            val pointerType = resolverState.resolvedEnvironment.typeOf(lhsExpression.target)
+            if (pointerType !is Type.Pointer) {
+                throw RuntimeException("Dereference in LHS expression applied to expression ${lhsExpression.target} with non-pointer type")
+            }
+            Type.Reference(pointerType.pointeeType, pointerType.addressSpace, pointerType.accessMode)
+        }
+        is LhsExpression.Identifier -> {
+            when (val scopeEntry = resolverState.currentScope.getEntry(lhsExpression.name)) {
+                is ScopeEntry.LocalValue -> {
+                    assert(scopeEntry.type is Type.Pointer)
+                    scopeEntry.type
+                }
+                is ScopeEntry.Parameter -> {
+                    assert(scopeEntry.type is Type.Pointer)
+                    scopeEntry.type
+                }
+                is ScopeEntry.LocalVariable -> {
+                    assert(scopeEntry.type !is Type.Pointer)
+                    Type.Reference(
+                        scopeEntry.type,
+                        scopeEntry.astNode.addressSpace ?: AddressSpace.FUNCTION,
+                        scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
+                    )
+                }
+                is ScopeEntry.GlobalVariable -> {
+                    assert(scopeEntry.type !is Type.Pointer)
+                    Type.Reference(
+                        scopeEntry.type,
+                        scopeEntry.astNode.addressSpace ?: AddressSpace.FUNCTION,
+                        scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
+                    )
+                }
+                else -> throw RuntimeException("Unsuitable scope entry for identifier occurring in LHS expression.")
+            }
+        }
+        is LhsExpression.IndexLookup -> {
+            val targetType = resolverState.resolvedEnvironment.typeOf(lhsExpression.target)
+            var addressSpace: AddressSpace?
+            var accessMode: AccessMode?
+            var storeType: Type?
+            when (targetType) {
+                is Type.Reference -> {
+                    storeType = targetType.storeType
+                    addressSpace = targetType.addressSpace
+                    accessMode = targetType.accessMode
+                }
+                is Type.Pointer -> {
+                    storeType = targetType.pointeeType
+                    addressSpace = targetType.addressSpace
+                    accessMode = targetType.accessMode
+                }
+                else -> throw RuntimeException(
+                    "Index lookup in LHS expression applied to expression ${lhsExpression.target} with non-reference / pointer type.",
+                )
+            }
+            when (storeType) {
+                is Type.Vector -> Type.Reference(storeType.elementType, addressSpace, accessMode)
+                is Type.Array -> Type.Reference(storeType.elementType, addressSpace, accessMode)
+                is Type.Matrix -> Type.Reference(Type.Vector(storeType.numRows, storeType.elementType), addressSpace, accessMode)
+                else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference.")
+            }
+        }
+        is LhsExpression.MemberLookup -> {
+            val receiverType = resolverState.resolvedEnvironment.typeOf(lhsExpression.receiver)
+            var addressSpace: AddressSpace?
+            var accessMode: AccessMode?
+            var storeType: Type?
+            when (receiverType) {
+                is Type.Reference -> {
+                    storeType = receiverType.storeType
+                    addressSpace = receiverType.addressSpace
+                    accessMode = receiverType.accessMode
+                }
+                is Type.Pointer -> {
+                    storeType = receiverType.pointeeType
+                    addressSpace = receiverType.addressSpace
+                    accessMode = receiverType.accessMode
+                }
+                else -> throw RuntimeException(
+                    "Member lookup in LHS expression applied to expression ${lhsExpression.receiver} with non-reference / pointer type.",
+                )
+            }
+
+            when (storeType) {
+                is Type.Struct -> Type.Reference(storeType.members[lhsExpression.memberName]!!, addressSpace, accessMode)
+                is Type.Vector -> Type.Reference(storeType.elementType, addressSpace, accessMode)
+                else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference.")
+            }
+        }
+        is LhsExpression.Paren -> resolverState.resolvedEnvironment.typeOf(lhsExpression.target)
     }
 
 private fun resolveUnary(
@@ -724,9 +842,6 @@ private fun resolveTypeOfArrayValueConstructor(
     expression: Expression.ArrayValueConstructor,
     resolverState: ResolverState,
 ): Type.Array {
-    expression.elementCount?.let {
-        traverse(::resolveAstNode, it, resolverState)
-    }
     val elementType: Type =
         expression.elementType?.let { resolveTypeDecl(it, resolverState) } ?: if (expression.args.isEmpty()) {
             throw RuntimeException("Cannot work out element type of empty array constructor.")
