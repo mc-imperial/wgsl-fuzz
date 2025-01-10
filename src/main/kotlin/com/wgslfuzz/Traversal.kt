@@ -7,12 +7,12 @@ fun <T> traverse(
 ) {
     val actionWithState: (child: AstNode) -> Unit = { child -> action(child, traversalState) }
     when (node) {
-        CaseSelectors.DefaultAlone -> {}
-        GlobalDecl.Empty -> {}
-        Statement.Break -> {}
-        Statement.Continue -> {}
-        Statement.Discard -> {}
-        Statement.Empty -> {}
+        is CaseSelectors.DefaultAlone -> {}
+        is GlobalDecl.Empty -> {}
+        is Statement.Break -> {}
+        is Statement.Continue -> {}
+        is Statement.Discard -> {}
+        is Statement.Empty -> {}
         is Attribute -> {}
         is Directive -> {}
         is Expression.BoolLiteral -> {}
@@ -199,28 +199,28 @@ fun <T> traverse(
         is TypeDecl.Atomic -> {
             actionWithState(node.targetType)
         }
-        TypeDecl.SamplerComparison -> {
+        is TypeDecl.SamplerComparison -> {
             // Nothing to do
         }
-        TypeDecl.SamplerRegular -> {
+        is TypeDecl.SamplerRegular -> {
             // Nothing to do
         }
-        TypeDecl.TextureDepth2D -> {
+        is TypeDecl.TextureDepth2D -> {
             // Nothing to do
         }
-        TypeDecl.TextureDepth2DArray -> {
+        is TypeDecl.TextureDepth2DArray -> {
             // Nothing to do
         }
-        TypeDecl.TextureDepthCube -> {
+        is TypeDecl.TextureDepthCube -> {
             // Nothing to do
         }
-        TypeDecl.TextureDepthCubeArray -> {
+        is TypeDecl.TextureDepthCubeArray -> {
             // Nothing to do
         }
-        TypeDecl.TextureDepthMultisampled2D -> {
+        is TypeDecl.TextureDepthMultisampled2D -> {
             // Nothing to do
         }
-        TypeDecl.TextureExternal -> {
+        is TypeDecl.TextureExternal -> {
             // Nothing to do
         }
         is TypeDecl.TextureMultisampled2d -> {

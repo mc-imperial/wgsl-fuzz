@@ -163,7 +163,7 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
     val nameToDecl = mutableMapOf<String, GlobalDecl>()
     for (decl in tu.globalDecls) {
         when (decl) {
-            GlobalDecl.Empty -> {}
+            is GlobalDecl.Empty -> {}
             is GlobalDecl.ConstAssert -> {}
             is GlobalDecl.Constant -> {
                 nameToDecl[decl.name] = decl
@@ -398,7 +398,15 @@ private fun resolveExpressionType(
                     )
                 is Type.Vector -> targetType.elementType
                 is Type.Array -> targetType.elementType
-                else -> throw RuntimeException("Index lookup attempted on unsuitable type.")
+                is Type.Pointer -> {
+                    when (val pointeeType = targetType.pointeeType) {
+                        is Type.Vector -> pointeeType.elementType
+                        is Type.Array -> pointeeType.elementType
+                        is Type.Matrix -> Type.Vector(pointeeType.numRows, pointeeType.elementType)
+                        else -> TODO("Index lookup on pointer with pointee type ${targetType.pointeeType}")
+                    }
+                }
+                else -> throw RuntimeException("Index lookup attempted on unsuitable type $targetType.")
             }
         is Expression.MemberLookup ->
             when (val receiverType = resolverState.resolvedEnvironment.typeOf(expression.receiver)) {
@@ -414,7 +422,23 @@ private fun resolveExpressionType(
                     } else {
                         TODO()
                     }
-                else -> TODO()
+                is Type.Pointer ->
+                    when (val pointeeType = receiverType.pointeeType) {
+                        is Type.Vector ->
+                            // In the following we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
+                            if (expression.memberName in setOf("x", "y", "z", "w")) {
+                                pointeeType.elementType
+                            } else if (isSwizzle(expression.memberName)) {
+                                Type.Vector(expression.memberName.length, pointeeType.elementType)
+                            } else {
+                                TODO()
+                            }
+                        is Type.Struct ->
+                            pointeeType.members[expression.memberName]
+                                ?: throw RuntimeException("Struct with type $receiverType does not have a member ${expression.memberName}")
+                        else -> TODO("${receiverType.pointeeType}")
+                    }
+                else -> TODO("Member lookup not implemented for receiver of type $receiverType")
             }
         is Expression.FloatLiteral ->
             if (expression.text.endsWith("f")) {
@@ -434,78 +458,8 @@ private fun resolveExpressionType(
             }
         is Expression.BoolLiteral ->
             Type.Bool
-        is Expression.Binary -> {
-            val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs)
-            val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs)
-            when (val operator = expression.operator) {
-                BinaryOperator.LESS_THAN,
-                BinaryOperator.LESS_THAN_EQUAL,
-                BinaryOperator.GREATER_THAN,
-                BinaryOperator.GREATER_THAN_EQUAL,
-                ->
-                    when (lhsType) {
-                        is Type.Scalar -> Type.Bool
-                        else -> TODO()
-                    }
-                BinaryOperator.PLUS, BinaryOperator.DIVIDE, BinaryOperator.MODULO ->
-                    if (rhsType.isAbstractionOf(lhsType)) {
-                        lhsType
-                    } else if (lhsType.isAbstractionOf(rhsType)) {
-                        rhsType
-                    } else {
-                        TODO("$operator not supported for $lhsType and $rhsType")
-                    }
-                BinaryOperator.TIMES ->
-                    if (rhsType.isAbstractionOf(lhsType)) {
-                        lhsType
-                    } else if (lhsType.isAbstractionOf(rhsType)) {
-                        rhsType
-                    } else if (lhsType is Type.Vector && rhsType is Type.Scalar) {
-                        val lhsElementType = lhsType.elementType
-                        if (rhsType.isAbstractionOf(lhsElementType)) {
-                            lhsType
-                        } else if (lhsElementType.isAbstractionOf(rhsType)) {
-                            Type.Vector(lhsType.width, rhsType)
-                        } else {
-                            TODO("$operator not supported for $lhsType and $rhsType")
-                        }
-                    } else {
-                        TODO("$operator not supported for $lhsType and $rhsType")
-                    }
-                BinaryOperator.EQUAL_EQUAL ->
-                    when (lhsType) {
-                        is Type.Scalar -> Type.Bool
-                        is Type.Vector -> Type.Vector(width = lhsType.width, elementType = Type.Bool)
-                        else -> throw RuntimeException("== operator is only supported for scalar and vector types.")
-                    }
-                BinaryOperator.SHORT_CIRCUIT_AND ->
-                    if (lhsType != Type.Bool || rhsType != Type.Bool) {
-                        throw RuntimeException("Short circuit && and || operators require bool arguments.")
-                    } else {
-                        Type.Bool
-                    }
-                else -> TODO("Not implemented support for ${expression.operator}")
-            }
-        }
-        is Expression.Unary ->
-            when (expression.operator) {
-                UnaryOperator.DEREFERENCE -> {
-                    val pointerType = resolverState.resolvedEnvironment.typeOf(expression.target)
-                    if (pointerType !is Type.Pointer) {
-                        throw RuntimeException("Dereference applied to expression $expression with non-pointer type")
-                    }
-                    pointerType.pointeeType
-                }
-                UnaryOperator.ADDRESS_OF -> {
-                    resolveTypeOfAddressOfExpression(expression, resolverState)
-                }
-                UnaryOperator.LOGICAL_NOT -> {
-                    assert(resolverState.resolvedEnvironment.typeOf(expression.target) == Type.Bool)
-                    Type.Bool
-                }
-                UnaryOperator.MINUS -> resolverState.resolvedEnvironment.typeOf(expression.target)
-                else -> TODO("Not implemented support for ${expression.operator}")
-            }
+        is Expression.Binary -> resolveBinary(resolverState, expression)
+        is Expression.Unary -> resolveUnary(expression, resolverState)
         is Expression.Paren -> resolverState.resolvedEnvironment.typeOf(expression.target)
         is Expression.Identifier ->
             when (val scopeEntry = resolverState.currentScope.getEntry(expression.name)) {
@@ -535,6 +489,109 @@ private fun resolveExpressionType(
             ).type
         else -> TODO("Unsupported expression $expression")
     }
+
+private fun resolveUnary(
+    expression: Expression.Unary,
+    resolverState: ResolverState,
+) = when (expression.operator) {
+    UnaryOperator.DEREFERENCE -> {
+        val pointerType = resolverState.resolvedEnvironment.typeOf(expression.target)
+        if (pointerType !is Type.Pointer) {
+            throw RuntimeException("Dereference applied to expression $expression with non-pointer type")
+        }
+        pointerType.pointeeType
+    }
+
+    UnaryOperator.ADDRESS_OF -> {
+        resolveTypeOfAddressOfExpression(expression, resolverState)
+    }
+
+    UnaryOperator.LOGICAL_NOT -> {
+        assert(resolverState.resolvedEnvironment.typeOf(expression.target) == Type.Bool)
+        Type.Bool
+    }
+
+    UnaryOperator.MINUS, UnaryOperator.BINARY_NOT -> resolverState.resolvedEnvironment.typeOf(expression.target)
+}
+
+private fun resolveBinary(
+    resolverState: ResolverState,
+    expression: Expression.Binary,
+): Type {
+    val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs)
+    val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs)
+    return when (val operator = expression.operator) {
+        BinaryOperator.LESS_THAN,
+        BinaryOperator.LESS_THAN_EQUAL,
+        BinaryOperator.GREATER_THAN,
+        BinaryOperator.GREATER_THAN_EQUAL,
+        ->
+            when (lhsType) {
+                is Type.Scalar -> Type.Bool
+                else -> TODO()
+            }
+
+        BinaryOperator.PLUS, BinaryOperator.MINUS, BinaryOperator.DIVIDE, BinaryOperator.MODULO ->
+            if (rhsType.isAbstractionOf(lhsType)) {
+                lhsType
+            } else if (lhsType.isAbstractionOf(rhsType)) {
+                rhsType
+            } else {
+                TODO("$operator not supported for $lhsType and $rhsType")
+            }
+
+        BinaryOperator.TIMES ->
+            if (rhsType.isAbstractionOf(lhsType)) {
+                lhsType
+            } else if (lhsType.isAbstractionOf(rhsType)) {
+                rhsType
+            } else if (lhsType is Type.Vector && rhsType is Type.Scalar) {
+                val lhsElementType = lhsType.elementType
+                if (rhsType.isAbstractionOf(lhsElementType)) {
+                    lhsType
+                } else if (lhsElementType.isAbstractionOf(rhsType)) {
+                    Type.Vector(lhsType.width, rhsType)
+                } else {
+                    TODO("$operator not supported for $lhsType and $rhsType")
+                }
+            } else if (lhsType is Type.Matrix && rhsType is Type.Vector) {
+                Type.Vector(lhsType.numRows, findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float)
+            } else if (lhsType is Type.Vector && rhsType is Type.Matrix) {
+                Type.Vector(rhsType.numCols, findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float)
+            } else if (lhsType is Type.Matrix && rhsType is Type.Matrix) {
+                TODO()
+            } else {
+                TODO("$operator not supported for $lhsType and $rhsType")
+            }
+
+        BinaryOperator.EQUAL_EQUAL, BinaryOperator.NOT_EQUAL ->
+            when (lhsType) {
+                is Type.Scalar -> Type.Bool
+                is Type.Vector -> Type.Vector(width = lhsType.width, elementType = Type.Bool)
+                else -> throw RuntimeException("== operator is only supported for scalar and vector types.")
+            }
+
+        BinaryOperator.SHORT_CIRCUIT_AND ->
+            if (lhsType != Type.Bool || rhsType != Type.Bool) {
+                throw RuntimeException("Short circuit && and || operators require bool arguments.")
+            } else {
+                Type.Bool
+            }
+
+        BinaryOperator.BINARY_AND, BinaryOperator.BINARY_OR, BinaryOperator.BINARY_XOR ->
+            if (rhsType.isAbstractionOf(lhsType)) {
+                lhsType
+            } else if (lhsType.isAbstractionOf(rhsType)) {
+                rhsType
+            } else {
+                throw RuntimeException("Unsupported types for bitwise operation.")
+            }
+
+        BinaryOperator.SHIFT_LEFT, BinaryOperator.SHIFT_RIGHT -> lhsType
+
+        else -> TODO("Not implemented support for ${expression.operator}")
+    }
+}
 
 private fun resolveTypeOfVectorValueConstructor(
     expression: Expression.VectorValueConstructor,
@@ -1157,16 +1214,16 @@ private fun resolveTypeOfAddressOfExpression(
 
 private fun resolveFloatTypeDecl(floatTypeDecl: TypeDecl.FloatTypeDecl): Type.Float =
     when (floatTypeDecl) {
-        TypeDecl.F16 -> Type.F16
-        TypeDecl.F32 -> Type.F32
+        is TypeDecl.F16 -> Type.F16
+        is TypeDecl.F32 -> Type.F32
     }
 
 private fun resolveScalarTypeDecl(scalarTypeDecl: TypeDecl.ScalarTypeDecl): Type.Scalar =
     when (scalarTypeDecl) {
         is TypeDecl.FloatTypeDecl -> resolveFloatTypeDecl(scalarTypeDecl)
-        TypeDecl.Bool -> Type.Bool
-        TypeDecl.I32 -> Type.I32
-        TypeDecl.U32 -> Type.U32
+        is TypeDecl.Bool -> Type.Bool
+        is TypeDecl.I32 -> Type.I32
+        is TypeDecl.U32 -> Type.U32
     }
 
 private fun resolveVectorTypeDecl(vectorTypeDecl: TypeDecl.VectorTypeDecl): Type.Vector {
@@ -1311,23 +1368,29 @@ private fun isSwizzle(memberName: String): Boolean =
 // Throws an exception if the types in the given list do not share a common concretization.
 // Otherwise, returns the common concretization, unless all the types are the same abstract type in which case that type
 // is returned.
-private fun findCommonType(
-    expressions: List<Expression>,
-    resolverState: ResolverState,
-): Type {
-    var result = resolverState.resolvedEnvironment.typeOf(expressions[0])
-    for (expression in expressions.drop(1)) {
-        val type = resolverState.resolvedEnvironment.typeOf(expression)
+private fun findCommonType(types: List<Type>): Type {
+    var result = types[0]
+    for (type in types.drop(1)) {
         if (result != type) {
             if (result.isAbstractionOf(type)) {
                 result = type
-            } else {
+            } else if (!type.isAbstractionOf(result)) {
                 throw RuntimeException("No common type found.")
             }
         }
     }
     return result
 }
+
+private fun findCommonType(
+    expressions: List<Expression>,
+    resolverState: ResolverState,
+): Type =
+    findCommonType(
+        expressions.map {
+            resolverState.resolvedEnvironment.typeOf(it)
+        },
+    )
 
 private fun resolveTypeDecl(
     typeDecl: TypeDecl,
@@ -1389,14 +1452,14 @@ private fun resolveTypeDecl(
                 else -> throw RuntimeException("Inappropriate target type for atomic type.")
             }
         }
-        TypeDecl.SamplerComparison -> Type.SamplerComparison
-        TypeDecl.SamplerRegular -> Type.SamplerRegular
-        TypeDecl.TextureDepth2D -> Type.Texture.Depth2D
-        TypeDecl.TextureDepth2DArray -> Type.Texture.Depth2DArray
-        TypeDecl.TextureDepthCube -> Type.Texture.DepthCube
-        TypeDecl.TextureDepthCubeArray -> Type.Texture.DepthCubeArray
-        TypeDecl.TextureDepthMultisampled2D -> Type.Texture.DepthMultisampled2D
-        TypeDecl.TextureExternal -> Type.Texture.External
+        is TypeDecl.SamplerComparison -> Type.SamplerComparison
+        is TypeDecl.SamplerRegular -> Type.SamplerRegular
+        is TypeDecl.TextureDepth2D -> Type.Texture.Depth2D
+        is TypeDecl.TextureDepth2DArray -> Type.Texture.Depth2DArray
+        is TypeDecl.TextureDepthCube -> Type.Texture.DepthCube
+        is TypeDecl.TextureDepthCubeArray -> Type.Texture.DepthCubeArray
+        is TypeDecl.TextureDepthMultisampled2D -> Type.Texture.DepthMultisampled2D
+        is TypeDecl.TextureExternal -> Type.Texture.External
         is TypeDecl.TextureMultisampled2d -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.Multisampled2d(sampledType)

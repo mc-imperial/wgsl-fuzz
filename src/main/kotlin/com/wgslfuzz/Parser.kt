@@ -120,7 +120,7 @@ private class AstBuilder(
                     .toMutableList(),
         )
 
-    override fun visitEmpty_global_decl(ctx: WGSLParser.Empty_global_declContext): GlobalDecl.Empty = GlobalDecl.Empty
+    override fun visitEmpty_global_decl(ctx: WGSLParser.Empty_global_declContext): GlobalDecl.Empty = GlobalDecl.Empty()
 
     override fun visitConst_assert_decl(ctx: WGSLParser.Const_assert_declContext): GlobalDecl.ConstAssert =
         GlobalDecl.ConstAssert(
@@ -239,7 +239,7 @@ private class AstBuilder(
                     .map {
                         if (it.DEFAULT() != null) {
                             SwitchClause(
-                                caseSelectors = CaseSelectors.DefaultAlone,
+                                caseSelectors = CaseSelectors.DefaultAlone(),
                                 compoundStatement = visitCompound_statement(it.compound_statement()),
                             )
                         } else {
@@ -390,9 +390,9 @@ private class AstBuilder(
             initializer = visitExpression(ctx.expression()),
         )
 
-    override fun visitBreak_statement(ctx: WGSLParser.Break_statementContext): Statement.Break = Statement.Break
+    override fun visitBreak_statement(ctx: WGSLParser.Break_statementContext): Statement.Break = Statement.Break()
 
-    override fun visitContinue_statement(ctx: WGSLParser.Continue_statementContext): Statement.Continue = Statement.Continue
+    override fun visitContinue_statement(ctx: WGSLParser.Continue_statementContext): Statement.Continue = Statement.Continue()
 
     override fun visitStatement(ctx: WGSLParser.StatementContext): Statement = super.visitStatement(ctx) as Statement
 
@@ -480,12 +480,12 @@ private class AstBuilder(
     override fun visitDecrement_statement(ctx: WGSLParser.Decrement_statementContext): Statement.Decrement =
         Statement.Decrement(visitLhs_expression(ctx.lhs_expression()))
 
-    override fun visitDiscard_statement(ctx: WGSLParser.Discard_statementContext): Statement.Discard = Statement.Discard
+    override fun visitDiscard_statement(ctx: WGSLParser.Discard_statementContext): Statement.Discard = Statement.Discard()
 
     override fun visitConst_assert_statement(ctx: WGSLParser.Const_assert_statementContext): Statement.ConstAssert =
         Statement.ConstAssert(visitExpression(ctx.expression()))
 
-    override fun visitEmpty_statement(ctx: WGSLParser.Empty_statementContext): Statement.Empty = Statement.Empty
+    override fun visitEmpty_statement(ctx: WGSLParser.Empty_statementContext): Statement.Empty = Statement.Empty()
 
     override fun visitStruct_decl(ctx: WGSLParser.Struct_declContext): GlobalDecl.Struct {
         val result =
@@ -515,26 +515,24 @@ private class AstBuilder(
 
     override fun visitType_decl_without_ident(ctx: WGSLParser.Type_decl_without_identContext): TypeDecl {
         if (ctx.BOOL() != null) {
-            return TypeDecl.Bool
+            return TypeDecl.Bool()
         }
         if (ctx.INT32() != null) {
-            return TypeDecl.I32
+            return TypeDecl.I32()
         }
         if (ctx.UINT32() != null) {
-            return TypeDecl.U32
+            return TypeDecl.U32()
         }
         if (ctx.FLOAT16() != null) {
-            return TypeDecl.F16
+            return TypeDecl.F16()
         }
         if (ctx.FLOAT32() != null) {
-            return TypeDecl.F32
+            return TypeDecl.F32()
         }
         if (ctx.vec_prefix() != null) {
-            val elementType: TypeDecl? =
+            val elementType: TypeDecl =
                 ctx.type_decl()?.let(::visitType_decl)
-            if (elementType == null) {
-                throw UnsupportedOperationException("A vector type must specify an element type.")
-            }
+                    ?: throw UnsupportedOperationException("A vector type must specify an element type.")
             if (elementType !is TypeDecl.ScalarTypeDecl) {
                 throw UnsupportedOperationException("Element type of vector must be scalar.")
             }
@@ -625,13 +623,13 @@ private class AstBuilder(
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("sampler does not take template parameters.")
                     }
-                    TypeDecl.SamplerRegular
+                    TypeDecl.SamplerRegular()
                 }
                 "sampler_comparison" -> {
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("sampler_comparison does not take template parameters.")
                     }
-                    TypeDecl.SamplerComparison
+                    TypeDecl.SamplerComparison()
                 }
                 "texture_1d" -> TypeDecl.TextureSampled1D(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
                 "texture_2d" -> TypeDecl.TextureSampled2D(getSingleTypeDeclTemplateArg(ctx.type_decl_template_arg()))
@@ -644,13 +642,13 @@ private class AstBuilder(
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("texture_depth_multisampled_2d does not take template parameters.")
                     }
-                    TypeDecl.TextureDepthMultisampled2D
+                    TypeDecl.TextureDepthMultisampled2D()
                 }
                 "texture_external" -> {
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("texture_external does not take template parameters.")
                     }
-                    TypeDecl.TextureExternal
+                    TypeDecl.TextureExternal()
                 }
                 "texture_storage_1d" ->
                     TypeDecl.TextureStorage1D(
@@ -676,25 +674,25 @@ private class AstBuilder(
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("texture_depth_2d does not take template parameters.")
                     }
-                    TypeDecl.TextureDepth2D
+                    TypeDecl.TextureDepth2D()
                 }
                 "texture_depth_2d_array" -> {
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("texture_depth_2d_array does not take template parameters.")
                     }
-                    TypeDecl.TextureDepth2DArray
+                    TypeDecl.TextureDepth2DArray()
                 }
                 "texture_depth_cube" -> {
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("texture_depth_cube does not take template parameters.")
                     }
-                    TypeDecl.TextureDepthCube
+                    TypeDecl.TextureDepthCube()
                 }
                 "texture_depth_cube_array" -> {
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
                         throw RuntimeException("texture_depth_cube_array does not take template parameters.")
                     }
-                    TypeDecl.TextureDepthCubeArray
+                    TypeDecl.TextureDepthCubeArray()
                 }
                 else -> {
                     if (ctx.type_decl_template_arg().isNotEmpty()) {
@@ -1062,13 +1060,13 @@ private class AstBuilder(
         }
         val ctx = ctxs[0]
         return if (ctx.FLOAT16() != null) {
-            TypeDecl.F16
+            TypeDecl.F16()
         } else if (ctx.FLOAT32() != null) {
-            TypeDecl.F32
+            TypeDecl.F32()
         } else if (ctx.INT32() != null) {
-            TypeDecl.I32
+            TypeDecl.I32()
         } else if (ctx.UINT32() != null) {
-            TypeDecl.U32
+            TypeDecl.U32()
         } else {
             TypeDecl.NamedType(
                 name = ctx.IDENT().text,

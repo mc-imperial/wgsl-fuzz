@@ -291,19 +291,19 @@ sealed interface TypeDecl : AstNode {
         val name: String,
     ) : TypeDecl
 
-    data object Bool : ScalarTypeDecl("bool")
+    class Bool : ScalarTypeDecl("bool")
 
-    data object I32 : ScalarTypeDecl("i32")
+    class I32 : ScalarTypeDecl("i32")
 
-    data object U32 : ScalarTypeDecl("u32")
+    class U32 : ScalarTypeDecl("u32")
 
     sealed class FloatTypeDecl(
         name: String,
     ) : ScalarTypeDecl(name)
 
-    data object F32 : FloatTypeDecl("f32")
+    class F32 : FloatTypeDecl("f32")
 
-    data object F16 : FloatTypeDecl("f16")
+    class F16 : FloatTypeDecl("f16")
 
     sealed class VectorTypeDecl(
         var elementType: ScalarTypeDecl,
@@ -420,9 +420,9 @@ sealed interface TypeDecl : AstNode {
         var targetType: TypeDecl,
     ) : TypeDecl
 
-    data object SamplerRegular : TypeDecl
+    class SamplerRegular : TypeDecl
 
-    data object SamplerComparison : TypeDecl
+    class SamplerComparison : TypeDecl
 
     // Sampled Texture Types
 
@@ -456,11 +456,11 @@ sealed interface TypeDecl : AstNode {
         var sampledType: TypeDecl,
     ) : TypeDecl
 
-    data object TextureDepthMultisampled2D : TypeDecl
+    class TextureDepthMultisampled2D : TypeDecl
 
     // External Sampled Texture Types
 
-    data object TextureExternal : TypeDecl
+    class TextureExternal : TypeDecl
 
     // Storage Texture Types
 
@@ -486,13 +486,13 @@ sealed interface TypeDecl : AstNode {
 
     // Depth Texture Types
 
-    data object TextureDepth2D : TypeDecl
+    class TextureDepth2D : TypeDecl
 
-    data object TextureDepth2DArray : TypeDecl
+    class TextureDepth2DArray : TypeDecl
 
-    data object TextureDepthCube : TypeDecl
+    class TextureDepthCube : TypeDecl
 
-    data object TextureDepthCubeArray : TypeDecl
+    class TextureDepthCubeArray : TypeDecl
 }
 
 class ContinuingStatement(
@@ -502,7 +502,7 @@ class ContinuingStatement(
 ) : AstNode
 
 sealed interface CaseSelectors : AstNode {
-    data object DefaultAlone : CaseSelectors
+    class DefaultAlone : CaseSelectors
 
     class ExpressionsOrDefault(
         // Null represents default, which can occur in a sequence of case selector expressions
@@ -610,13 +610,13 @@ sealed interface Statement : AstNode {
         var expression: Expression,
     ) : Statement
 
-    data object Empty : Statement
+    class Empty : Statement
 
-    data object Break : Statement
+    class Break : Statement
 
-    data object Continue : Statement
+    class Continue : Statement
 
-    data object Discard : Statement
+    class Discard : Statement
 }
 
 class ParameterDecl(
@@ -670,7 +670,7 @@ sealed interface GlobalDecl : AstNode {
         var expression: Expression,
     ) : GlobalDecl
 
-    data object Empty : GlobalDecl
+    class Empty : GlobalDecl
 }
 
 class StructMember(

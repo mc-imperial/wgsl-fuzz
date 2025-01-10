@@ -326,14 +326,14 @@ class AstWriter(
                 emit(typeDecl.targetType)
                 out.print(">")
             }
-            TypeDecl.SamplerComparison -> out.print("sampler_comparison")
-            TypeDecl.SamplerRegular -> out.print("sampler")
-            TypeDecl.TextureDepth2D -> out.print("texture_depth_2d")
-            TypeDecl.TextureDepth2DArray -> out.print("texture_depth_2d_array")
-            TypeDecl.TextureDepthCube -> out.print("texture_depth_cube")
-            TypeDecl.TextureDepthCubeArray -> out.print("texture_depth_cube_array")
-            TypeDecl.TextureDepthMultisampled2D -> out.print("texture_depth_multisampled_2d")
-            TypeDecl.TextureExternal -> out.print("texture_external")
+            is TypeDecl.SamplerComparison -> out.print("sampler_comparison")
+            is TypeDecl.SamplerRegular -> out.print("sampler")
+            is TypeDecl.TextureDepth2D -> out.print("texture_depth_2d")
+            is TypeDecl.TextureDepth2DArray -> out.print("texture_depth_2d_array")
+            is TypeDecl.TextureDepthCube -> out.print("texture_depth_cube")
+            is TypeDecl.TextureDepthCubeArray -> out.print("texture_depth_cube_array")
+            is TypeDecl.TextureDepthMultisampled2D -> out.print("texture_depth_multisampled_2d")
+            is TypeDecl.TextureExternal -> out.print("texture_external")
             is TypeDecl.TextureMultisampled2d -> {
                 out.print("texture_multisampled_2d<")
                 emit(typeDecl.sampledType)
@@ -597,7 +597,7 @@ class AstWriter(
             clauses.forEach {
                 emitIndent()
                 when (it.caseSelectors) {
-                    CaseSelectors.DefaultAlone -> out.print("default\n")
+                    is CaseSelectors.DefaultAlone -> out.print("default\n")
                     is CaseSelectors.ExpressionsOrDefault -> {
                         out.print("case ")
                         (it.caseSelectors as CaseSelectors.ExpressionsOrDefault).expressions.forEach { expression ->
