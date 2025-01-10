@@ -437,7 +437,7 @@ private fun resolveExpressionType(
         is Expression.Binary -> {
             val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs)
             val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs)
-            when (expression.operator) {
+            when (val operator = expression.operator) {
                 BinaryOperator.LESS_THAN,
                 BinaryOperator.LESS_THAN_EQUAL,
                 BinaryOperator.GREATER_THAN,
@@ -447,37 +447,30 @@ private fun resolveExpressionType(
                         is Type.Scalar -> Type.Bool
                         else -> TODO()
                     }
-                BinaryOperator.PLUS ->
-                    if (lhsType == rhsType) {
+                BinaryOperator.PLUS, BinaryOperator.DIVIDE, BinaryOperator.MODULO ->
+                    if (rhsType.isAbstractionOf(lhsType)) {
                         lhsType
-                    } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
-                        Type.I32
+                    } else if (lhsType.isAbstractionOf(rhsType)) {
+                        rhsType
                     } else {
-                        TODO()
+                        TODO("$operator not supported for $lhsType and $rhsType")
                     }
                 BinaryOperator.TIMES ->
-                    if (lhsType == rhsType) {
+                    if (rhsType.isAbstractionOf(lhsType)) {
                         lhsType
-                    } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
-                        Type.I32
+                    } else if (lhsType.isAbstractionOf(rhsType)) {
+                        rhsType
+                    } else if (lhsType is Type.Vector && rhsType is Type.Scalar) {
+                        val lhsElementType = lhsType.elementType
+                        if (rhsType.isAbstractionOf(lhsElementType)) {
+                            lhsType
+                        } else if (lhsElementType.isAbstractionOf(rhsType)) {
+                            Type.Vector(lhsType.width, rhsType)
+                        } else {
+                            TODO("$operator not supported for $lhsType and $rhsType")
+                        }
                     } else {
-                        TODO()
-                    }
-                BinaryOperator.DIVIDE ->
-                    if (lhsType == rhsType) {
-                        lhsType
-                    } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
-                        Type.I32
-                    } else {
-                        TODO()
-                    }
-                BinaryOperator.MODULO ->
-                    if (lhsType == rhsType) {
-                        lhsType
-                    } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
-                        Type.I32
-                    } else {
-                        TODO()
+                        TODO("$operator not supported for $lhsType and $rhsType")
                     }
                 BinaryOperator.EQUAL_EQUAL ->
                     when (lhsType) {
@@ -550,6 +543,8 @@ private fun resolveTypeOfVectorValueConstructor(
     val elementType: Type.Scalar =
         if (expression.elementType != null) {
             resolveTypeDecl(expression.elementType!!, resolverState) as Type.Scalar
+        } else if (expression.args.isEmpty()) {
+            Type.AbstractInteger
         } else {
             var candidateElementType: Type.Scalar? = null
             for (arg in expression.args) {
@@ -1122,10 +1117,9 @@ private fun resolveTypeOfAddressOfExpression(
             is Expression.Paren -> target = target.target
             is Expression.MemberLookup -> target = target.receiver
             is Expression.Unary -> {
-                if (target.operator == UnaryOperator.DEREFERENCE) {
-                    target = target.target
-                } else {
-                    throw RuntimeException("Unsupported use of unary operator ${target.operator} under address-of")
+                when (target.operator) {
+                    UnaryOperator.ADDRESS_OF, UnaryOperator.DEREFERENCE -> target = target.target
+                    else -> throw RuntimeException("Unsupported use of unary operator ${target.operator} under address-of")
                 }
             }
             is Expression.IndexLookup -> target = target.target
