@@ -588,7 +588,15 @@ private fun resolveBinary(
             } else if (lhsType is Type.Vector && rhsType is Type.Matrix) {
                 Type.Vector(rhsType.numCols, findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float)
             } else if (lhsType is Type.Matrix && rhsType is Type.Matrix) {
-                TODO()
+                Type.Matrix(
+                    rhsType.numCols,
+                    lhsType.numRows,
+                    findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float,
+                )
+            } else if (lhsType is Type.Scalar && rhsType is Type.Matrix) {
+                Type.Matrix(rhsType.numCols, rhsType.numRows, findCommonType(listOf(lhsType, rhsType.elementType)) as Type.Float)
+            } else if (lhsType is Type.Matrix && rhsType is Type.Scalar) {
+                Type.Matrix(lhsType.numCols, lhsType.numRows, findCommonType(listOf(lhsType.elementType, rhsType)) as Type.Float)
             } else {
                 TODO("$operator not supported for $lhsType and $rhsType")
             }
@@ -904,7 +912,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])) {
                         Type.F16 -> FrexpResultF16
                         Type.F32 -> FrexpResultF32
-                        Type.AbstractFloat -> FrexpResultAbstract
+                        Type.AbstractFloat, Type.AbstractInteger -> FrexpResultAbstract
                         is Type.Vector -> {
                             when (argType.elementType) {
                                 Type.F16 -> {
@@ -1421,7 +1429,41 @@ private fun evaluate(
                 TODO()
             }
         }
-        else -> TODO()
+        is Expression.Identifier -> {
+            val scopeEntry = resolverState.currentScope.getEntry(expression.name)
+            when (scopeEntry) {
+                // TODO: Avoid re-evaluating global constants, and/or handle the problem that the resolver state needed
+                //  to evaluate the global constant would really be global scope.
+                is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, resolverState)
+                is ScopeEntry.GlobalOverride -> {
+                    scopeEntry.astNode.initializer?.let { evaluate(it, resolverState) }
+                        ?: throw RuntimeException(
+                            "The use of override expressions without initializers is not supported in expression evaluation.",
+                        )
+                }
+                else -> TODO("$scopeEntry")
+            }
+        }
+        is Expression.Paren -> evaluate(expression.target, resolverState)
+        is Expression.Binary -> {
+            val lhs = evaluate(expression.lhs, resolverState)
+            val rhs = evaluate(expression.lhs, resolverState)
+            if (lhs !is EvaluatedValue.Integer || rhs !is EvaluatedValue.Integer) {
+                TODO("Evaluation of arithmetic on non-integer values is not supported")
+            }
+            when (expression.operator) {
+                BinaryOperator.TIMES -> {
+                    // TODO: This does not take account of signedness
+                    EvaluatedValue.Integer(lhs.value * rhs.value)
+                }
+                BinaryOperator.SHIFT_LEFT -> {
+                    // TODO: This does not take account of signedness
+                    EvaluatedValue.Integer(lhs.value.shl(rhs.value))
+                }
+                else -> TODO("${expression.operator}")
+            }
+        }
+        else -> TODO("$expression")
     }
 
 private fun evaluateToInt(
@@ -1483,15 +1525,33 @@ private fun resolveTypeDecl(
                 }
                 null -> {
                     when (typeDecl.name) {
-                        "vec2f" -> Type.Vector(3, Type.F32)
+                        "vec2f" -> Type.Vector(2, Type.F32)
                         "vec3f" -> Type.Vector(3, Type.F32)
-                        "vec4f" -> Type.Vector(3, Type.F32)
-                        "vec2i" -> Type.Vector(3, Type.I32)
+                        "vec4f" -> Type.Vector(4, Type.F32)
+                        "vec2i" -> Type.Vector(2, Type.I32)
                         "vec3i" -> Type.Vector(3, Type.I32)
-                        "vec4i" -> Type.Vector(3, Type.I32)
-                        "vec2u" -> Type.Vector(3, Type.U32)
+                        "vec4i" -> Type.Vector(4, Type.I32)
+                        "vec2u" -> Type.Vector(2, Type.U32)
                         "vec3u" -> Type.Vector(3, Type.U32)
-                        "vec4u" -> Type.Vector(3, Type.U32)
+                        "vec4u" -> Type.Vector(4, Type.U32)
+                        "mat2x2f" -> Type.Matrix(2, 2, Type.F32)
+                        "mat2x3f" -> Type.Matrix(2, 3, Type.F32)
+                        "mat2x4f" -> Type.Matrix(2, 4, Type.F32)
+                        "mat3x2f" -> Type.Matrix(3, 2, Type.F32)
+                        "mat3x3f" -> Type.Matrix(3, 3, Type.F32)
+                        "mat3x4f" -> Type.Matrix(3, 4, Type.F32)
+                        "mat4x2f" -> Type.Matrix(4, 2, Type.F32)
+                        "mat4x3f" -> Type.Matrix(4, 3, Type.F32)
+                        "mat4x4f" -> Type.Matrix(4, 4, Type.F32)
+                        "mat2x2h" -> Type.Matrix(2, 2, Type.F16)
+                        "mat2x3h" -> Type.Matrix(2, 3, Type.F16)
+                        "mat2x4h" -> Type.Matrix(2, 4, Type.F16)
+                        "mat3x2h" -> Type.Matrix(3, 2, Type.F16)
+                        "mat3x3h" -> Type.Matrix(3, 3, Type.F16)
+                        "mat3x4h" -> Type.Matrix(3, 4, Type.F16)
+                        "mat4x2h" -> Type.Matrix(4, 2, Type.F16)
+                        "mat4x3h" -> Type.Matrix(4, 3, Type.F16)
+                        "mat4x4h" -> Type.Matrix(4, 4, Type.F16)
                         else -> TODO("Unknown typed declaration: ${typeDecl.name}")
                     }
                 }

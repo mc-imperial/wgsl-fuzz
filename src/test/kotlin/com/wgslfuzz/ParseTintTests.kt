@@ -51,6 +51,14 @@ class ParseTintTests {
                 // This uses "mat2x2" as an identifier, which WGSL does allow but our grammar does not.
                 "external/dawn/test/tint/bug/chromium/40943165.wgsl",
                 "external/dawn/test/tint/bug/chromium/40943165.wgsl.expected.wgsl",
+                // These feature array sizes based on an override declaration with no initializer.
+                // TODO: These could be supported by having a feature for specifying the values of overrides.
+                "external/dawn/test/tint/bug/tint/1737.wgsl",
+                "external/dawn/test/tint/bug/tint/1737.wgsl.expected.wgsl",
+                "external/dawn/test/tint/builtins/workgroupUniformLoad/array_overridable_count_aliased.wgsl.expected.wgsl",
+                "external/dawn/test/tint/builtins/workgroupUniformLoad/array_overridable_count_aliased.wgsl",
+                "external/dawn/test/tint/builtins/workgroupUniformLoad/array_overridable_count.wgsl.expected.wgsl",
+                "external/dawn/test/tint/builtins/workgroupUniformLoad/array_overridable_count.wgsl",
             )
         val skipList = diagnosticChecks + tooHard
 
@@ -68,12 +76,11 @@ class ParseTintTests {
             ) {
                 return@forEach
             }
-            counter++
-            if (counter >= 10367) {
-                println(counter)
-                println(it)
-                checkWgslTest(it.path)
+            if (counter.mod(1000) == 0) {
+                println("Done $counter tests")
             }
+            counter++
+            checkWgslTest(it.path)
         }
     }
 
