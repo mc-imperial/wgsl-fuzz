@@ -37,6 +37,11 @@ sealed interface ScopeEntry {
         override val type: Type,
     ) : TypedDecl
 
+    class GlobalOverride(
+        override val astNode: GlobalDecl.Override,
+        override val type: Type,
+    ) : TypedDecl
+
     class Struct(
         override val astNode: GlobalDecl.Struct,
         override val type: Type.Struct,
@@ -317,6 +322,18 @@ private fun resolveAstNode(
                 ),
             )
         }
+        is GlobalDecl.Override -> {
+            resolverState.currentScope.addEntry(
+                node.name,
+                ScopeEntry.GlobalOverride(
+                    astNode = node,
+                    type =
+                        node.type?.let {
+                            resolveTypeDecl(it, resolverState)
+                        } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
+                ),
+            )
+        }
         is GlobalDecl.Struct -> {
             resolverState.currentScope.addEntry(
                 node.name,
@@ -431,6 +448,30 @@ private fun resolveExpressionType(
                         else -> TODO()
                     }
                 BinaryOperator.PLUS ->
+                    if (lhsType == rhsType) {
+                        lhsType
+                    } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
+                        Type.I32
+                    } else {
+                        TODO()
+                    }
+                BinaryOperator.TIMES ->
+                    if (lhsType == rhsType) {
+                        lhsType
+                    } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
+                        Type.I32
+                    } else {
+                        TODO()
+                    }
+                BinaryOperator.DIVIDE ->
+                    if (lhsType == rhsType) {
+                        lhsType
+                    } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
+                        Type.I32
+                    } else {
+                        TODO()
+                    }
+                BinaryOperator.MODULO ->
                     if (lhsType == rhsType) {
                         lhsType
                     } else if (lhsType is Type.I32 && rhsType is Type.AbstractInteger) {
@@ -616,11 +657,12 @@ private fun resolveTypeOfFunctionCallExpression(
     when (val scopeEntry = resolverState.currentScope.getEntry(functionCallExpression.callee)) {
         null ->
             when (val calleeName = functionCallExpression.callee) {
-                // 1-argument functions with return type same as argument type
-                // TODO go through these and check which ones support abstract types. Those that don't need
-                //  concretisation
+                // 1-argument functions with return type same as argument type, allowing for the case where both are
+                // abstract.
+                // TODO go through these and check which ones support abstract types. Those that need concretisation
+                //  should be moved to the next case.
                 "abs", "acos", "acosh", "asin", "asinh", "atan", "atanh", "ceil", "cos", "cosh", "degrees", "dpdx",
-                "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "exp", "exp2", "fract", "fwidth",
+                "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "exp", "exp2", "floor", "fract", "fwidth",
                 "fwidthCoarse", "fwidthFine", "inverseSqrt", "log", "log2", "normalize", "quantizeToF16", "radians",
                 "round", "saturate", "sign", "sin", "sinh", "sqrt", "tan", "tanh", "trunc",
                 -> {
@@ -628,6 +670,15 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("$calleeName requires one argument.")
                     } else {
                         resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
+                    }
+                }
+                // 1-argument homogeneous functions with return type same as concretisation of argument type
+                "reverseBits",
+                -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException("$calleeName requires one argument.")
+                    } else {
+                        defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
                     }
                 }
                 // 2-argument homogeneous functions with return type same as argument type
@@ -1015,6 +1066,17 @@ private fun resolveTypeOfFunctionCallExpression(
                 "textureSampleBaseClampToEdge", "textureSampleBias" -> Type.Vector(4, Type.F32)
                 "textureSampleCompare", "textureSampleCompareLevel" -> Type.F32
                 "textureSampleGrad" -> Type.Vector(4, Type.F32)
+                "transpose" -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException("$calleeName requires one argument")
+                    }
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
+                    if (arg1Type is Type.Matrix) {
+                        Type.Matrix(numCols = arg1Type.numRows, numRows = arg1Type.numCols, elementType = arg1Type.elementType)
+                    } else {
+                        throw RuntimeException("$calleeName requires a matrix argument")
+                    }
+                }
                 "unpack4x8snorm", "unpack4x8unorm", "unpack2x16snorm", "unpack2x16unorm", "unpack2x16float" -> Type.Vector(4, Type.F32)
                 "unpack4xI8" -> Type.Vector(4, Type.I32)
                 "unpack4xU8" -> Type.Vector(4, Type.U32)
@@ -1066,6 +1128,7 @@ private fun resolveTypeOfAddressOfExpression(
                     throw RuntimeException("Unsupported use of unary operator ${target.operator} under address-of")
                 }
             }
+            is Expression.IndexLookup -> target = target.target
             else -> throw RuntimeException("Unsupported expression $target under address-of")
         }
     }
