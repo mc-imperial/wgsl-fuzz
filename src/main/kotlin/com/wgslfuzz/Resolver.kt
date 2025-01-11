@@ -298,7 +298,6 @@ private fun resolveAstNode(
         traverse(::resolveAstNode, node, resolverState)
     }
 
-    // TODO - consider cutting off traversal so that type declarations are not visited as these are handled separately
     when (node) {
         is GlobalDecl.TypeAlias -> {
             resolverState.currentScope.addEntry(
