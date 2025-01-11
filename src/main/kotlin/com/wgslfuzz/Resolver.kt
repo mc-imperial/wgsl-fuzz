@@ -118,14 +118,14 @@ private class ResolvedEnvironmentImpl : ResolvedEnvironment {
 
     override fun typeOf(expression: Expression): Type =
         expressionTypes[expression]
-            ?: throw UnsupportedOperationException("No type for $expression")
+            ?: throw IllegalArgumentException("No type for $expression")
 
     override fun typeOf(lhsExpression: LhsExpression): Type =
         lhsExpressionTypes[lhsExpression]
-            ?: throw UnsupportedOperationException("No type for $lhsExpression")
+            ?: throw IllegalArgumentException("No type for $lhsExpression")
 
     override fun enclosingScope(statement: Statement): Scope =
-        statementScopes[statement] ?: throw UnsupportedOperationException("No scope for $statement")
+        statementScopes[statement] ?: throw IllegalArgumentException("No scope for $statement")
 }
 
 private fun collectUsedModuleScopeNames(node: AstNode): Set<String> {
@@ -241,7 +241,7 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
     while (toProcess.isNotEmpty()) {
         val addedThisRound = toProcess.entries.filter { it.value.isEmpty() }.map { it.key }
         if (addedThisRound.isEmpty()) {
-            throw RuntimeException("Cycle detected in globally-scoped declarations.")
+            throw IllegalArgumentException("Cycle detected in globally-scoped declarations")
         }
         for (name in addedThisRound) {
             toProcess.remove(name)
@@ -417,13 +417,13 @@ private fun resolveExpressionType(
                         else -> TODO("Index lookup on pointer with pointee type ${targetType.pointeeType}")
                     }
                 }
-                else -> throw RuntimeException("Index lookup attempted on unsuitable type $targetType.")
+                else -> throw IllegalArgumentException("Index lookup attempted on unsuitable type $targetType")
             }
         is Expression.MemberLookup ->
             when (val receiverType = resolverState.resolvedEnvironment.typeOf(expression.receiver)) {
                 is Type.Struct ->
                     receiverType.members[expression.memberName]
-                        ?: throw RuntimeException("Struct with type $receiverType does not have a member ${expression.memberName}")
+                        ?: throw IllegalArgumentException("Struct with type $receiverType does not have a member ${expression.memberName}")
                 is Type.Vector ->
                     // In the following we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
                     if (expression.memberName in setOf("x", "y", "z", "w", "r", "g", "b", "a")) {
@@ -446,10 +446,12 @@ private fun resolveExpressionType(
                             }
                         is Type.Struct ->
                             pointeeType.members[expression.memberName]
-                                ?: throw RuntimeException("Struct with type $receiverType does not have a member ${expression.memberName}")
+                                ?: throw IllegalArgumentException(
+                                    "Struct with type $receiverType does not have a member ${expression.memberName}",
+                                )
                         else -> TODO("${receiverType.pointeeType}")
                     }
-                else -> TODO("Member lookup not implemented for receiver of type $receiverType")
+                else -> throw UnsupportedOperationException("Member lookup not implemented for receiver of type $receiverType")
             }
         is Expression.FloatLiteral ->
             if (expression.text.endsWith("f")) {
@@ -475,7 +477,7 @@ private fun resolveExpressionType(
         is Expression.Identifier ->
             when (val scopeEntry = resolverState.currentScope.getEntry(expression.name)) {
                 is ScopeEntry.TypedDecl -> scopeEntry.type
-                else -> throw RuntimeException("Identifier ${expression.name} does not have a typed scope entry.")
+                else -> throw IllegalArgumentException("Identifier ${expression.name} does not have a typed scope entry")
             }
         is Expression.BoolValueConstructor -> Type.Bool
         is Expression.I32ValueConstructor -> Type.I32
@@ -488,8 +490,8 @@ private fun resolveExpressionType(
         is Expression.StructValueConstructor ->
             when (val scopeEntry = resolverState.currentScope.getEntry(expression.typeName)) {
                 is ScopeEntry.Struct -> scopeEntry.type
-                else -> throw RuntimeException(
-                    "Attempt to construct a struct with constructor ${expression.typeName}, which is not a struct type.",
+                else -> throw IllegalArgumentException(
+                    "Attempt to construct a struct with constructor ${expression.typeName}, which is not a struct type",
                 )
             }
         is Expression.TypeAliasValueConstructor ->
@@ -510,7 +512,7 @@ private fun resolveLhsExpressionType(
             if (referenceType !is Type.Reference) {
                 throw RuntimeException(
                     "Address-of in LHS expression applied to expression ${lhsExpression.target} with non-reference " +
-                        "type.",
+                        "type",
                 )
             }
             Type.Pointer(referenceType.storeType, referenceType.addressSpace, referenceType.accessMode)
@@ -548,7 +550,7 @@ private fun resolveLhsExpressionType(
                         scopeEntry.astNode.accessMode ?: AccessMode.READ_WRITE,
                     )
                 }
-                else -> throw RuntimeException("Unsuitable scope entry for identifier occurring in LHS expression.")
+                else -> throw RuntimeException("Unsuitable scope entry for identifier occurring in LHS expression")
             }
         }
         is LhsExpression.IndexLookup -> {
@@ -568,14 +570,14 @@ private fun resolveLhsExpressionType(
                     accessMode = targetType.accessMode
                 }
                 else -> throw RuntimeException(
-                    "Index lookup in LHS expression applied to expression ${lhsExpression.target} with non-reference / pointer type.",
+                    "Index lookup in LHS expression applied to expression ${lhsExpression.target} with non-reference / pointer type",
                 )
             }
             when (storeType) {
                 is Type.Vector -> Type.Reference(storeType.elementType, addressSpace, accessMode)
                 is Type.Array -> Type.Reference(storeType.elementType, addressSpace, accessMode)
                 is Type.Matrix -> Type.Reference(Type.Vector(storeType.numRows, storeType.elementType), addressSpace, accessMode)
-                else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference.")
+                else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference")
             }
         }
         is LhsExpression.MemberLookup -> {
@@ -595,14 +597,14 @@ private fun resolveLhsExpressionType(
                     accessMode = receiverType.accessMode
                 }
                 else -> throw RuntimeException(
-                    "Member lookup in LHS expression applied to expression ${lhsExpression.receiver} with non-reference / pointer type.",
+                    "Member lookup in LHS expression applied to expression ${lhsExpression.receiver} with non-reference / pointer type",
                 )
             }
 
             when (storeType) {
                 is Type.Struct -> Type.Reference(storeType.members[lhsExpression.memberName]!!, addressSpace, accessMode)
                 is Type.Vector -> Type.Reference(storeType.elementType, addressSpace, accessMode)
-                else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference.")
+                else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference")
             }
         }
         is LhsExpression.Paren -> resolverState.resolvedEnvironment.typeOf(lhsExpression.target)
@@ -722,12 +724,12 @@ private fun resolveBinary(
             when (lhsType) {
                 is Type.Scalar -> Type.Bool
                 is Type.Vector -> Type.Vector(width = lhsType.width, elementType = Type.Bool)
-                else -> throw RuntimeException("== operator is only supported for scalar and vector types.")
+                else -> throw RuntimeException("== operator is only supported for scalar and vector types")
             }
 
         BinaryOperator.SHORT_CIRCUIT_AND, BinaryOperator.SHORT_CIRCUIT_OR ->
             if (lhsType != Type.Bool || rhsType != Type.Bool) {
-                throw RuntimeException("Short circuit && and || operators require bool arguments.")
+                throw RuntimeException("Short circuit && and || operators require bool arguments")
             } else {
                 Type.Bool
             }
@@ -738,7 +740,7 @@ private fun resolveBinary(
             } else if (lhsType.isAbstractionOf(rhsType)) {
                 rhsType
             } else {
-                throw RuntimeException("Unsupported types for bitwise operation.")
+                throw RuntimeException("Unsupported types for bitwise operation")
             }
 
         BinaryOperator.SHIFT_LEFT, BinaryOperator.SHIFT_RIGHT -> lhsType
@@ -768,13 +770,13 @@ private fun resolveTypeOfVectorValueConstructor(
                         elementTypeForArg = elementTypeForArg.elementType
                     }
                     else -> {
-                        throw RuntimeException("A vector may only be constructed from vectors and scalars.")
+                        throw RuntimeException("A vector may only be constructed from vectors and scalars")
                     }
                 }
                 if (candidateElementType == null || candidateElementType.isAbstractionOf(elementTypeForArg)) {
                     candidateElementType = elementTypeForArg
                 } else if (!elementTypeForArg.isAbstractionOf(candidateElementType)) {
-                    throw RuntimeException("Vector constructed from incompatible mix of element types.")
+                    throw RuntimeException("Vector constructed from incompatible mix of element types")
                 }
             }
             candidateElementType!!
@@ -809,19 +811,19 @@ private fun resolveTypeOfMatrixValueConstructor(
                         elementTypeForArg = elementTypeForArg.elementType
                     }
                     else -> {
-                        throw RuntimeException("A matrix may only be constructed from matrices, vectors and scalars.")
+                        throw RuntimeException("A matrix may only be constructed from matrices, vectors and scalars")
                     }
                 }
                 if (candidateElementType == null || candidateElementType.isAbstractionOf(elementTypeForArg)) {
                     candidateElementType = (elementTypeForArg as Type.Scalar) // Kotlin typechecker bug? This "as" should not be needed.
                 } else if (!elementTypeForArg.isAbstractionOf(candidateElementType)) {
-                    throw RuntimeException("Matrix constructed from incompatible mix of element types.")
+                    throw RuntimeException("Matrix constructed from incompatible mix of element types")
                 }
             }
             when (candidateElementType) {
                 is Type.Float -> candidateElementType
                 is Type.AbstractInteger -> Type.AbstractFloat
-                else -> throw RuntimeException("Invalid types provided to matrix constructor.")
+                else -> throw RuntimeException("Invalid types provided to matrix constructor")
             }
         }
     return when (expression) {
@@ -843,7 +845,7 @@ private fun resolveTypeOfArrayValueConstructor(
 ): Type.Array {
     val elementType: Type =
         expression.elementType?.let { resolveTypeDecl(it, resolverState) } ?: if (expression.args.isEmpty()) {
-            throw RuntimeException("Cannot work out element type of empty array constructor.")
+            throw RuntimeException("Cannot work out element type of empty array constructor")
         } else {
             findCommonType(expression.args, resolverState)
         }
@@ -871,7 +873,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 "round", "saturate", "sign", "sin", "sinh", "sqrt", "tan", "tanh", "trunc",
                 -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("$calleeName requires one argument.")
+                        throw RuntimeException("$calleeName requires one argument")
                     } else {
                         resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
                     }
@@ -880,7 +882,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 "reverseBits",
                 -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("$calleeName requires one argument.")
+                        throw RuntimeException("$calleeName requires one argument")
                     } else {
                         defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
                     }
@@ -890,14 +892,14 @@ private fun resolveTypeOfFunctionCallExpression(
                 //  concretisation
                 "atan2", "max", "min", "pow", "reflect", "step" ->
                     if (functionCallExpression.args.size != 2) {
-                        throw RuntimeException("$calleeName requires two arguments.")
+                        throw RuntimeException("$calleeName requires two arguments")
                     } else {
                         findCommonType(functionCallExpression.args, resolverState)
                     }
                 // 3-argument homogeneous functions with return type same as argument type
                 "clamp", "faceForward", "fma", "smoothstep" ->
                     if (functionCallExpression.args.size != 3) {
-                        throw RuntimeException("$calleeName requires three arguments.")
+                        throw RuntimeException("$calleeName requires three arguments")
                     } else {
                         findCommonType(functionCallExpression.args, resolverState)
                     }
@@ -924,7 +926,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     when (argType.pointeeType.targetType) {
                         Type.I32 -> AtomicCompareExchangeResultI32
                         Type.U32 -> AtomicCompareExchangeResultU32
-                        Type.AbstractInteger -> throw RuntimeException("An atomic integer should not have an abstract target type.")
+                        Type.AbstractInteger -> throw RuntimeException("An atomic integer should not have an abstract target type")
                     }
                 }
                 "atomicLoad" -> {
@@ -939,13 +941,13 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "bitcast" -> {
                     if (functionCallExpression.templateParameter == null) {
-                        throw RuntimeException("bitcast requires a template parameter for the target type.")
+                        throw RuntimeException("bitcast requires a template parameter for the target type")
                     }
                     resolveTypeDecl(functionCallExpression.templateParameter!!, resolverState)
                 }
                 "countLeadingZeros", "countOneBits", "countTrailingZeros" -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("$calleeName requires one argument.")
+                        throw RuntimeException("$calleeName requires one argument")
                     } else {
                         defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
                     }
@@ -1015,13 +1017,13 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "firstLeadingBit", "firstTrailingBit" ->
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("$calleeName requires one argument.")
+                        throw RuntimeException("$calleeName requires one argument")
                     } else {
                         defaultConcretizationOf(resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]))
                     }
                 "frexp" -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("frexp requires one argument.")
+                        throw RuntimeException("frexp requires one argument")
                     }
                     when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])) {
                         Type.F16 -> FrexpResultF16
@@ -1034,7 +1036,7 @@ private fun resolveTypeOfFunctionCallExpression(
                                         2 -> FrexpResultVec2F16
                                         3 -> FrexpResultVec3F16
                                         4 -> FrexpResultVec4F16
-                                        else -> throw RuntimeException("Bad vector size.")
+                                        else -> throw RuntimeException("Bad vector size")
                                     }
                                 }
                                 Type.F32 -> {
@@ -1042,7 +1044,7 @@ private fun resolveTypeOfFunctionCallExpression(
                                         2 -> FrexpResultVec2F32
                                         3 -> FrexpResultVec3F32
                                         4 -> FrexpResultVec4F32
-                                        else -> throw RuntimeException("Bad vector size.")
+                                        else -> throw RuntimeException("Bad vector size")
                                     }
                                 }
                                 Type.AbstractFloat -> {
@@ -1050,25 +1052,25 @@ private fun resolveTypeOfFunctionCallExpression(
                                         2 -> FrexpResultVec2Abstract
                                         3 -> FrexpResultVec3Abstract
                                         4 -> FrexpResultVec4Abstract
-                                        else -> throw RuntimeException("Bad vector size.")
+                                        else -> throw RuntimeException("Bad vector size")
                                     }
                                 }
-                                else -> throw RuntimeException("Unexpected vector element type of frexp vector argument.")
+                                else -> throw RuntimeException("Unexpected vector element type of frexp vector argument")
                             }
                         }
-                        else -> throw RuntimeException("Unexpected type of frexp argument.")
+                        else -> throw RuntimeException("Unexpected type of frexp argument")
                     }
                 }
                 "insertBits" -> {
                     if (functionCallExpression.args.size != 4) {
-                        throw RuntimeException("$calleeName requires three arguments.")
+                        throw RuntimeException("$calleeName requires three arguments")
                     } else {
                         defaultConcretizationOf(findCommonType(functionCallExpression.args.dropLast(2), resolverState))
                     }
                 }
                 "ldexp" -> {
                     if (functionCallExpression.args.size != 2) {
-                        throw RuntimeException("$calleeName requires two arguments.")
+                        throw RuntimeException("$calleeName requires two arguments")
                     }
                     val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
                     val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1])
@@ -1112,7 +1114,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 "mix", "refract" -> findCommonType(functionCallExpression.args.dropLast(1), resolverState)
                 "modf" -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("modf requires one argument.")
+                        throw RuntimeException("modf requires one argument")
                     }
                     when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])) {
                         Type.F16 -> ModfResultF16
@@ -1125,7 +1127,7 @@ private fun resolveTypeOfFunctionCallExpression(
                                         2 -> ModfResultVec2F16
                                         3 -> ModfResultVec3F16
                                         4 -> ModfResultVec4F16
-                                        else -> throw RuntimeException("Bad vector size.")
+                                        else -> throw RuntimeException("Bad vector size")
                                     }
                                 }
                                 Type.F32 -> {
@@ -1133,7 +1135,7 @@ private fun resolveTypeOfFunctionCallExpression(
                                         2 -> ModfResultVec2F32
                                         3 -> ModfResultVec3F32
                                         4 -> ModfResultVec4F32
-                                        else -> throw RuntimeException("Bad vector size.")
+                                        else -> throw RuntimeException("Bad vector size")
                                     }
                                 }
                                 Type.AbstractFloat -> {
@@ -1141,13 +1143,13 @@ private fun resolveTypeOfFunctionCallExpression(
                                         2 -> ModfResultVec2Abstract
                                         3 -> ModfResultVec3Abstract
                                         4 -> ModfResultVec4Abstract
-                                        else -> throw RuntimeException("Bad vector size.")
+                                        else -> throw RuntimeException("Bad vector size")
                                     }
                                 }
-                                else -> throw RuntimeException("Unexpected vector element type of modf vector argument.")
+                                else -> throw RuntimeException("Unexpected vector element type of modf vector argument")
                             }
                         }
-                        else -> throw RuntimeException("Unexpected type of modf argument.")
+                        else -> throw RuntimeException("Unexpected type of modf argument")
                     }
                 }
                 "pack4x8snorm", "pack4x8unorm", "pack4xI8", "pack4xU8", "pack4xI8Clamp", "pack4xU8Clamp",
@@ -1155,7 +1157,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 -> Type.U32
                 "select" -> {
                     if (functionCallExpression.args.size != 3) {
-                        throw RuntimeException("select requires three arguments.")
+                        throw RuntimeException("select requires three arguments")
                     } else {
                         findCommonType(functionCallExpression.args.dropLast(1), resolverState)
                     }
@@ -1250,7 +1252,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 "textureNumLayers", "textureNumLevels", "textureNumSamples" -> Type.U32
                 "textureSample", "textureSampleLevel" -> {
                     if (functionCallExpression.args.size < 1) {
-                        throw RuntimeException("Not enough arguments provided to $calleeName.")
+                        throw RuntimeException("Not enough arguments provided to $calleeName")
                     } else {
                         when (
                             val textureType =
@@ -1260,10 +1262,10 @@ private fun resolveTypeOfFunctionCallExpression(
                                 if (textureType.sampledType is Type.F32) {
                                     Type.Vector(4, Type.F32)
                                 } else {
-                                    throw RuntimeException("Incorrect sample type used with $calleeName.")
+                                    throw RuntimeException("Incorrect sample type used with $calleeName")
                                 }
                             Type.Texture.Depth2D, Type.Texture.Depth2DArray, Type.Texture.DepthCube, Type.Texture.DepthCubeArray -> Type.F32
-                            else -> throw RuntimeException("First argument to $calleeName must be a suitable texture.")
+                            else -> throw RuntimeException("First argument to $calleeName must be a suitable texture")
                         }
                     }
                 }
@@ -1298,11 +1300,11 @@ private fun resolveTypeOfFunctionCallExpression(
                 "vec4h" -> Type.Vector(4, Type.F16)
                 "workgroupUniformLoad" -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("workgroupUniformLoad requires one argument.")
+                        throw RuntimeException("workgroupUniformLoad requires one argument")
                     }
                     val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
                     if (argType !is Type.Pointer) {
-                        throw RuntimeException("workgroupUniformLoad requires a pointer argument.")
+                        throw RuntimeException("workgroupUniformLoad requires a pointer argument")
                     }
                     argType.pointeeType
                 }
@@ -1311,7 +1313,7 @@ private fun resolveTypeOfFunctionCallExpression(
         is ScopeEntry.Function ->
             scopeEntry.type.returnType
                 ?: throw RuntimeException(
-                    "Call expression used with function ${functionCallExpression.callee}, which does not return a value.",
+                    "Call expression used with function ${functionCallExpression.callee}, which does not return a value",
                 )
         else -> throw RuntimeException("Function call attempted on unknown callee ${functionCallExpression.callee}")
     }
@@ -1533,7 +1535,7 @@ private fun evaluate(
         is Expression.ArrayValueConstructor -> {
             val arrayType = resolverState.resolvedEnvironment.typeOf(expression) as Type.Array
             if (arrayType.elementCount == null) {
-                throw RuntimeException("Constant evaluation encountered array with non-constant size.")
+                throw RuntimeException("Constant evaluation encountered array with non-constant size")
             }
             if (expression.args.isEmpty()) {
                 TODO()
@@ -1551,11 +1553,11 @@ private fun evaluate(
                 is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, resolverState)
                 is ScopeEntry.GlobalOverride -> {
                     scopeEntry.astNode.initializer?.let { evaluate(it, resolverState) }
-                        ?: throw RuntimeException(
-                            "The use of override expressions without initializers is not supported in expression evaluation.",
+                        ?: throw UnsupportedOperationException(
+                            "The use of override expressions without initializers is not supported in expression evaluation",
                         )
                 }
-                else -> TODO("$scopeEntry")
+                else -> throw IllegalArgumentException("Inappropriate declaration used in constant expression: ${expression.name}")
             }
         }
         is Expression.Paren -> evaluate(expression.target, resolverState)
@@ -1599,7 +1601,7 @@ private fun findCommonType(types: List<Type>): Type {
             if (result.isAbstractionOf(type)) {
                 result = type
             } else if (!type.isAbstractionOf(result)) {
-                throw RuntimeException("No common type found.")
+                throw RuntimeException("No common type found")
             }
         }
     }
@@ -1666,11 +1668,13 @@ private fun resolveTypeDecl(
                         "mat4x2h" -> Type.Matrix(4, 2, Type.F16)
                         "mat4x3h" -> Type.Matrix(4, 3, Type.F16)
                         "mat4x4h" -> Type.Matrix(4, 4, Type.F16)
-                        else -> TODO("Unknown typed declaration: ${typeDecl.name}")
+                        else -> throw UnsupportedOperationException("Unknown typed declaration ${typeDecl.name}")
                     }
                 }
                 else -> {
-                    throw RuntimeException("Non-type declaration associated with ${typeDecl.name}, which is used where a type is required.")
+                    throw IllegalArgumentException(
+                        "Non-type declaration associated with ${typeDecl.name}, which is used where a type is required",
+                    )
                 }
             }
         }
@@ -1688,10 +1692,10 @@ private fun resolveTypeDecl(
         is TypeDecl.VectorTypeDecl -> resolveVectorTypeDecl(typeDecl)
         is TypeDecl.MatrixTypeDecl -> resolveMatrixTypeDecl(typeDecl)
         is TypeDecl.Atomic -> {
-            when (resolveTypeDecl(typeDecl.targetType, resolverState)) {
+            when (val targetType = resolveTypeDecl(typeDecl.targetType, resolverState)) {
                 Type.I32 -> Type.AtomicI32
                 Type.U32 -> Type.AtomicU32
-                else -> throw RuntimeException("Inappropriate target type for atomic type.")
+                else -> throw IllegalArgumentException("Inappropriate target type $targetType for atomic type")
             }
         }
         is TypeDecl.SamplerComparison -> Type.SamplerComparison
@@ -1705,43 +1709,43 @@ private fun resolveTypeDecl(
         is TypeDecl.TextureMultisampled2d -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.Multisampled2d(sampledType)
-                else -> throw RuntimeException("texture_multisampled_2d requires a scalar sampler type.")
+                else -> throw IllegalArgumentException("texture_multisampled_2d requires a scalar sampler type")
             }
         }
         is TypeDecl.TextureSampled1D -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.Sampled1D(sampledType)
-                else -> throw RuntimeException("texture_1d requires a scalar sampler type.")
+                else -> throw IllegalArgumentException("texture_1d requires a scalar sampler type")
             }
         }
         is TypeDecl.TextureSampled2D -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.Sampled2D(sampledType)
-                else -> throw RuntimeException("texture_2d requires a scalar sampler type.")
+                else -> throw IllegalArgumentException("texture_2d requires a scalar sampler type")
             }
         }
         is TypeDecl.TextureSampled2DArray -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.Sampled2DArray(sampledType)
-                else -> throw RuntimeException("texture_2d_array requires a scalar sampler type.")
+                else -> throw IllegalArgumentException("texture_2d_array requires a scalar sampler type")
             }
         }
         is TypeDecl.TextureSampled3D -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.Sampled3D(sampledType)
-                else -> throw RuntimeException("texture_3d requires a scalar sampler type.")
+                else -> throw IllegalArgumentException("texture_3d requires a scalar sampler type")
             }
         }
         is TypeDecl.TextureSampledCube -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.SampledCube(sampledType)
-                else -> throw RuntimeException("texture_cube requires a scalar sampler type.")
+                else -> throw IllegalArgumentException("texture_cube requires a scalar sampler type")
             }
         }
         is TypeDecl.TextureSampledCubeArray -> {
             when (val sampledType = resolveTypeDecl(typeDecl.sampledType, resolverState)) {
                 is Type.Scalar -> Type.Texture.SampledCubeArray(sampledType)
-                else -> throw RuntimeException("texture_cube_array requires a scalar sampler type.")
+                else -> throw IllegalArgumentException("texture_cube_array requires a scalar sampler type")
             }
         }
         is TypeDecl.TextureStorage1D -> Type.Texture.Storage1D(typeDecl.format, typeDecl.accessMode)
