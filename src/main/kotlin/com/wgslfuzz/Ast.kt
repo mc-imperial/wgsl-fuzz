@@ -536,10 +536,11 @@ sealed interface Statement : AstNode {
         val clauses: MutableList<SwitchClause>,
     ) : Statement
 
-    // loop_statement: BRACE_LEFT statement* continuing_statement? BRACE_RIGHT;
     class Loop(
         val attributesAtStart: MutableList<Attribute>,
         val attributesBeforeBody: MutableList<Attribute>,
+        // A list of statements is used, rather than a compound statement, because the continuing statement
+        // (if present) is part of the body of the loop.
         val statements: MutableList<Statement>,
         var continuingStatement: ContinuingStatement?,
     ) : Statement
