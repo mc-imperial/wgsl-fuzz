@@ -164,7 +164,6 @@ fun <T> traverse(
         is Statement.Loop -> {
             node.attributesAtStart.forEach(actionWithState)
             node.attributesBeforeBody.forEach(actionWithState)
-            // TODO: Perhaps this needs to be reformulated as a compound statement, as a new scope should be opened here.
             node.statements.forEach(actionWithState)
             node.continuingStatement?.let(actionWithState)
         }
