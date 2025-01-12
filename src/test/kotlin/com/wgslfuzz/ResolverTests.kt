@@ -47,7 +47,7 @@ class ResolverTests {
 
         val functionDecl = tu.globalDecls[0] as GlobalDecl.Function
         val whileStmt = functionDecl.body[1] as Statement.While
-        val whileCondition = whileStmt.expression as Expression.Paren
+        val whileCondition = whileStmt.condition as Expression.Paren
         assertEquals(Type.Bool, environment.typeOf(whileCondition))
         val whileConditionInner = whileCondition.target as Expression.Binary
         assertEquals(Type.Bool, environment.typeOf(whileConditionInner))

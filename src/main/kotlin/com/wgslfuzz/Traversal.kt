@@ -164,11 +164,11 @@ fun <T> traverse(
         is Statement.Loop -> {
             node.attributesAtStart.forEach(actionWithState)
             node.attributesBeforeBody.forEach(actionWithState)
-            node.statements.forEach(actionWithState)
+            node.body.forEach(actionWithState)
             node.continuingStatement?.let(actionWithState)
         }
         is Statement.Return -> {
-            node.expr?.let(actionWithState)
+            node.expression?.let(actionWithState)
         }
         is Statement.Switch -> {
             node.attributesAtStart.forEach(actionWithState)
@@ -178,7 +178,7 @@ fun <T> traverse(
         }
         is Statement.While -> {
             node.attributes.forEach(actionWithState)
-            actionWithState(node.expression)
+            actionWithState(node.condition)
             actionWithState(node.body)
         }
         is StructMember -> {

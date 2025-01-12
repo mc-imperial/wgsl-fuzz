@@ -542,7 +542,7 @@ class AstWriter(
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            statements.forEach {
+            body.forEach {
                 emit(it)
             }
             continuingStatement?.let {
@@ -575,7 +575,7 @@ class AstWriter(
         with(returnStatement) {
             emitIndent()
             out.print("return")
-            expr?.let {
+            expression?.let {
                 out.print(" ")
                 emit(it)
             }
@@ -683,7 +683,7 @@ class AstWriter(
             emit(attributes)
             emitIndent()
             out.print("while ")
-            emit(expression)
+            emit(condition)
             out.print("\n")
             emit(body)
         }

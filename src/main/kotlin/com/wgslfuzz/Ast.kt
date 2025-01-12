@@ -517,7 +517,7 @@ class SwitchClause(
 
 sealed interface Statement : AstNode {
     class Return(
-        var expr: Expression?,
+        var expression: Expression?,
     ) : Statement
 
     sealed interface ElseBranch : Statement
@@ -541,7 +541,7 @@ sealed interface Statement : AstNode {
         val attributesBeforeBody: MutableList<Attribute>,
         // A list of statements is used, rather than a compound statement, because the continuing statement
         // (if present) is part of the body of the loop.
-        val statements: MutableList<Statement>,
+        val body: MutableList<Statement>,
         var continuingStatement: ContinuingStatement?,
     ) : Statement
 
@@ -561,7 +561,7 @@ sealed interface Statement : AstNode {
 
     class While(
         val attributes: MutableList<Attribute>,
-        var expression: Expression,
+        var condition: Expression,
         var body: Compound,
     ) : Statement
 
