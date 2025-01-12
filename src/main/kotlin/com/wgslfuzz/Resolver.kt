@@ -247,7 +247,7 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
             toProcess.remove(name)
         }
         for (entry in toProcess) {
-            entry.value.removeAll(addedThisRound)
+            entry.value.removeAll(addedThisRound.toSet())
         }
         result.addAll(addedThisRound)
     }
@@ -262,7 +262,7 @@ private class ResolverState(
         node: AstNode,
         action: () -> Unit,
     ) {
-        val newScope: ScopeImpl =
+        val newScope =
             ScopeImpl(
                 parent = currentScope,
                 enclosingAstNode = node,
@@ -312,7 +312,7 @@ private fun resolveAstNode(
             val type: Type =
                 defaultConcretizationOf(
                     node.type?.let {
-                        resolveTypeDecl(node.type!!, resolverState)
+                        resolveTypeDecl(node.type, resolverState)
                     } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
                 )
             resolverState.currentScope.addEntry(
@@ -363,7 +363,7 @@ private fun resolveAstNode(
         is Statement.Value -> {
             var type: Type =
                 node.type?.let {
-                    resolveTypeDecl(node.type!!, resolverState)
+                    resolveTypeDecl(node.type, resolverState)
                 } ?: resolverState.resolvedEnvironment.typeOf(node.initializer)
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
@@ -376,7 +376,7 @@ private fun resolveAstNode(
         is Statement.Variable -> {
             var type: Type =
                 node.type?.let {
-                    resolveTypeDecl(node.type!!, resolverState)
+                    resolveTypeDecl(node.type, resolverState)
                 } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
@@ -555,9 +555,9 @@ private fun resolveLhsExpressionType(
         }
         is LhsExpression.IndexLookup -> {
             val targetType = resolverState.resolvedEnvironment.typeOf(lhsExpression.target)
-            var addressSpace: AddressSpace?
-            var accessMode: AccessMode?
-            var storeType: Type?
+            val addressSpace: AddressSpace?
+            val accessMode: AccessMode?
+            val storeType: Type?
             when (targetType) {
                 is Type.Reference -> {
                     storeType = targetType.storeType
@@ -582,9 +582,9 @@ private fun resolveLhsExpressionType(
         }
         is LhsExpression.MemberLookup -> {
             val receiverType = resolverState.resolvedEnvironment.typeOf(lhsExpression.receiver)
-            var addressSpace: AddressSpace?
-            var accessMode: AccessMode?
-            var storeType: Type?
+            val addressSpace: AddressSpace?
+            val accessMode: AccessMode?
+            val storeType: Type?
             when (receiverType) {
                 is Type.Reference -> {
                     storeType = receiverType.storeType
@@ -744,8 +744,6 @@ private fun resolveBinary(
             }
 
         BinaryOperator.SHIFT_LEFT, BinaryOperator.SHIFT_RIGHT -> lhsType
-
-        else -> TODO("Not implemented support for ${expression.operator}")
     }
 }
 
@@ -755,7 +753,7 @@ private fun resolveTypeOfVectorValueConstructor(
 ): Type.Vector {
     val elementType: Type.Scalar =
         if (expression.elementType != null) {
-            resolveTypeDecl(expression.elementType!!, resolverState) as Type.Scalar
+            resolveTypeDecl(expression.elementType, resolverState) as Type.Scalar
         } else if (expression.args.isEmpty()) {
             Type.AbstractInteger
         } else {
@@ -794,7 +792,7 @@ private fun resolveTypeOfMatrixValueConstructor(
 ): Type.Matrix {
     val elementType: Type.Float =
         if (expression.elementType != null) {
-            resolveTypeDecl(expression.elementType!!, resolverState) as Type.Float
+            resolveTypeDecl(expression.elementType, resolverState) as Type.Float
         } else {
             var candidateElementType: Type.Scalar? = null
             for (arg in expression.args) {
@@ -851,7 +849,7 @@ private fun resolveTypeOfArrayValueConstructor(
         }
     val elementCount: Int =
         expression.elementCount?.let {
-            evaluateToInt(expression.elementCount!!, resolverState)
+            evaluateToInt(expression.elementCount, resolverState)
         } ?: expression.args.size
     return Type.Array(elementType, elementCount)
 }
@@ -943,7 +941,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.templateParameter == null) {
                         throw RuntimeException("bitcast requires a template parameter for the target type")
                     }
-                    resolveTypeDecl(functionCallExpression.templateParameter!!, resolverState)
+                    resolveTypeDecl(functionCallExpression.templateParameter, resolverState)
                 }
                 "countLeadingZeros", "countOneBits", "countTrailingZeros" -> {
                     if (functionCallExpression.args.size != 1) {
@@ -1227,7 +1225,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "textureGatherCompare" -> Type.Vector(4, Type.F32)
                 "textureLoad" -> {
-                    if (functionCallExpression.args.size < 1) {
+                    if (functionCallExpression.args.isEmpty()) {
                         throw RuntimeException("textureLoad requires a first argument of texture type")
                     }
                     val textureArg = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
@@ -1251,7 +1249,7 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "textureNumLayers", "textureNumLevels", "textureNumSamples" -> Type.U32
                 "textureSample", "textureSampleLevel" -> {
-                    if (functionCallExpression.args.size < 1) {
+                    if (functionCallExpression.args.isEmpty()) {
                         throw RuntimeException("Not enough arguments provided to $calleeName")
                     } else {
                         when (
@@ -1324,18 +1322,20 @@ private fun resolveTypeOfAddressOfExpression(
 ): Type {
     var target = expression.target
     while (target !is Expression.Identifier) {
-        when (target) {
-            is Expression.Paren -> target = target.target
-            is Expression.MemberLookup -> target = target.receiver
-            is Expression.Unary -> {
-                when (target.operator) {
-                    UnaryOperator.ADDRESS_OF, UnaryOperator.DEREFERENCE -> target = target.target
-                    else -> throw RuntimeException("Unsupported use of unary operator ${target.operator} under address-of")
+        target =
+            when (target) {
+                is Expression.Paren -> target.target
+                is Expression.MemberLookup -> target.receiver
+                is Expression.Unary -> {
+                    when (target.operator) {
+                        UnaryOperator.ADDRESS_OF, UnaryOperator.DEREFERENCE -> target.target
+                        else -> throw RuntimeException("Unsupported use of unary operator ${target.operator} under address-of")
+                    }
                 }
+
+                is Expression.IndexLookup -> target.target
+                else -> throw RuntimeException("Unsupported expression $target under address-of")
             }
-            is Expression.IndexLookup -> target = target.target
-            else -> throw RuntimeException("Unsupported expression $target under address-of")
-        }
     }
     val targetType = resolverState.resolvedEnvironment.typeOf(target)
     val pointeeType = resolverState.resolvedEnvironment.typeOf(expression.target)
@@ -1546,8 +1546,7 @@ private fun evaluate(
             }
         }
         is Expression.Identifier -> {
-            val scopeEntry = resolverState.currentScope.getEntry(expression.name)
-            when (scopeEntry) {
+            when (val scopeEntry = resolverState.currentScope.getEntry(expression.name)) {
                 // TODO: Avoid re-evaluating global constants, and/or handle the problem that the resolver state needed
                 //  to evaluate the global constant would really be global scope.
                 is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, resolverState)
@@ -1802,7 +1801,7 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
     val (topLevelNameDependencies, nameToDecl) = collectTopLevelNameDependencies(tu)
     val orderedGlobalDecls = orderGlobalDeclNames(topLevelNameDependencies)
 
-    val globalScope: ScopeImpl =
+    val globalScope =
         ScopeImpl(
             parent = null,
             enclosingAstNode = tu,

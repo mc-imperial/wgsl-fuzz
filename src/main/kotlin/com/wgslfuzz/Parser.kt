@@ -112,12 +112,11 @@ private class AstBuilder(
                     .global_directive()
                     .map {
                         Directive(it.fullText)
-                    }.toMutableList(),
+                    },
             globalDecls =
                 ctx
                     .global_decl()
-                    .map(::visitGlobal_decl)
-                    .toMutableList(),
+                    .map(::visitGlobal_decl),
         )
 
     override fun visitEmpty_global_decl(ctx: WGSLParser.Empty_global_declContext): GlobalDecl.Empty = GlobalDecl.Empty()
@@ -186,15 +185,14 @@ private class AstBuilder(
                             name = it.IDENT().text,
                             typeDecl = visitType_decl(it.type_decl()),
                         )
-                    }?.toMutableList() ?: mutableListOf(),
+                    } ?: emptyList(),
             returnType =
                 ctx.function_header().type_decl()?.let(::visitType_decl),
             body =
                 ctx
                     .compound_statement()
                     .statement()
-                    .map(::visitStatement)
-                    .toMutableList(),
+                    .map(::visitStatement),
         )
 
     override fun visitGlobal_decl(ctx: WGSLParser.Global_declContext): GlobalDecl = super.visitGlobal_decl(ctx) as GlobalDecl
@@ -204,8 +202,7 @@ private class AstBuilder(
             statements =
                 ctx
                     .statement()
-                    .map(::visitStatement)
-                    .toMutableList(),
+                    .map(::visitStatement),
         )
 
     override fun visitReturn_statement(ctx: WGSLParser.Return_statementContext): Statement.Return =
@@ -257,19 +254,19 @@ private class AstBuilder(
                                                     } else {
                                                         visitExpression(expressionOrDefault.expression())
                                                     }
-                                                }.toMutableList(),
+                                                },
                                     ),
                                 compoundStatement = visitCompound_statement(it.compound_statement()),
                             )
                         }
-                    }.toMutableList(),
+                    },
         )
 
     override fun visitLoop_statement(ctx: WGSLParser.Loop_statementContext): Statement.Loop =
         Statement.Loop(
             attributesAtStart = gatherAttributes(ctx.attributes_at_start),
             attributesBeforeBody = gatherAttributes(ctx.attributes_before_body),
-            statements = ctx.statement().map(::visitStatement).toMutableList(),
+            body = ctx.statement().map(::visitStatement),
             continuingStatement =
                 ctx.continuing_statement()?.let {
                     ContinuingStatement(
@@ -280,7 +277,7 @@ private class AstBuilder(
                                 .statement()
                                 .map { statement ->
                                     visitStatement(statement)
-                                }.toMutableList(),
+                                },
                         breakIfExpr =
                             it.continuing_compound_statement().break_if_statement()?.let { breakIfStatement ->
                                 visitExpression(breakIfStatement.expression())
@@ -329,14 +326,13 @@ private class AstBuilder(
                 ctx
                     .compound_statement()
                     .statement()
-                    .map(::visitStatement)
-                    .toMutableList(),
+                    .map(::visitStatement),
         )
 
     override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While =
         Statement.While(
             attributes = gatherAttributes(ctx.attribute()),
-            expression = visitExpression(ctx.expression()),
+            condition = visitExpression(ctx.expression()),
             body = visitCompound_statement(ctx.compound_statement()),
         )
 
@@ -347,8 +343,7 @@ private class AstBuilder(
                 ctx
                     .argument_expression_list()
                     .expression()
-                    .map(::visitExpression)
-                    .toMutableList(),
+                    .map(::visitExpression),
         )
 
     override fun visitVariable_statement(ctx: WGSLParser.Variable_statementContext): Statement.Variable =
@@ -419,7 +414,7 @@ private class AstBuilder(
 
     private fun processLhsExpressionPostfix(
         target: LhsExpression,
-        ctx: WGSLParser.Postfix_expressionContext?,
+        ctx: Postfix_expressionContext?,
     ): LhsExpression {
         if (ctx == null) {
             return target
@@ -502,7 +497,7 @@ private class AstBuilder(
                                 name = it.IDENT().text,
                                 type = visitType_decl(it.type_decl()),
                             )
-                        }.toMutableList(),
+                        },
             )
         return result
     }
@@ -549,11 +544,9 @@ private class AstBuilder(
             throw UnsupportedOperationException("Unknown vector type.")
         }
         if (ctx.mat_prefix() != null) {
-            val elementType: TypeDecl? =
+            val elementType: TypeDecl =
                 ctx.type_decl()?.let(::visitType_decl)
-            if (elementType == null) {
-                throw UnsupportedOperationException("A matrix type must have an element type.")
-            }
+                    ?: throw UnsupportedOperationException("A matrix type must have an element type.")
             if (elementType !is TypeDecl.FloatTypeDecl) {
                 throw UnsupportedOperationException("Element type of matrix must be float.")
             }
@@ -590,10 +583,7 @@ private class AstBuilder(
         if (ctx.array_type_decl() != null) {
             with(ctx.array_type_decl()!!) {
                 val elementType =
-                    type_decl()?.let(::visitType_decl)
-                if (elementType == null) {
-                    throw UnsupportedOperationException("An array type must have an element type.")
-                }
+                    type_decl()?.let(::visitType_decl) ?: throw UnsupportedOperationException("An array type must have an element type.")
                 return TypeDecl.Array(
                     elementType = elementType,
                     elementCount =
@@ -795,8 +785,7 @@ private class AstBuilder(
                 ctx
                     .argument_expression_list()
                     .expression()
-                    .map(::visitExpression)
-                    .toMutableList(),
+                    .map(::visitExpression),
             )
         }
         throw UnsupportedOperationException("Unknown primary expression.")
@@ -963,22 +952,25 @@ private class AstBuilder(
 
     private fun handleCallableValueExpression(
         ctx: WGSLParser.Callable_valContext,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ): Expression {
         if (ctx.IDENT() != null) {
-            val name = ctx.IDENT().text
-            if (name in moduleScopeNames.structNames) {
-                assert(ctx.type_decl() == null)
-                return Expression.StructValueConstructor(name, args)
-            } else if (name in moduleScopeNames.typeAliasNames) {
-                assert(ctx.type_decl() == null)
-                return Expression.TypeAliasValueConstructor(name, args)
-            } else {
-                return Expression.FunctionCall(
-                    name,
-                    ctx.type_decl()?.let(::visitType_decl),
-                    args,
-                )
+            when (val name = ctx.IDENT().text) {
+                in moduleScopeNames.structNames -> {
+                    assert(ctx.type_decl() == null)
+                    return Expression.StructValueConstructor(name, args)
+                }
+                in moduleScopeNames.typeAliasNames -> {
+                    assert(ctx.type_decl() == null)
+                    return Expression.TypeAliasValueConstructor(name, args)
+                }
+                else -> {
+                    return Expression.FunctionCall(
+                        name,
+                        ctx.type_decl()?.let(::visitType_decl),
+                        args,
+                    )
+                }
             }
         }
         with(ctx.type_decl_without_ident()) {
@@ -1164,7 +1156,7 @@ private class AstBuilder(
         )
     }
 
-    private fun gatherAttributes(attributes: List<AttributeContext>) =
+    private fun gatherAttributes(attributes: List<AttributeContext>): List<Attribute> =
         attributes
             .map {
                 val attributeTokenName =
@@ -1214,9 +1206,9 @@ private class AstBuilder(
                             .expression()
                             ?.map { expression ->
                                 visitExpression(expression)
-                            }?.toMutableList() ?: mutableListOf(),
+                            } ?: emptyList(),
                 )
-            }.toMutableList()
+            }
 }
 
 private class ModuleScopeNames(

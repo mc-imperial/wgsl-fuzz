@@ -3,12 +3,12 @@ package com.wgslfuzz
 sealed interface AstNode
 
 class Directive(
-    var text: String,
+    val text: String,
 ) : AstNode
 
 class TranslationUnit(
-    val directives: MutableList<Directive>,
-    val globalDecls: MutableList<GlobalDecl>,
+    val directives: List<Directive>,
+    val globalDecls: List<GlobalDecl>,
 ) : AstNode
 
 enum class AddressSpace {
@@ -87,202 +87,202 @@ enum class BinaryOperator {
 }
 
 class Attribute(
-    var kind: AttributeKind,
-    val args: MutableList<Expression>,
+    val kind: AttributeKind,
+    val args: List<Expression>,
 ) : AstNode
 
 sealed interface LhsExpression : AstNode {
     class Identifier(
-        var name: String,
+        val name: String,
     ) : LhsExpression
 
     class Paren(
-        var target: LhsExpression,
+        val target: LhsExpression,
     ) : LhsExpression
 
     class MemberLookup(
-        var receiver: LhsExpression,
-        var memberName: String,
+        val receiver: LhsExpression,
+        val memberName: String,
     ) : LhsExpression
 
     class IndexLookup(
-        var target: LhsExpression,
-        var index: Expression,
+        val target: LhsExpression,
+        val index: Expression,
     ) : LhsExpression
 
     class Dereference(
-        var target: LhsExpression,
+        val target: LhsExpression,
     ) : LhsExpression
 
     class AddressOf(
-        var target: LhsExpression,
+        val target: LhsExpression,
     ) : LhsExpression
 }
 
 sealed interface Expression : AstNode {
     class BoolLiteral(
-        var text: String,
+        val text: String,
     ) : Expression
 
     class FloatLiteral(
-        var text: String,
+        val text: String,
     ) : Expression
 
     class IntLiteral(
-        var text: String,
+        val text: String,
     ) : Expression
 
     class Identifier(
-        var name: String,
+        val name: String,
     ) : Expression
 
     class Paren(
-        var target: Expression,
+        val target: Expression,
     ) : Expression
 
     class Unary(
-        var operator: UnaryOperator,
-        var target: Expression,
+        val operator: UnaryOperator,
+        val target: Expression,
     ) : Expression
 
     class Binary(
-        var operator: BinaryOperator,
-        var lhs: Expression,
-        var rhs: Expression,
+        val operator: BinaryOperator,
+        val lhs: Expression,
+        val rhs: Expression,
     ) : Expression
 
     class FunctionCall(
-        var callee: String,
-        var templateParameter: TypeDecl?,
-        val args: MutableList<Expression>,
+        val callee: String,
+        val templateParameter: TypeDecl?,
+        val args: List<Expression>,
     ) : Expression
 
     sealed class ValueConstructor(
-        var typeName: String,
-        val args: MutableList<Expression>,
+        val typeName: String,
+        val args: List<Expression>,
     ) : Expression
 
     sealed class ScalarValueConstructor(
         scalarTypeName: String,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ValueConstructor(scalarTypeName, args)
 
     class BoolValueConstructor(
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ScalarValueConstructor("bool", args)
 
     class I32ValueConstructor(
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ScalarValueConstructor("i32", args)
 
     class U32ValueConstructor(
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ScalarValueConstructor("u32", args)
 
     class F16ValueConstructor(
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ScalarValueConstructor("f16", args)
 
     class F32ValueConstructor(
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ScalarValueConstructor("f32", args)
 
     sealed class VectorValueConstructor(
         vectorTypeName: String,
-        var elementType: TypeDecl.ScalarTypeDecl?,
-        args: MutableList<Expression>,
+        val elementType: TypeDecl.ScalarTypeDecl?,
+        args: List<Expression>,
     ) : ValueConstructor(vectorTypeName, args)
 
     class Vec2ValueConstructor(
         elementType: TypeDecl.ScalarTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : VectorValueConstructor("vec2", elementType, args)
 
     class Vec3ValueConstructor(
         elementType: TypeDecl.ScalarTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : VectorValueConstructor("vec3", elementType, args)
 
     class Vec4ValueConstructor(
         elementType: TypeDecl.ScalarTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : VectorValueConstructor("vec4", elementType, args)
 
     sealed class MatrixValueConstructor(
         matrixTypeName: String,
-        var elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        val elementType: TypeDecl.FloatTypeDecl?,
+        args: List<Expression>,
     ) : ValueConstructor(matrixTypeName, args)
 
     class Mat2x2ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat2x2", elementType, args)
 
     class Mat2x3ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat2x3", elementType, args)
 
     class Mat2x4ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat2x4", elementType, args)
 
     class Mat3x2ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat3x2", elementType, args)
 
     class Mat3x3ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat3x3", elementType, args)
 
     class Mat3x4ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat3x4", elementType, args)
 
     class Mat4x2ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat4x2", elementType, args)
 
     class Mat4x3ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat4x3", elementType, args)
 
     class Mat4x4ValueConstructor(
         elementType: TypeDecl.FloatTypeDecl?,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : MatrixValueConstructor("mat4x4", elementType, args)
 
     class StructValueConstructor(
         structName: String,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ValueConstructor(structName, args)
 
     class TypeAliasValueConstructor(
         aliasName: String,
-        args: MutableList<Expression>,
+        args: List<Expression>,
     ) : ValueConstructor(aliasName, args)
 
     class ArrayValueConstructor(
-        var elementType: TypeDecl?,
-        var elementCount: Expression?,
-        args: MutableList<Expression>,
+        val elementType: TypeDecl?,
+        val elementCount: Expression?,
+        args: List<Expression>,
     ) : ValueConstructor("array", args)
 
     class MemberLookup(
-        var receiver: Expression,
-        var memberName: String,
+        val receiver: Expression,
+        val memberName: String,
     ) : Expression
 
     class IndexLookup(
-        var target: Expression,
-        var index: Expression,
+        val target: Expression,
+        val index: Expression,
     ) : Expression
 }
 
@@ -306,7 +306,7 @@ sealed interface TypeDecl : AstNode {
     class F16 : FloatTypeDecl("f16")
 
     sealed class VectorTypeDecl(
-        var elementType: ScalarTypeDecl,
+        val elementType: ScalarTypeDecl,
     ) : TypeDecl {
         abstract val name: String
     }
@@ -333,7 +333,7 @@ sealed interface TypeDecl : AstNode {
     }
 
     sealed class MatrixTypeDecl(
-        var elementType: FloatTypeDecl,
+        val elementType: FloatTypeDecl,
     ) : TypeDecl {
         abstract val name: String
     }
@@ -402,22 +402,22 @@ sealed interface TypeDecl : AstNode {
     }
 
     class Array(
-        var elementType: TypeDecl,
-        var elementCount: Expression?,
+        val elementType: TypeDecl,
+        val elementCount: Expression?,
     ) : TypeDecl
 
     class NamedType(
-        var name: String,
+        val name: String,
     ) : TypeDecl
 
     class Pointer(
-        var addressSpace: AddressSpace,
-        var pointeeType: TypeDecl,
-        var accessMode: AccessMode?,
+        val addressSpace: AddressSpace,
+        val pointeeType: TypeDecl,
+        val accessMode: AccessMode?,
     ) : TypeDecl
 
     class Atomic(
-        var targetType: TypeDecl,
+        val targetType: TypeDecl,
     ) : TypeDecl
 
     class SamplerRegular : TypeDecl
@@ -427,33 +427,33 @@ sealed interface TypeDecl : AstNode {
     // Sampled Texture Types
 
     class TextureSampled1D(
-        var sampledType: TypeDecl,
+        val sampledType: TypeDecl,
     ) : TypeDecl
 
     class TextureSampled2D(
-        var sampledType: TypeDecl,
+        val sampledType: TypeDecl,
     ) : TypeDecl
 
     class TextureSampled2DArray(
-        var sampledType: TypeDecl,
+        val sampledType: TypeDecl,
     ) : TypeDecl
 
     class TextureSampled3D(
-        var sampledType: TypeDecl,
+        val sampledType: TypeDecl,
     ) : TypeDecl
 
     class TextureSampledCube(
-        var sampledType: TypeDecl,
+        val sampledType: TypeDecl,
     ) : TypeDecl
 
     class TextureSampledCubeArray(
-        var sampledType: TypeDecl,
+        val sampledType: TypeDecl,
     ) : TypeDecl
 
     // Multisampled Texture Types
 
     class TextureMultisampled2d(
-        var sampledType: TypeDecl,
+        val sampledType: TypeDecl,
     ) : TypeDecl
 
     class TextureDepthMultisampled2D : TypeDecl
@@ -465,23 +465,23 @@ sealed interface TypeDecl : AstNode {
     // Storage Texture Types
 
     data class TextureStorage1D(
-        var format: TexelFormat,
-        var accessMode: AccessMode,
+        val format: TexelFormat,
+        val accessMode: AccessMode,
     ) : TypeDecl
 
     data class TextureStorage2D(
-        var format: TexelFormat,
-        var accessMode: AccessMode,
+        val format: TexelFormat,
+        val accessMode: AccessMode,
     ) : TypeDecl
 
     data class TextureStorage2DArray(
-        var format: TexelFormat,
-        var accessMode: AccessMode,
+        val format: TexelFormat,
+        val accessMode: AccessMode,
     ) : TypeDecl
 
     data class TextureStorage3D(
-        var format: TexelFormat,
-        var accessMode: AccessMode,
+        val format: TexelFormat,
+        val accessMode: AccessMode,
     ) : TypeDecl
 
     // Depth Texture Types
@@ -496,9 +496,9 @@ sealed interface TypeDecl : AstNode {
 }
 
 class ContinuingStatement(
-    val attributes: MutableList<Attribute>,
-    val statements: MutableList<Statement>,
-    var breakIfExpr: Expression?,
+    val attributes: List<Attribute>,
+    val statements: List<Statement>,
+    val breakIfExpr: Expression?,
 ) : AstNode
 
 sealed interface CaseSelectors : AstNode {
@@ -506,43 +506,43 @@ sealed interface CaseSelectors : AstNode {
 
     class ExpressionsOrDefault(
         // Null represents default, which can occur in a sequence of case selector expressions
-        val expressions: MutableList<Expression?>,
+        val expressions: List<Expression?>,
     ) : CaseSelectors
 }
 
 class SwitchClause(
-    var caseSelectors: CaseSelectors,
-    var compoundStatement: Statement.Compound,
+    val caseSelectors: CaseSelectors,
+    val compoundStatement: Statement.Compound,
 ) : AstNode
 
 sealed interface Statement : AstNode {
     class Return(
-        var expression: Expression?,
+        val expression: Expression?,
     ) : Statement
 
     sealed interface ElseBranch : Statement
 
     class If(
-        val attributes: MutableList<Attribute>,
-        var condition: Expression,
-        var thenBranch: Compound,
-        var elseBranch: ElseBranch?,
+        val attributes: List<Attribute>,
+        val condition: Expression,
+        val thenBranch: Compound,
+        val elseBranch: ElseBranch?,
     ) : ElseBranch
 
     class Switch(
-        val attributesAtStart: MutableList<Attribute>,
-        var expression: Expression,
-        val attributesBeforeBody: MutableList<Attribute>,
-        val clauses: MutableList<SwitchClause>,
+        val attributesAtStart: List<Attribute>,
+        val expression: Expression,
+        val attributesBeforeBody: List<Attribute>,
+        val clauses: List<SwitchClause>,
     ) : Statement
 
     class Loop(
-        val attributesAtStart: MutableList<Attribute>,
-        val attributesBeforeBody: MutableList<Attribute>,
+        val attributesAtStart: List<Attribute>,
+        val attributesBeforeBody: List<Attribute>,
         // A list of statements is used, rather than a compound statement, because the continuing statement
         // (if present) is part of the body of the loop.
-        val body: MutableList<Statement>,
-        var continuingStatement: ContinuingStatement?,
+        val body: List<Statement>,
+        val continuingStatement: ContinuingStatement?,
     ) : Statement
 
     sealed interface ForInit : Statement
@@ -550,65 +550,65 @@ sealed interface Statement : AstNode {
     sealed interface ForUpdate : Statement
 
     class For(
-        val attributes: MutableList<Attribute>,
-        var init: ForInit?,
-        var condition: Expression?,
-        var update: ForUpdate?,
+        val attributes: List<Attribute>,
+        val init: ForInit?,
+        val condition: Expression?,
+        val update: ForUpdate?,
         // For scoping reasons the body is represented as a statement list, rather than a compound statement,
         // because the scope of the body includes declarations occurring in the header.
-        val body: MutableList<Statement>,
+        val body: List<Statement>,
     ) : Statement
 
     class While(
-        val attributes: MutableList<Attribute>,
-        var condition: Expression,
-        var body: Compound,
+        val attributes: List<Attribute>,
+        val condition: Expression,
+        val body: Compound,
     ) : Statement
 
     class FunctionCall(
-        var callee: String,
-        val args: MutableList<Expression>,
+        val callee: String,
+        val args: List<Expression>,
     ) : ForInit,
         ForUpdate
 
     class Value(
-        var isConst: Boolean,
-        var name: String,
-        var type: TypeDecl?,
-        var initializer: Expression,
+        val isConst: Boolean,
+        val name: String,
+        val type: TypeDecl?,
+        val initializer: Expression,
     ) : ForInit
 
     class Variable(
-        var name: String,
-        var addressSpace: AddressSpace?,
-        var accessMode: AccessMode?,
-        var type: TypeDecl?,
-        var initializer: Expression?,
+        val name: String,
+        val addressSpace: AddressSpace?,
+        val accessMode: AccessMode?,
+        val type: TypeDecl?,
+        val initializer: Expression?,
     ) : ForInit
 
     class Assignment(
-        var lhsExpression: LhsExpression?,
-        var assignmentOperator: AssignmentOperator,
-        var rhs: Expression,
+        val lhsExpression: LhsExpression?,
+        val assignmentOperator: AssignmentOperator,
+        val rhs: Expression,
     ) : ForInit,
         ForUpdate
 
     class Compound(
-        val statements: MutableList<Statement>,
+        val statements: List<Statement>,
     ) : ElseBranch
 
     class Increment(
-        var target: LhsExpression,
+        val target: LhsExpression,
     ) : ForInit,
         ForUpdate
 
     class Decrement(
-        var target: LhsExpression,
+        val target: LhsExpression,
     ) : ForInit,
         ForUpdate
 
     class ConstAssert(
-        var expression: Expression,
+        val expression: Expression,
     ) : Statement
 
     class Empty : Statement
@@ -621,61 +621,61 @@ sealed interface Statement : AstNode {
 }
 
 class ParameterDecl(
-    val attributes: MutableList<Attribute>,
-    var name: String,
-    var typeDecl: TypeDecl,
+    val attributes: List<Attribute>,
+    val name: String,
+    val typeDecl: TypeDecl,
 ) : AstNode
 
 sealed interface GlobalDecl : AstNode {
     class Constant(
-        var name: String,
-        var type: TypeDecl?,
-        var initializer: Expression,
+        val name: String,
+        val type: TypeDecl?,
+        val initializer: Expression,
     ) : GlobalDecl
 
     class Override(
-        val attributes: MutableList<Attribute>,
-        var name: String,
-        var type: TypeDecl?,
-        var initializer: Expression?,
+        val attributes: List<Attribute>,
+        val name: String,
+        val type: TypeDecl?,
+        val initializer: Expression?,
     ) : GlobalDecl
 
     class Variable(
-        val attributes: MutableList<Attribute>,
-        var name: String,
-        var addressSpace: AddressSpace?,
-        var accessMode: AccessMode?,
-        var type: TypeDecl?,
-        var initializer: Expression?,
+        val attributes: List<Attribute>,
+        val name: String,
+        val addressSpace: AddressSpace?,
+        val accessMode: AccessMode?,
+        val type: TypeDecl?,
+        val initializer: Expression?,
     ) : GlobalDecl
 
     class Function(
-        val attributes: MutableList<Attribute>,
-        var name: String,
-        val parameters: MutableList<ParameterDecl>,
-        var returnType: TypeDecl?,
-        val body: MutableList<Statement>,
+        val attributes: List<Attribute>,
+        val name: String,
+        val parameters: List<ParameterDecl>,
+        val returnType: TypeDecl?,
+        val body: List<Statement>,
     ) : GlobalDecl
 
     class Struct(
-        var name: String,
-        val members: MutableList<StructMember>,
+        val name: String,
+        val members: List<StructMember>,
     ) : GlobalDecl
 
     class TypeAlias(
-        var name: String,
-        var type: TypeDecl,
+        val name: String,
+        val type: TypeDecl,
     ) : GlobalDecl
 
     class ConstAssert(
-        var expression: Expression,
+        val expression: Expression,
     ) : GlobalDecl
 
     class Empty : GlobalDecl
 }
 
 class StructMember(
-    val attributes: MutableList<Attribute>,
-    var name: String,
-    var type: TypeDecl,
+    val attributes: List<Attribute>,
+    val name: String,
+    val type: TypeDecl,
 ) : AstNode

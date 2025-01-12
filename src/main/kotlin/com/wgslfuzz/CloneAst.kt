@@ -2,8 +2,7 @@ package com.wgslfuzz
 
 fun <T : AstNode?> T.clone(replacements: Map<AstNode, AstNode> = emptyMap()): T = cloneHelper(this, replacements) as T
 
-fun <T : AstNode?> MutableList<T>.clone(replacements: Map<AstNode, AstNode> = emptyMap()): MutableList<T> =
-    map { it.clone(replacements) }.toMutableList()
+fun <T : AstNode?> List<T>.clone(replacements: Map<AstNode, AstNode> = emptyMap()): List<T> = map { it.clone(replacements) }
 
 private fun cloneHelper(
     node: AstNode?,
