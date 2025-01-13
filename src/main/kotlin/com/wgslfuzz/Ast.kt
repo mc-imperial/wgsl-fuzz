@@ -464,22 +464,22 @@ sealed interface TypeDecl : AstNode {
 
     // Storage Texture Types
 
-    data class TextureStorage1D(
+    class TextureStorage1D(
         val format: TexelFormat,
         val accessMode: AccessMode,
     ) : TypeDecl
 
-    data class TextureStorage2D(
+    class TextureStorage2D(
         val format: TexelFormat,
         val accessMode: AccessMode,
     ) : TypeDecl
 
-    data class TextureStorage2DArray(
+    class TextureStorage2DArray(
         val format: TexelFormat,
         val accessMode: AccessMode,
     ) : TypeDecl
 
-    data class TextureStorage3D(
+    class TextureStorage3D(
         val format: TexelFormat,
         val accessMode: AccessMode,
     ) : TypeDecl
