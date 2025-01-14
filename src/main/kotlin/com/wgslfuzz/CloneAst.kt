@@ -1,12 +1,12 @@
 package com.wgslfuzz
 
-fun <T : AstNode?> T.clone(replacements: Map<AstNode, AstNode> = emptyMap()): T = cloneHelper(this, replacements) as T
+fun <T : AstNode?> T.clone(replacements: Map<out AstNode, AstNode> = emptyMap()): T = cloneHelper(this, replacements) as T
 
-fun <T : AstNode?> List<T>.clone(replacements: Map<AstNode, AstNode> = emptyMap()): List<T> = map { it.clone(replacements) }
+fun <T : AstNode?> List<T>.clone(replacements: Map<out AstNode, AstNode> = emptyMap()): List<T> = map { it.clone(replacements) }
 
 private fun cloneHelper(
     node: AstNode?,
-    replacements: Map<AstNode, AstNode>,
+    replacements: Map<out AstNode, AstNode>,
 ): AstNode? =
     replacements[node] ?: with(node) {
         when (this) {
