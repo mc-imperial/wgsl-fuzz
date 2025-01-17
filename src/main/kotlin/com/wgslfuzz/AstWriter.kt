@@ -112,7 +112,7 @@ class AstWriter(
                 }
                 out.print(")")
             }
-            out.println()
+            out.print("\n")
         }
     }
 
@@ -845,10 +845,10 @@ class AstWriter(
             is GlobalDecl.ConstAssert -> {
                 out.print("const_assert ")
                 emit(decl.expression)
-                out.println(";\n")
+                out.print(";\n\n")
             }
             is GlobalDecl.Empty -> {
-                out.println(";\n")
+                out.print(";\n\n")
             }
         }
     }
@@ -860,7 +860,7 @@ class AstWriter(
         tu.globalDecls.forEachIndexed { index, decl ->
             emit(decl)
             if (index < tu.globalDecls.size - 1) {
-                out.println()
+                out.print("\n")
             }
         }
     }

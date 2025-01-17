@@ -10,7 +10,7 @@ jobs:
       matrix:
         os:
           - macos-13
-          # TODO(afd) get Windows build working - windows-latest
+          - windows-latest
           - ubuntu-24.04
         config:
           - Release
