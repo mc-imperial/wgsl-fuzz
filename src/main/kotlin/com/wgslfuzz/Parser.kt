@@ -1308,19 +1308,20 @@ private fun slowParse(
 fun parseFromString(
     wgslString: String,
     errorListener: ANTLRErrorListener,
+    timeoutMilliseconds: Int = 10000,
 ): TranslationUnit {
     val inputStream: InputStream = wgslString.byteInputStream()
     val antlrTranslationUnit: Translation_unitContext =
         try {
             tryFastParse(
                 inputStream = inputStream,
-                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + 10000),
+                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + timeoutMilliseconds),
             )
         } catch (exception: ParseCancellationException) {
             inputStream.reset()
             slowParse(
                 inputStream = inputStream,
-                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + 10000),
+                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + timeoutMilliseconds),
                 errorListener = errorListener,
             )
         }
@@ -1334,4 +1335,6 @@ fun parseFromString(
 fun parseFromFile(
     filename: String,
     errorListener: ANTLRErrorListener,
-): TranslationUnit = parseFromString(wgslString = File(filename).readText(), errorListener = errorListener)
+    timeoutMilliseconds: Int = 10000,
+): TranslationUnit =
+    parseFromString(wgslString = File(filename).readText(), errorListener = errorListener, timeoutMilliseconds = timeoutMilliseconds)

@@ -88,11 +88,11 @@ class ParseTintTests {
         val errorListener = LoggingParseErrorListener()
         val byteOutputStream = ByteArrayOutputStream()
         try {
-            val tu = parseFromFile(filename = wgslTestFilename, errorListener = errorListener)
+            val tu = parseFromFile(filename = wgslTestFilename, errorListener = errorListener, timeoutMilliseconds = 100000)
             resolve(tu)
             val tuCloned = tu.clone()
             AstWriter(PrintStream(byteOutputStream)).emit(tuCloned)
-            parseFromString(wgslString = byteOutputStream.toString(), errorListener = errorListener)
+            parseFromString(wgslString = byteOutputStream.toString(), errorListener = errorListener, timeoutMilliseconds = 100000)
         } catch (e: Exception) {
             println(wgslTestFilename)
             println(errorListener.loggedMessages)
