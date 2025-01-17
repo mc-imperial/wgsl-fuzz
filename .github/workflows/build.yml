@@ -24,12 +24,12 @@ jobs:
         with:
           submodules: 'true'
 
-      - name: Set up JDK for x64
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          architecture: x64
+          cache: maven
 
       - uses: actions/setup-python@v5
         with:

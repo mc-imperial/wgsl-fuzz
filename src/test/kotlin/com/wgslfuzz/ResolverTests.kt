@@ -266,29 +266,4 @@ class ResolverTests {
             assertEquals(Type.Bool, inner3EntryC.type)
         }
     }
-
-    @Test
-    fun forScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun whileScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun loopScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun blockScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun switchScopeTest() {
-        TODO()
-    }
 }
