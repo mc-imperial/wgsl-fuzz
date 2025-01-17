@@ -4,8 +4,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
-class ResolverTests {
-    private fun gatherExpressions(
+class ResolverTests {    private fun gatherExpressions(
         node: AstNode,
         expressions: MutableSet<Expression>,
     ) {
