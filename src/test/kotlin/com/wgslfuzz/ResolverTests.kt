@@ -164,7 +164,7 @@ class ResolverTests {
                 var c: bool = false; // d1
                 c = !c; // d2
               }
-              c++; // a5
+              v++; // a5
             }
             """.trimIndent()
         val errorListener = LoggingParseErrorListener()
