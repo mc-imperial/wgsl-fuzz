@@ -42,7 +42,7 @@ class ParseTintTests {
                 "external/dawn/test/tint/bug/tint/2201.wgsl.expected.wgsl",
                 "external/dawn/test/tint/bug/tint/1474-b.wgsl.expected.wgsl",
                 "external/dawn/test/tint/bug/chromium/1395241.wgsl.expected.wgsl",
-            )
+            ).map { it.replace("/", File.separator) }
 
         val tooHard =
             setOf(
@@ -59,7 +59,7 @@ class ParseTintTests {
                 "external/dawn/test/tint/builtins/workgroupUniformLoad/array_overridable_count_aliased.wgsl",
                 "external/dawn/test/tint/builtins/workgroupUniformLoad/array_overridable_count.wgsl.expected.wgsl",
                 "external/dawn/test/tint/builtins/workgroupUniformLoad/array_overridable_count.wgsl",
-            )
+            ).map { it.replace("/", File.separator) }
         val skipList = diagnosticChecks + tooHard
 
         var counter = 0
