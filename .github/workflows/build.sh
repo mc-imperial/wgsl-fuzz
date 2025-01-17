@@ -21,6 +21,8 @@ pushd "${HOME}/bin"
   ls
 popd
 
-"${HOME}/bin/ktlint-1.5.0/bin/ktlint" src/**/*.kt
+pushd src
+  "${HOME}/bin/ktlint-1.5.0/bin/ktlint" **/*.kt
+popd
 
 mvn package
