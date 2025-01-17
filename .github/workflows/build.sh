@@ -8,8 +8,6 @@ help | head
 
 uname
 
-echo "Starting CI"
-
-echo "Exiting with fake error"
+mvn package
 
 exit 1
