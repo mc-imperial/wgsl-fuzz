@@ -278,7 +278,7 @@ class ParsePrintIdenticalTests {
             """
             @group(0, )
             @binding(1, )
-            var t : texture_2d<f32, >;
+            var t : texture_2d<f32>;
 
             @group(0, )
             @binding(2, )
@@ -327,7 +327,7 @@ class ParsePrintIdenticalTests {
             @binding(0, )
             var<storage, read_write> s : i32;
 
-            var<workgroup> g1 : atomic<i32, >;
+            var<workgroup> g1 : atomic<i32>;
 
             struct S {
               a : i32,

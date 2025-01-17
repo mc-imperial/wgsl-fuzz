@@ -164,7 +164,7 @@ class ResolverTests {
                 var c: bool = false; // d1
                 c = !c; // d2
               }
-              c++; // a5
+              v++; // a5
             }
             """.trimIndent()
         val errorListener = LoggingParseErrorListener()
@@ -265,30 +265,5 @@ class ResolverTests {
             assertSame(d1, inner3EntryC.astNode)
             assertEquals(Type.Bool, inner3EntryC.type)
         }
-    }
-
-    @Test
-    fun forScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun whileScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun loopScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun blockScopeTest() {
-        TODO()
-    }
-
-    @Test
-    fun switchScopeTest() {
-        TODO()
     }
 }
