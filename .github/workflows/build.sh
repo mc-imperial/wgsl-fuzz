@@ -8,6 +8,8 @@ help | head
 
 uname
 
-mvn package
+pushd external
+git clone --depth 1 https://dawn.googlesource.com/dawn
+popd
 
-exit 1
+mvn package
