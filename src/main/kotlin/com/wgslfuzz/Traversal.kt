@@ -275,7 +275,7 @@ fun <T> traverse(
     }
 }
 
-fun nodesPreOrder(rootNote: AstNode): List<AstNode> {
+fun nodesPreOrder(rootNode: AstNode): List<AstNode> {
     fun collectNodes(
         node: AstNode,
         nodes: MutableList<AstNode>,
@@ -284,11 +284,11 @@ fun nodesPreOrder(rootNote: AstNode): List<AstNode> {
         traverse(::collectNodes, node, nodes)
     }
     val result = mutableListOf<AstNode>()
-    collectNodes(rootNote, result)
+    collectNodes(rootNode, result)
     return result
 }
 
-fun nodesPostOrder(rootNote: AstNode): List<AstNode> {
+fun nodesPostOrder(rootNode: AstNode): List<AstNode> {
     fun collectNodes(
         node: AstNode,
         nodes: MutableList<AstNode>,
@@ -297,6 +297,6 @@ fun nodesPostOrder(rootNote: AstNode): List<AstNode> {
         nodes.add(node)
     }
     val result = mutableListOf<AstNode>()
-    collectNodes(rootNote, result)
+    collectNodes(rootNode, result)
     return result
 }
