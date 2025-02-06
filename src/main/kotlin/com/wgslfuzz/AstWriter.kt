@@ -218,27 +218,36 @@ class AstWriter(
             }
             is Expression.ValueConstructor -> {
                 out.print(expression.typeName)
-                if (expression is Expression.VectorValueConstructor) {
-                    expression.elementType?.let {
-                        out.print("<")
-                        emit(it)
-                        out.print(">")
-                    }
-                } else if (expression is Expression.MatrixValueConstructor) {
-                    expression.elementType?.let {
-                        out.print("<")
-                        emit(it)
-                        out.print(">")
-                    }
-                } else if (expression is Expression.ArrayValueConstructor) {
-                    expression.elementType?.let {
-                        out.print("<")
-                        emit(it)
-                        expression.elementCount?.let { itInner ->
-                            out.print(", ")
-                            emit(itInner)
+                when (expression) {
+                    is Expression.VectorValueConstructor -> {
+                        expression.elementType?.let {
+                            out.print("<")
+                            emit(it)
+                            out.print(">")
                         }
-                        out.print(">")
+                    }
+
+                    is Expression.MatrixValueConstructor -> {
+                        expression.elementType?.let {
+                            out.print("<")
+                            emit(it)
+                            out.print(">")
+                        }
+                    }
+
+                    is Expression.ArrayValueConstructor -> {
+                        expression.elementType?.let {
+                            out.print("<")
+                            emit(it)
+                            expression.elementCount?.let { itInner ->
+                                out.print(", ")
+                                emit(itInner)
+                            }
+                            out.print(">")
+                        }
+                    }
+                    else -> {
+                        // No action required: other value constructor expressions do not have template arguments.
                     }
                 }
                 out.print("(")
@@ -280,34 +289,28 @@ class AstWriter(
             is TypeDecl.ScalarTypeDecl -> out.print(typeDecl.name)
             is TypeDecl.MatrixTypeDecl -> {
                 out.print(typeDecl.name)
-                typeDecl.elementType?.let {
-                    out.print("<")
-                    emit(it)
-                    out.print(">")
-                }
+                out.print("<")
+                emit(typeDecl.elementType)
+                out.print(">")
             }
             is TypeDecl.VectorTypeDecl -> {
                 out.print(typeDecl.name)
-                typeDecl.elementType?.let {
-                    out.print("<")
-                    emit(it)
-                    out.print(">")
-                }
+                out.print("<")
+                emit(typeDecl.elementType)
+                out.print(">")
             }
             is TypeDecl.NamedType -> {
                 out.print(typeDecl.name)
             }
             is TypeDecl.Array -> {
                 out.print("array")
-                typeDecl.elementType?.let {
-                    out.print("<")
+                out.print("<")
+                emit(typeDecl.elementType)
+                typeDecl.elementCount?.let {
+                    out.print(", ")
                     emit(it)
-                    typeDecl.elementCount?.let { innerIt ->
-                        out.print(", ")
-                        emit(innerIt)
-                    }
-                    out.print(">")
                 }
+                out.print(">")
             }
             is TypeDecl.Pointer -> {
                 out.print("ptr<")
@@ -408,15 +411,15 @@ class AstWriter(
             if (!inForLoopHeader) {
                 emitIndent()
             }
-            assignmentStatement.lhsExpression?.let {
+            lhsExpression?.let {
                 emit(it)
             } ?: run {
                 out.print("_")
             }
             out.print(" ")
-            emit(assignmentStatement.assignmentOperator)
+            emit(assignmentOperator)
             out.print(" ")
-            emit(assignmentStatement.rhs)
+            emit(rhs)
             if (!inForLoopHeader) {
                 out.print(";\n")
             }
@@ -535,10 +538,10 @@ class AstWriter(
 
     fun emit(loopStatement: Statement.Loop) {
         with(loopStatement) {
-            emit(loopStatement.attributesAtStart)
+            emit(attributesAtStart)
             emitIndent()
             out.print("loop\n")
-            emit(loopStatement.attributesBeforeBody)
+            emit(attributesBeforeBody)
             emitIndent()
             out.print("{\n")
             increaseIndent()
@@ -600,7 +603,7 @@ class AstWriter(
                     is CaseSelectors.DefaultAlone -> out.print("default\n")
                     is CaseSelectors.ExpressionsOrDefault -> {
                         out.print("case ")
-                        (it.caseSelectors as CaseSelectors.ExpressionsOrDefault).expressions.forEach { expression ->
+                        it.caseSelectors.expressions.forEach { expression ->
                             expression?.let { emit(expression) } ?: run {
                                 out.print("default")
                             }
@@ -653,25 +656,7 @@ class AstWriter(
             if (!inForLoopHeader) {
                 emitIndent()
             }
-            out.print("var")
-            addressSpace?.let {
-                out.print("<")
-                emit(it)
-                accessMode?.let { itInner ->
-                    out.print(", ")
-                    emit(itInner)
-                }
-                out.print(">")
-            }
-            out.print(" $name")
-            type?.let {
-                out.print(" : ")
-                emit(it)
-            }
-            initializer?.let {
-                out.print(" = ")
-                emit(it)
-            }
+            emitVariableDeclaration(addressSpace, accessMode, name, type, initializer)
             if (!inForLoopHeader) {
                 out.print(";\n")
             }
@@ -775,25 +760,7 @@ class AstWriter(
     fun emit(globalVarDecl: GlobalDecl.Variable) {
         with(globalVarDecl) {
             emit(attributes)
-            out.print("var")
-            addressSpace?.let {
-                out.print("<")
-                emit(it)
-                accessMode?.let { itInner ->
-                    out.print(", ")
-                    emit(itInner)
-                }
-                out.print(">")
-            }
-            out.print(" $name")
-            type?.let {
-                out.print(" : ")
-                emit(it)
-            }
-            initializer?.let {
-                out.print(" = ")
-                emit(it)
-            }
+            emitVariableDeclaration(addressSpace, accessMode, name, type, initializer)
             out.print(";\n")
         }
     }
@@ -817,7 +784,7 @@ class AstWriter(
             out.print(")")
             returnType?.let {
                 out.print(" -> ")
-                emit(returnType!!)
+                emit(returnType)
             }
             out.print("\n")
             emitIndent()
@@ -862,6 +829,34 @@ class AstWriter(
             if (index < tu.globalDecls.size - 1) {
                 out.print("\n")
             }
+        }
+    }
+
+    private fun emitVariableDeclaration(
+        addressSpace: AddressSpace?,
+        accessMode: AccessMode?,
+        name: String,
+        type: TypeDecl?,
+        initializer: Expression?,
+    ) {
+        out.print("var")
+        addressSpace?.let {
+            out.print("<")
+            emit(it)
+            accessMode?.let { itInner ->
+                out.print(", ")
+                emit(itInner)
+            }
+            out.print(">")
+        }
+        out.print(" $name")
+        type?.let {
+            out.print(" : ")
+            emit(it)
+        }
+        initializer?.let {
+            out.print(" = ")
+            emit(it)
         }
     }
 }
