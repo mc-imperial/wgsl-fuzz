@@ -500,6 +500,8 @@ private fun resolveExpressionType(
                     expression.typeName,
                 ) as ScopeEntry.TypeAlias
             ).type
+
+        is MetamorphicExpression -> TODO()
     }
 
 private fun resolveLhsExpressionType(

@@ -220,6 +220,8 @@ private fun cloneHelper(
             is TypeDecl.Vec2 -> TypeDecl.Vec2(elementType.clone(replacements))
             is TypeDecl.Vec3 -> TypeDecl.Vec3(elementType.clone(replacements))
             is TypeDecl.Vec4 -> TypeDecl.Vec4(elementType.clone(replacements))
+            is MetamorphicExpression -> TODO()
+            is MetamorphicStatement -> TODO()
             null -> null
         }
     }

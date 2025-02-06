@@ -272,6 +272,8 @@ fun <T> traverse(
         is TypeDecl.TextureStorage3D -> {
             // Nothing to do
         }
+        is MetamorphicExpression -> TODO()
+        is MetamorphicStatement -> TODO()
     }
 }
 

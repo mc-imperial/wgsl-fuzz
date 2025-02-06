@@ -281,6 +281,7 @@ class AstWriter(
                 emit(expression.receiver)
                 out.print(".${expression.memberName}")
             }
+            is MetamorphicExpression -> TODO()
         }
     }
 
@@ -709,6 +710,7 @@ class AstWriter(
             is Statement.Value -> emit(statement, inForLoopHeader)
             is Statement.Variable -> emit(statement, inForLoopHeader)
             is Statement.While -> emit(statement)
+            is MetamorphicStatement -> TODO()
         }
     }
 
