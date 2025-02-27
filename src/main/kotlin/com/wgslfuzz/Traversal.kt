@@ -13,9 +13,6 @@ fun <T> traverse(
         is Statement.Continue -> {}
         is Statement.Discard -> {}
         is Statement.Empty -> {}
-        is Attribute -> {
-            node.args.forEach(actionWithState)
-        }
         is Directive -> {}
         is Expression.BoolLiteral -> {}
         is Expression.FloatLiteral -> {}
@@ -23,6 +20,9 @@ fun <T> traverse(
         is Expression.IntLiteral -> {}
         is LhsExpression.Identifier -> {}
 
+        is Attribute -> {
+            node.args.forEach(actionWithState)
+        }
         is CaseSelectors.ExpressionsOrDefault -> {
             node.expressions.forEach {
                 it?.let(actionWithState)
