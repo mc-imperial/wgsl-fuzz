@@ -13,7 +13,9 @@ fun <T> traverse(
         is Statement.Continue -> {}
         is Statement.Discard -> {}
         is Statement.Empty -> {}
-        is Attribute -> {}
+        is Attribute -> {
+            node.args.forEach(actionWithState)
+        }
         is Directive -> {}
         is Expression.BoolLiteral -> {}
         is Expression.FloatLiteral -> {}
