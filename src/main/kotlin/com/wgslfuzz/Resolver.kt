@@ -471,7 +471,7 @@ private fun resolveExpressionType(
             }
         is Expression.BoolLiteral ->
             Type.Bool
-        is Expression.Binary -> resolveBinary(resolverState, expression)
+        is Expression.Binary -> resolveBinary(expression, resolverState)
         is Expression.Unary -> resolveUnary(expression, resolverState)
         is Expression.Paren -> resolverState.resolvedEnvironment.typeOf(expression.target)
         is Expression.Identifier ->
@@ -635,8 +635,8 @@ private fun resolveUnary(
 }
 
 private fun resolveBinary(
-    resolverState: ResolverState,
     expression: Expression.Binary,
+    resolverState: ResolverState,
 ): Type {
     val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs)
     val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs)

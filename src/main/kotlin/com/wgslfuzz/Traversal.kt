@@ -179,7 +179,7 @@ fun <T> traverse(
         is Statement.While -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.condition)
-            actionWithState(node.body)
+            node.body.forEach(actionWithState)
         }
         is StructMember -> {
             node.attributes.forEach(actionWithState)

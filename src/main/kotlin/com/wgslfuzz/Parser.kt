@@ -333,7 +333,7 @@ private class AstBuilder(
         Statement.While(
             attributes = gatherAttributes(ctx.attribute()),
             condition = visitExpression(ctx.expression()),
-            body = visitCompound_statement(ctx.compound_statement()),
+            body = ctx.compound_statement().statement().map(::visitStatement),
         )
 
     override fun visitFunc_call_statement(ctx: WGSLParser.Func_call_statementContext): Statement.FunctionCall =

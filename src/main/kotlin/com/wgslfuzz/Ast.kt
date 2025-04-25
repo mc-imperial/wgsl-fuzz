@@ -562,7 +562,7 @@ sealed interface Statement : AstNode {
     class While(
         val attributes: List<Attribute> = emptyList(),
         val condition: Expression,
-        val body: Compound,
+        val body: List<Statement>,
     ) : Statement
 
     class FunctionCall(

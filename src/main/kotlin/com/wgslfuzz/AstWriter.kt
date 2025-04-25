@@ -669,8 +669,15 @@ class AstWriter(
             emitIndent()
             out.print("while ")
             emit(condition)
+            out.print("")
             out.print("\n")
-            emit(body)
+            emitIndent()
+            out.print("{\n")
+            increaseIndent()
+            body.forEach { statement -> emit(statement) }
+            decreaseIndent()
+            emitIndent()
+            out.print("}\n")
         }
     }
 
