@@ -189,7 +189,6 @@ class UniformityAnalysisTests {
     }
 
     @Test
-    @Disabled
     fun barrierAfterLoopWithUnconditionalReturn() {
         val program = """
             fn f() {

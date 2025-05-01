@@ -1,31 +1,60 @@
 package com.wgslfuzz
 
-data class PresentRecord(
+data class PresentInfo(
     val ifControls: List<Set<String>>,
     val variableUniformityInfo: Map<String, Set<String>>,
 )
 
+data class BreakContinueInfo(
+    val controls: Set<String>,
+    val variableUniformityInfo: Map<String, Set<String>>,
+)
+
+private fun mergeBreakContinueInfo(
+    first: BreakContinueInfo?,
+    second: BreakContinueInfo?,
+): BreakContinueInfo? {
+    if (first == null) {
+        return second
+    }
+    if (second == null) {
+        return first
+    }
+    return BreakContinueInfo(
+        controls = first.controls union second.controls,
+        variableUniformityInfo = mergeMaps(first.variableUniformityInfo, second.variableUniformityInfo)
+    )
+}
+
+fun mergeReturnInfo(first: Set<String>?, second: Set<String>?): Set<String>? {
+    if (first == null) {
+        return second
+    }
+    if (second == null) {
+        return first
+    }
+    return first union second
+}
+
 data class StatementUniformityRecord(
-    val present: PresentRecord?,
-    val breakControls: Set<String>,
-    val breakVariableUniformityInfo: Map<String, Set<String>>,
-    val continueControls: Set<String>,
-    val continueVariableUniformityInfo: Map<String, Set<String>>,
-    val returnControls: Set<String>,
+    val presentInfo: PresentInfo?,
+    val breakInfo: BreakContinueInfo?,
+    val continueInfo: BreakContinueInfo?,
+    val returnControls: Set<String>?,
 ) {
     fun updateVariableUniformityInfo(variable: String, newParameters: Set<String>): StatementUniformityRecord =
         this.copy(
-            present = present!!.copy(
-                variableUniformityInfo = present.variableUniformityInfo + (variable to newParameters),
+            presentInfo = presentInfo!!.copy(
+                variableUniformityInfo = presentInfo.variableUniformityInfo + (variable to newParameters),
             )
         )
 
     fun strengthenIfControl(newParameters: Set<String>): StatementUniformityRecord {
         val newIfControls: MutableList<Set<String>> =
-            present!!.ifControls.dropLast(1).toMutableList()
-        newIfControls.add(present.ifControls.last() union newParameters)
+            presentInfo!!.ifControls.dropLast(1).toMutableList()
+        newIfControls.add(presentInfo.ifControls.last() union newParameters)
         return this.copy(
-            present = present.copy(
+            presentInfo = presentInfo.copy(
                 ifControls = newIfControls,
             )
         )
@@ -60,15 +89,13 @@ fun runAnalysis(function: GlobalDecl.Function): AnalysisState {
         uniformParams = setOf(),
         returnedValueUniformity = setOf(),
         stmtIn = mapOf(statements[0] to StatementUniformityRecord(
-            present = PresentRecord(
+            presentInfo = PresentInfo(
                 ifControls = listOf(emptySet()),
                 variableUniformityInfo = variables.associateWith { emptySet() },
             ),
-            breakControls = emptySet(),
-            breakVariableUniformityInfo = variables.associateWith { emptySet() },
-            continueControls = emptySet(),
-            continueVariableUniformityInfo = variables.associateWith { emptySet() },
-            returnControls = emptySet(),
+            breakInfo = null,
+            continueInfo = null,
+            returnControls = null,
         )),
         stmtOut = mapOf(),
     )
@@ -107,20 +134,18 @@ fun analyseStatement(analysisState: AnalysisState,
                      variables: Set<String>,
                      ): AnalysisState {
     val inStmt = analysisState.stmtIn[statement]!!
-    if (inStmt.present == null) {
+    if (inStmt.presentInfo == null) {
         return analysisState.copy(
             stmtOut = analysisState.stmtOut + (statement to inStmt)
         )
     }
-    val presentVariables = inStmt.present.variableUniformityInfo
-    val presentControls = inStmt.present.ifControls.reduce {
+    val presentVariables = inStmt.presentInfo.variableUniformityInfo
+    val presentControls = inStmt.presentInfo.ifControls.reduce {
         first, second -> first union second
     }
-    val breakControls = inStmt.breakControls
-    val breakVariableUniformityInfo = inStmt.breakVariableUniformityInfo
-    val continueControls = inStmt.continueControls
-    val continueVariableUniformityInfo = inStmt.continueVariableUniformityInfo
-    val returnControls = inStmt.returnControls
+    val breakControls = inStmt.breakInfo?.controls ?: emptySet()
+    val continueControls = inStmt.continueInfo?.controls ?: emptySet()
+    val returnControls = inStmt.returnControls ?: emptySet()
     return when (statement) {
         is Statement.Empty -> analysisState.transferInToOutWithUpdate(statement, inStmt)
         is Statement.Assignment -> {
@@ -231,24 +256,22 @@ fun analyseStatement(analysisState: AnalysisState,
             val endOfThenSideRecord = afterAnalysingThenSide.stmtOut[thenStatements.last()]!!
             val endOfElseSideRecord = afterAnalysingElseSide.stmtOut[elseStatements.last()]!!
 
-            val mergedPresent: PresentRecord? = if (endOfThenSideRecord.present == null && endOfElseSideRecord.present == null) {
+            val mergedPresent: PresentInfo? = if (endOfThenSideRecord.presentInfo == null && endOfElseSideRecord.presentInfo == null) {
                 null
             } else {
-                PresentRecord(
-                    ifControls = inStmt.present.ifControls,
+                PresentInfo(
+                    ifControls = inStmt.presentInfo.ifControls,
                     variableUniformityInfo = mergeMaps(
-                        endOfThenSideRecord.present?.variableUniformityInfo,
-                        endOfElseSideRecord.present?.variableUniformityInfo,
+                        endOfThenSideRecord.presentInfo?.variableUniformityInfo,
+                        endOfElseSideRecord.presentInfo?.variableUniformityInfo,
                     )
                 )
             }
             val mergedRecord = StatementUniformityRecord(
-                present = mergedPresent,
-                breakControls = endOfThenSideRecord.breakControls union endOfElseSideRecord.breakControls,
-                breakVariableUniformityInfo = mergeMaps(endOfThenSideRecord.breakVariableUniformityInfo, endOfElseSideRecord.breakVariableUniformityInfo),
-                continueControls = endOfThenSideRecord.continueControls union endOfElseSideRecord.continueControls,
-                continueVariableUniformityInfo = mergeMaps(endOfThenSideRecord.continueVariableUniformityInfo, endOfElseSideRecord.continueVariableUniformityInfo),
-                returnControls = endOfThenSideRecord.returnControls union endOfElseSideRecord.returnControls,
+                presentInfo = mergedPresent,
+                breakInfo = mergeBreakContinueInfo(endOfThenSideRecord.breakInfo, endOfThenSideRecord.breakInfo),
+                continueInfo = mergeBreakContinueInfo(endOfThenSideRecord.continueInfo, endOfThenSideRecord.continueInfo),
+                returnControls = mergeReturnInfo(endOfThenSideRecord.returnControls, endOfElseSideRecord.returnControls),
             )
 
             afterAnalysingElseSide.copy(
@@ -264,8 +287,8 @@ fun analyseStatement(analysisState: AnalysisState,
             ).transferInToOutWithUpdate(
                 statement=statement,
                 uniformityRecord = inStmt.copy(
-                    present = null,
-                    returnControls = inStmt.returnControls union presentControls,
+                    presentInfo = null,
+                    returnControls = mergeReturnInfo(inStmt.returnControls, presentControls),
                 ),
             )
         }
@@ -282,33 +305,30 @@ fun analyseStatement(analysisState: AnalysisState,
                 val loopEntryRecordUpdatedWithIncomingEdge: StatementUniformityRecord =
                     if (existingLoopEntryRecord == null) {
                         StatementUniformityRecord(
-                            present = inStmt.present.copy(
-                                ifControls = inStmt.present.ifControls + listOf(emptySet()),
+                            presentInfo = inStmt.presentInfo.copy(
+                                ifControls = inStmt.presentInfo.ifControls + listOf(emptySet()),
                             ),
-                            breakControls = emptySet(), // This is a fresh loop
-                            breakVariableUniformityInfo = variables.associateWith { emptySet() },
-                            continueControls = emptySet(), // This is a fresh loop
-                            continueVariableUniformityInfo = variables.associateWith { emptySet() },
+                            breakInfo = null, // This is a fresh loop
+                            continueInfo = null, // This is a fresh loop
                             returnControls = inStmt.returnControls,
                         )
                     } else {
-                        assert(existingLoopEntryRecord.continueControls.isEmpty())
-                        assert(existingLoopEntryRecord.continueVariableUniformityInfo == variables.associateWith { emptySet<String>() })
+                        assert(existingLoopEntryRecord.continueInfo == null)
                         assert(
-                            existingLoopEntryRecord.present!!.ifControls == inStmt.present.ifControls + listOf(
+                            existingLoopEntryRecord.presentInfo!!.ifControls == inStmt.presentInfo.ifControls + listOf(
                                 emptySet()
                             )
                         )
                         existingLoopEntryRecord.copy(
-                            present = existingLoopEntryRecord.present.copy(
+                            presentInfo = existingLoopEntryRecord.presentInfo.copy(
                                 variableUniformityInfo = mergeMaps(
                                     presentVariables,
-                                    existingLoopEntryRecord.present.variableUniformityInfo
+                                    existingLoopEntryRecord.presentInfo.variableUniformityInfo
                                 ),
                             ),
                             // Break information: retain whatever has been propagated via back edges, since on entry this information is empty
-                            // Continue information: empty by construction as asserted above
-                            returnControls = existingLoopEntryRecord.returnControls union returnControls,
+                            // Continue information: absent by construction as asserted above
+                            returnControls = mergeReturnInfo(existingLoopEntryRecord.returnControls, returnControls),
                         )
                     }
 
@@ -328,48 +348,57 @@ fun analyseStatement(analysisState: AnalysisState,
 
                 // Transfer back to loop header
                 val finalLoopStatementRecord: StatementUniformityRecord = analysisStateAfterAnalysingBody.stmtOut[loopBodyEnd]!!
-                val existingLoopEntryRecord: StatementUniformityRecord = analysisStateAfterAnalysingBody.stmtIn[loopBodyStart]!!
-                val loopEntryRecordUpdatedWithBackEdge: StatementUniformityRecord = StatementUniformityRecord(
-                    present = existingLoopEntryRecord.present!!.copy(
-                        variableUniformityInfo =
-                            mergeMaps(
-                                mergeMaps(existingLoopEntryRecord.present.variableUniformityInfo, finalLoopStatementRecord.present?.variableUniformityInfo),
-                                finalLoopStatementRecord.continueVariableUniformityInfo,
-                            ),
-                    ),
-                    breakControls = finalLoopStatementRecord.breakControls, // No need to merge here as this is guaranteed to be larger
-                    breakVariableUniformityInfo = finalLoopStatementRecord.breakVariableUniformityInfo,
-                    continueControls = existingLoopEntryRecord.continueControls,
-                    continueVariableUniformityInfo = existingLoopEntryRecord.continueVariableUniformityInfo,
-                    returnControls = existingLoopEntryRecord.returnControls union finalLoopStatementRecord.returnControls,
-                )
-                val analysisStateAfterTransferBackToLoopHeader: AnalysisState = analysisStateAfterAnalysingBody.copy(
-                    stmtIn = analysisStateAfterAnalysingBody.stmtIn + (loopBodyStart to loopEntryRecordUpdatedWithBackEdge)
-                )
-                if (loopAnalysisState == analysisStateAfterTransferBackToLoopHeader) {
+                val updatedAnalysisState = if (finalLoopStatementRecord.presentInfo != null || finalLoopStatementRecord.continueInfo != null) {
+                    val existingLoopEntryRecord: StatementUniformityRecord = analysisStateAfterAnalysingBody.stmtIn[loopBodyStart]!!
+                    val loopEntryRecordUpdatedWithBackEdge: StatementUniformityRecord = StatementUniformityRecord(
+                        presentInfo = existingLoopEntryRecord.presentInfo!!.copy(
+                            variableUniformityInfo =
+                                mergeMaps(
+                                    mergeMaps(existingLoopEntryRecord.presentInfo.variableUniformityInfo, finalLoopStatementRecord.presentInfo?.variableUniformityInfo),
+                                    finalLoopStatementRecord.continueInfo?.variableUniformityInfo,
+                                ),
+                        ),
+                        breakInfo = finalLoopStatementRecord.breakInfo, // No need to merge here as this is guaranteed to be larger
+                        continueInfo = existingLoopEntryRecord.continueInfo,
+                        returnControls = mergeReturnInfo(existingLoopEntryRecord.returnControls, finalLoopStatementRecord.returnControls),
+                    )
+                    analysisStateAfterAnalysingBody.copy(
+                        stmtIn = analysisStateAfterAnalysingBody.stmtIn + (loopBodyStart to loopEntryRecordUpdatedWithBackEdge)
+                    )
+                } else {
+                    analysisStateAfterAnalysingBody
+                }
+                if (loopAnalysisState == updatedAnalysisState) {
                     // Fixpoint reached
                     break
                 }
-                loopAnalysisState = analysisStateAfterTransferBackToLoopHeader
+                loopAnalysisState = updatedAnalysisState
             }
 
             // Transfer to loop exit
             run {
                 val finalLoopStatementRecord: StatementUniformityRecord = loopAnalysisState.stmtOut[loopBodyEnd]!!
-                val loopExitRecord: StatementUniformityRecord = StatementUniformityRecord(
-                    present = PresentRecord(
-                        ifControls = inStmt.present.ifControls,
-                        variableUniformityInfo = mergeMaps(
-                            finalLoopStatementRecord.present?.variableUniformityInfo,
-                            finalLoopStatementRecord.breakVariableUniformityInfo,
-                        )
-                    ),
-                    breakControls = inStmt.breakControls,
-                    breakVariableUniformityInfo = inStmt.breakVariableUniformityInfo,
-                    continueControls = inStmt.continueControls,
-                    continueVariableUniformityInfo = inStmt.continueVariableUniformityInfo,
-                    returnControls = finalLoopStatementRecord.returnControls,
-                )
+                val loopExitRecord = if (finalLoopStatementRecord.breakInfo == null) {
+                    StatementUniformityRecord(
+                        presentInfo = null,
+                        breakInfo = null,
+                        continueInfo = null,
+                        returnControls = finalLoopStatementRecord.returnControls,
+                    )
+                } else {
+                    StatementUniformityRecord(
+                        presentInfo = PresentInfo(
+                            ifControls = inStmt.presentInfo.ifControls,
+                            variableUniformityInfo = mergeMaps(
+                                finalLoopStatementRecord.presentInfo?.variableUniformityInfo,
+                                finalLoopStatementRecord.breakInfo.variableUniformityInfo,
+                            )
+                        ),
+                        breakInfo = inStmt.breakInfo,
+                        continueInfo = inStmt.continueInfo,
+                        returnControls = finalLoopStatementRecord.returnControls,
+                    )
+                }
                 loopAnalysisState.copy(
                     stmtOut = loopAnalysisState.stmtOut + (statement to loopExitRecord),
                 )
@@ -379,9 +408,11 @@ fun analyseStatement(analysisState: AnalysisState,
             analysisState.transferInToOutWithUpdate(
                 statement = statement,
                 uniformityRecord = inStmt.copy(
-                    present = null,
-                    breakControls = inStmt.breakControls union inStmt.present.ifControls.last(),
-                    breakVariableUniformityInfo = mergeMaps(breakVariableUniformityInfo, presentVariables),
+                    presentInfo = null,
+                    breakInfo = BreakContinueInfo(
+                        controls = breakControls union inStmt.presentInfo.ifControls.last(),
+                        variableUniformityInfo = mergeMaps(inStmt.breakInfo?.variableUniformityInfo, presentVariables)
+                    ),
                 )
             )
         }
@@ -389,9 +420,11 @@ fun analyseStatement(analysisState: AnalysisState,
             analysisState.transferInToOutWithUpdate(
                 statement = statement,
                 uniformityRecord = inStmt.copy(
-                    present = null,
-                    continueControls = inStmt.continueControls union inStmt.present.ifControls.last(),
-                    continueVariableUniformityInfo = mergeMaps(continueVariableUniformityInfo, presentVariables),
+                    presentInfo = null,
+                    continueInfo = BreakContinueInfo(
+                        controls = continueControls union inStmt.presentInfo.ifControls.last(),
+                        variableUniformityInfo = mergeMaps(inStmt.continueInfo?.variableUniformityInfo, presentVariables)
+                    ),
                 )
             )
         }
