@@ -3,6 +3,7 @@ package com.wgslfuzz
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 class UniformityAnalysisTests {
@@ -185,6 +186,123 @@ class UniformityAnalysisTests {
         assertTrue(state.callSiteMustBeUniform)
         assertEquals(setOf("a", "b"), state.returnedValueUniformity)
         assertEquals(setOf("a", "b"), state.uniformParams)
+    }
+
+    @Test
+    @Disabled
+    fun barrierAfterLoopWithUnconditionalReturn() {
+        val program = """
+            fn f() {
+                var x: u32;
+                x = 1;
+                loop {
+                   return x;
+                }
+                barrier();
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertFalse(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.returnedValueUniformity.isEmpty())
+    }
+
+    @Test
+    fun barrierInLoopAfterUnconditionalBreak() {
+        val program = """
+            fn f() {
+                loop {
+                   break;
+                   barrier();
+                }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertFalse(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.returnedValueUniformity.isEmpty())
+    }
+
+    @Test
+    fun barrierInLoopAfterUnconditionalBreaks() {
+        val program = """
+            fn f() {
+                var x: u32;
+                x = 1;
+                loop {
+                   if x {
+                     break;
+                   } else {
+                     break;
+                   }
+                   barrier();
+                }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertFalse(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.returnedValueUniformity.isEmpty())
+    }
+
+    @Test
+    fun barrierInLoopAfterUnconditionalContinue() {
+        val program = """
+            fn f() {
+                loop {
+                   continue;
+                   barrier();
+                }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertFalse(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.returnedValueUniformity.isEmpty())
+    }
+
+    @Test
+    fun barrierInLoopAfterUnconditionalContinues() {
+        val program = """
+            fn f() {
+                var x: u32;
+                x = 1;
+                loop {
+                   if x {
+                     continue;
+                   } else {
+                     continue;
+                   }
+                   barrier();
+                }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertFalse(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.returnedValueUniformity.isEmpty())
+    }
+
+    @Test
+    fun barrierInLoopAfterUnconditionalBreakContinuePair() {
+        val program = """
+            fn f() {
+                var x: u32;
+                x = 1;
+                loop {
+                   if x {
+                     break;
+                   } else {
+                     continue;
+                   }
+                   barrier();
+                }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertFalse(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.returnedValueUniformity.isEmpty())
     }
 
     private fun runAnalysisHelper(program: String): AnalysisState =
