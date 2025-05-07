@@ -509,6 +509,218 @@ class UniformityAnalysisTests {
     }
 
     @Test
+    fun loop1() {
+        val program = """
+            fn main(lid: u32) {
+              var x = 0;
+              var _lid: u32;
+              _lid = lid;
+              if _lid {
+                loop {
+                  x = 1;
+                  if x {
+                    break;
+                  }
+                }
+              }
+              if x {
+                workgroupBarrier();
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("lid"), state.uniformParams)
+    }
+
+    @Test
+    fun loop1NoBreak() {
+        val program = """
+            fn main(lid: u32) {
+              var x = 0;
+              var _lid: u32;
+              _lid = lid;
+              if _lid {
+                loop {
+                  x = 1;
+                }
+              }
+              if x {
+                workgroupBarrier();
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.uniformParams.isEmpty())
+    }
+
+    @Test
+    fun loop2() {
+        val program = """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              if (lid >= 0) {
+                loop {
+                  x = 1;
+                }
+              }
+              if (x == 1) {
+                workgroupBarrier();
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun loop3() {
+        val program = """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              loop {
+                if (lid >= 0) { continue; }
+                x = 1;
+                if (true) { break; }
+              }
+              if (x == 1) {
+                workgroupBarrier();
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun loop4() {
+        val program = """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x1 = 0;
+              var x2 = 0;
+              var x3 = 0;
+              var x4 = 0;
+              var x5 = 0;
+              var result: u32 = 0;
+              loop {
+                if (x5 == 1) { result = lid; }
+                if (x4 == 1) { x5 = 1; }
+                if (x3 == 1) { x4 = 1; }
+                if (x2 == 1) { x3 = 1; }
+                if (x1 == 0) { x2 = 1; }
+              }
+              if (result == 1) {
+                workgroupBarrier();
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun loop5() {
+        val program = """
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              loop {
+                if (x >= 0) { workgroupBarrier(); }
+                x = lid;
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun loop6() {
+        val program = """
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              var y = 0;
+              loop {
+                x = lid;
+                if (y == 3) { break; }
+                x = 5;
+              }
+              if (x == 1) {
+                workgroupBarrier();
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun loop7() {
+        val program = """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              var y = 0;
+              loop {
+                x = lid;
+                if (y == 3) { break; }
+                x = 5;
+                if (y == 3) { break; }
+              }
+              if (x == 1) {
+                workgroupBarrier();
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun loop8() {
+        val program = """
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              loop {
+                if (lid >= 0) { continue; }
+                x = x;
+                break;
+              }
+            
+              if (x >= 0) { workgroupBarrier(); }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
     fun nestedLoop1() {
         val program = """
             fn main(lid: u32) {
@@ -536,6 +748,77 @@ class UniformityAnalysisTests {
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf("lid"), state.uniformParams)
+    }
+
+    @Test
+    fun nestedLoop2() {
+        val program = """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              loop {
+                loop {
+                  if (lid >= 0) { return; }
+                }
+              }
+              workgroupBarrier();
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun nestedLoop3() {
+        val program = """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              loop {
+                workgroupBarrier();
+                loop {
+                  if (lid >= 0) { return; }
+                }
+              }
+            }            
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
+    }
+
+    @Test
+    fun nestedLoop4() {
+        val program = """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              loop {
+                if (x >= 0) {
+                  workgroupBarrier();
+                }
+            
+                loop {
+                  if (lid >= 0) {
+                    continue;
+                  } 
+            
+                  x = 1;
+                  break;
+                }
+            
+                if (false) { break; }
+              }
+            }
+        """.trimIndent()
+        val state = runAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf("tid"), state.uniformParams)
+        fail("Need to finish implementing.")
     }
 
 //    @Test
