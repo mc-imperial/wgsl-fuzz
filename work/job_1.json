@@ -1,0 +1,23 @@
+{
+    "uniformBuffers": [
+        {
+            "binding": 0,
+            "group": 0,
+            "data": [
+                0,
+                0,
+                22,
+                67,
+                0,
+                0,
+                160,
+                64,
+                0,
+                0,
+                0,
+                65
+            ]
+        }
+    ],
+    "shaderText": "struct ShaderUniforms {\n  time: f32,\n  mouse: vec2<f32>,\n}\n\n@group(0)\n@binding(0)\nvar<uniform> shaderUniforms: ShaderUniforms;\n\n@vertex\nfn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {\n  return vec4f(pos, 0, 1);\n}\n\n@fragment\nfn fragmentMain(\n  @builtin(position) gl_FragCoord: vec4f,\n) -> @location(0) vec4f {\n  let position = ( gl_FragCoord.xy / vec2(256, 256) );\n\n  let time = shaderUniforms.time; // E.g. 16.0f;\n  let mouse = shaderUniforms.mouse; // E.g. vec2(5.0f, 8.0f);\n\n    var color = 0.0;\n    color += sin( position.x * cos( time / 15.0 ) * 80.0 ) + cos( position.y * cos( time / 15.0 ) * 10.0 );\n    color += sin( position.y * sin( time / 10.0 ) * 40.0 ) + cos( position.x * sin( time / 25.0 ) * 40.0 );\n    color += sin( position.x * sin( time / 5.0 ) * 10.0 ) + sin( position.y * sin( time / 35.0 ) * 80.0 );\n    color *= sin( time / 10.0 ) * 0.5;\n\n    return vec4( vec3( color, color * 0.5, cos( color + time / 3.0 ) * 0.75 ), 1.0 );\n\n\n  //return vec4f(position.x, 0, 0, 1); // (Red, Green, Blue, Alpha)\n}\n\n"
+}

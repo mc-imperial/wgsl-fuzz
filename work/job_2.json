@@ -1,0 +1,93 @@
+{
+    "uniformBuffers": [
+        {
+            "binding": 0,
+            "group": 0,
+            "data": [
+                1,
+                0,
+                0,
+                0,
+                2,
+                0,
+                0,
+                0,
+                3,
+                0,
+                0,
+                0,
+                4,
+                0,
+                0,
+                0
+            ]
+        },
+        {
+            "binding": 1,
+            "group": 0,
+            "data": [
+                5,
+                0,
+                0,
+                0,
+                6,
+                0,
+                0,
+                0,
+                7,
+                0,
+                0,
+                0,
+                8,
+                0,
+                0,
+                0
+            ]
+        },
+        {
+            "binding": 2,
+            "group": 3,
+            "data": [
+                9,
+                0,
+                0,
+                0,
+                10,
+                0,
+                0,
+                0,
+                11,
+                0,
+                0,
+                0,
+                12,
+                0,
+                0,
+                0
+            ]
+        },
+        {
+            "binding": 3,
+            "group": 3,
+            "data": [
+                13,
+                0,
+                0,
+                0,
+                14,
+                0,
+                0,
+                0,
+                15,
+                0,
+                0,
+                0,
+                16,
+                0,
+                0,
+                0
+            ]
+        }
+    ],
+    "shaderText": "struct Point {\n   x: u32,\n   y: u32,\n   z: u32,\n   w: u32,\n}\n\n@group(0)\n@binding(0)\nvar<uniform> u1: Point;\n\n@group(0)\n@binding(1)\nvar<uniform> u2: Point;\n\n@group(3)\n@binding(2)\nvar<uniform> u3: Point;\n\n@group(3)\n@binding(3)\nvar<uniform> u4: Point;\n\n@vertex\nfn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {\n  return vec4f(pos, 0, 1);\n}\n\n@fragment\nfn fragmentMain() -> @location(0) vec4f {\n    var sum: u32 = u1.x + u1.y + u1.z + u1.w +\n                   u2.x + u2.y + u2.z + u2.w + \n                   u3.x + u3.y + u3.z + u3.w + \n                   u4.x + u4.y + u4.z + u4.w;\n    var expected: u32 = 136;\n    if (sum == expected) {\n       return vec4(1.0f, 0.0f, 0.0f, 1.0f);\n    }\n    return vec4(0.0f, 1.0f, 0.0f, 1.0f);\n}\n"
+}
