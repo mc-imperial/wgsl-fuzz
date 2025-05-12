@@ -48,6 +48,8 @@ class ParseTintTests {
             setOf(
                 // This has an expression "b--b", which I think should be parsed as "b - - b"
                 "external/dawn/test/tint/statements/decrement/split.wgsl",
+                // This includes expressions such as "two----one", which are currently out of scope
+                "external/dawn/test/tint/bug/chromium/380168990.wgsl",
                 // This uses "mat2x2" as an identifier, which WGSL does allow but our grammar does not.
                 "external/dawn/test/tint/bug/chromium/40943165.wgsl",
                 "external/dawn/test/tint/bug/chromium/40943165.wgsl.expected.wgsl",
