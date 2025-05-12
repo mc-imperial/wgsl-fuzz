@@ -38,7 +38,7 @@ class CloneAstTests {
             mapOf(
                 identifierExpression to Expression.Binary(BinaryOperator.PLUS, Expression.Identifier("x"), Expression.Identifier("y")),
             )
-        val tuCloned = tu.clone(replacement)
+        val tuCloned = tu.clone({ replacement[it] })
         val outputStream = ByteArrayOutputStream()
         AstWriter(
             out = PrintStream(outputStream),
@@ -120,7 +120,7 @@ class CloneAstTests {
                 ),
             )
         val replacement = mapOf(forLoop to replacementForLoop)
-        val tuCloned = tu.clone(replacement)
+        val tuCloned = tu.clone({ replacement[it] })
         val outputStream = ByteArrayOutputStream()
         AstWriter(
             out = PrintStream(outputStream),
