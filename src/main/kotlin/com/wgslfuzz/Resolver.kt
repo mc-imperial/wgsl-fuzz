@@ -78,6 +78,8 @@ private class ScopeImpl(
 }
 
 sealed interface ResolvedEnvironment {
+    val globalScope: Scope
+
     fun typeOf(expression: Expression): Type
 
     fun typeOf(lhsExpression: LhsExpression): Type
@@ -85,7 +87,9 @@ sealed interface ResolvedEnvironment {
     fun enclosingScope(statement: Statement): Scope
 }
 
-private class ResolvedEnvironmentImpl : ResolvedEnvironment {
+private class ResolvedEnvironmentImpl(
+    override val globalScope: Scope,
+) : ResolvedEnvironment {
     private val expressionTypes: MutableMap<Expression, Type> = mutableMapOf()
 
     private val lhsExpressionTypes: MutableMap<LhsExpression, Type> = mutableMapOf()
@@ -353,7 +357,7 @@ private fun resolveAstNode(
                         Type.Struct(
                             name = node.name,
                             members =
-                                node.members.associate {
+                                node.members.map {
                                     it.name to resolveTypeDecl(it.type, resolverState)
                                 },
                         ),
@@ -422,7 +426,10 @@ private fun resolveExpressionType(
         is Expression.MemberLookup ->
             when (val receiverType = resolverState.resolvedEnvironment.typeOf(expression.receiver)) {
                 is Type.Struct ->
-                    receiverType.members[expression.memberName]
+                    receiverType.members
+                        .firstOrNull {
+                            it.first == expression.memberName
+                        }?. second
                         ?: throw IllegalArgumentException("Struct with type $receiverType does not have a member ${expression.memberName}")
                 is Type.Vector ->
                     // In the following we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
@@ -445,7 +452,10 @@ private fun resolveExpressionType(
                                 TODO()
                             }
                         is Type.Struct ->
-                            pointeeType.members[expression.memberName]
+                            pointeeType.members
+                                .firstOrNull {
+                                    it.first == expression.memberName
+                                }?. second
                                 ?: throw IllegalArgumentException(
                                     "Struct with type $receiverType does not have a member ${expression.memberName}",
                                 )
@@ -602,7 +612,15 @@ private fun resolveLhsExpressionType(
             }
 
             when (storeType) {
-                is Type.Struct -> Type.Reference(storeType.members[lhsExpression.memberName]!!, addressSpace, accessMode)
+                is Type.Struct ->
+                    Type.Reference(
+                        storeType.members
+                            .first {
+                                it.first == lhsExpression.memberName
+                            }.second,
+                        addressSpace,
+                        accessMode,
+                    )
                 is Type.Vector -> Type.Reference(storeType.elementType, addressSpace, accessMode)
                 else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference")
             }
@@ -1809,7 +1827,7 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
 
     val resolverState =
         ResolverState(
-            ResolvedEnvironmentImpl(),
+            ResolvedEnvironmentImpl(globalScope),
             globalScope,
         )
 
