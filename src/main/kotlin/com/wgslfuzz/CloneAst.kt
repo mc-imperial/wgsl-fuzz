@@ -1,14 +1,14 @@
 package com.wgslfuzz
 
-fun <T : AstNode?> T.clone(replacements: Map<out AstNode, AstNode> = emptyMap()): T = cloneHelper(this, replacements) as T
+fun <T : AstNode?> T.clone(replacements: (AstNode?) -> AstNode? = { null }): T = cloneHelper(this, replacements) as T
 
-fun <T : AstNode?> List<T>.clone(replacements: Map<out AstNode, AstNode> = emptyMap()): List<T> = map { it.clone(replacements) }
+fun <T : AstNode?> List<T>.clone(replacements: (AstNode?) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
 
 private fun cloneHelper(
     node: AstNode?,
-    replacements: Map<out AstNode, AstNode>,
+    replacements: (AstNode?) -> AstNode?,
 ): AstNode? =
-    replacements[node] ?: with(node) {
+    replacements(node) ?: with(node) {
         when (this) {
             is Attribute -> Attribute(kind, args.clone(replacements))
             is CaseSelectors.DefaultAlone -> CaseSelectors.DefaultAlone()
