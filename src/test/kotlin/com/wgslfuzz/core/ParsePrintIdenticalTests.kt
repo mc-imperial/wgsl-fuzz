@@ -125,7 +125,8 @@ class ParsePrintIdenticalTests {
             }
 
             @fragment
-            fn main() -> main_out
+            fn main() ->
+                main_out
             {
               main_1();
               return main_out(x_GLF_color, );
@@ -234,7 +235,8 @@ class ParsePrintIdenticalTests {
             @fragment
             fn frag_main(
               in : FragInput,
-            ) -> FragOutput
+            ) ->
+                FragOutput
             {
               var output : FragOutput;
               output.color = in.a;
