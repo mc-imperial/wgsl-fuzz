@@ -1,4 +1,4 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
 enum class TexelFormat {
     RGBA8UNORM,

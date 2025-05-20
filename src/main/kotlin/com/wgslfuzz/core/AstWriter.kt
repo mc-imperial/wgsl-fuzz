@@ -1,4 +1,4 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
 import java.io.PrintStream
 
@@ -783,7 +783,17 @@ class AstWriter(
             }
             out.print(")")
             returnType?.let {
-                out.print(" -> ")
+                out.print(" ->")
+                if (attributes.isNotEmpty()) {
+                    increaseIndent()
+                    out.print("\n")
+                    emitIndent()
+                    emit(returnAttributes)
+                    emitIndent()
+                    decreaseIndent()
+                } else {
+                    out.print(" ")
+                }
                 emit(returnType)
             }
             out.print("\n")

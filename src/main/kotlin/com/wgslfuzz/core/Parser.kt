@@ -1,5 +1,8 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
+import com.wgslfuzz.WGSLBaseVisitor
+import com.wgslfuzz.WGSLLexer
+import com.wgslfuzz.WGSLParser
 import com.wgslfuzz.WGSLParser.AttributeContext
 import com.wgslfuzz.WGSLParser.Postfix_expressionContext
 import com.wgslfuzz.WGSLParser.Translation_unitContext
@@ -186,6 +189,7 @@ private class AstBuilder(
                             typeDecl = visitType_decl(it.type_decl()),
                         )
                     } ?: emptyList(),
+            returnAttributes = gatherAttributes(ctx.function_header().attribute()),
             returnType =
                 ctx.function_header().type_decl()?.let(::visitType_decl),
             body =

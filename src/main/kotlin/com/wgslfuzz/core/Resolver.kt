@@ -1,4 +1,4 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
 sealed interface ScopeEntry {
     val astNode: AstNode
@@ -586,7 +586,12 @@ private fun resolveLhsExpressionType(
             when (storeType) {
                 is Type.Vector -> Type.Reference(storeType.elementType, addressSpace, accessMode)
                 is Type.Array -> Type.Reference(storeType.elementType, addressSpace, accessMode)
-                is Type.Matrix -> Type.Reference(Type.Vector(storeType.numRows, storeType.elementType), addressSpace, accessMode)
+                is Type.Matrix ->
+                    Type.Reference(
+                        Type.Vector(storeType.numRows, storeType.elementType),
+                        addressSpace,
+                        accessMode,
+                    )
                 else -> throw RuntimeException("Index lookup in LHS expression applied to non-indexable reference")
             }
         }
@@ -721,9 +726,15 @@ private fun resolveBinary(
                     TODO("$operator not supported for $lhsType and $rhsType")
                 }
             } else if (lhsType is Type.Matrix && rhsType is Type.Vector) {
-                Type.Vector(lhsType.numRows, findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float)
+                Type.Vector(
+                    lhsType.numRows,
+                    findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float,
+                )
             } else if (lhsType is Type.Vector && rhsType is Type.Matrix) {
-                Type.Vector(rhsType.numCols, findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float)
+                Type.Vector(
+                    rhsType.numCols,
+                    findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float,
+                )
             } else if (lhsType is Type.Matrix && rhsType is Type.Matrix) {
                 Type.Matrix(
                     rhsType.numCols,
@@ -731,9 +742,17 @@ private fun resolveBinary(
                     findCommonType(listOf(lhsType.elementType, rhsType.elementType)) as Type.Float,
                 )
             } else if (lhsType is Type.Scalar && rhsType is Type.Matrix) {
-                Type.Matrix(rhsType.numCols, rhsType.numRows, findCommonType(listOf(lhsType, rhsType.elementType)) as Type.Float)
+                Type.Matrix(
+                    rhsType.numCols,
+                    rhsType.numRows,
+                    findCommonType(listOf(lhsType, rhsType.elementType)) as Type.Float,
+                )
             } else if (lhsType is Type.Matrix && rhsType is Type.Scalar) {
-                Type.Matrix(lhsType.numCols, lhsType.numRows, findCommonType(listOf(lhsType.elementType, rhsType)) as Type.Float)
+                Type.Matrix(
+                    lhsType.numCols,
+                    lhsType.numRows,
+                    findCommonType(listOf(lhsType.elementType, rhsType)) as Type.Float,
+                )
             } else {
                 TODO("$operator not supported for $lhsType and $rhsType")
             }
@@ -1294,12 +1313,20 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                     val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
                     if (arg1Type is Type.Matrix) {
-                        Type.Matrix(numCols = arg1Type.numRows, numRows = arg1Type.numCols, elementType = arg1Type.elementType)
+                        Type.Matrix(
+                            numCols = arg1Type.numRows,
+                            numRows = arg1Type.numCols,
+                            elementType = arg1Type.elementType,
+                        )
                     } else {
                         throw RuntimeException("$calleeName requires a matrix argument")
                     }
                 }
-                "unpack4x8snorm", "unpack4x8unorm", "unpack2x16snorm", "unpack2x16unorm", "unpack2x16float" -> Type.Vector(4, Type.F32)
+                "unpack4x8snorm", "unpack4x8unorm", "unpack2x16snorm", "unpack2x16unorm", "unpack2x16float" ->
+                    Type.Vector(
+                        4,
+                        Type.F32,
+                    )
                 "unpack4xI8" -> Type.Vector(4, Type.I32)
                 "unpack4xU8" -> Type.Vector(4, Type.U32)
                 "vec2i" -> Type.Vector(2, Type.I32)
@@ -1510,7 +1537,12 @@ private fun defaultConcretizationOf(type: Type): Type =
         is Type.AbstractInteger -> Type.I32
         is Type.AbstractFloat -> Type.F32
         is Type.Vector -> Type.Vector(type.width, defaultConcretizationOf(type.elementType) as Type.Scalar)
-        is Type.Matrix -> Type.Matrix(type.numCols, type.numRows, defaultConcretizationOf(type.elementType) as Type.Float)
+        is Type.Matrix ->
+            Type.Matrix(
+                type.numCols,
+                type.numRows,
+                defaultConcretizationOf(type.elementType) as Type.Float,
+            )
         is Type.Array ->
             Type.Array(
                 elementType = defaultConcretizationOf(type.elementType),
