@@ -281,6 +281,16 @@ class AstWriter(
                 emit(expression.receiver)
                 out.print(".${expression.memberName}")
             }
+            is MetamorphicExpression.FalseByConstruction -> {
+                out.print("(/* false by construction: */ ")
+                emit(expression.falseExpression)
+                out.print(")")
+            }
+            is MetamorphicExpression.TrueByConstruction -> {
+                out.print("(/* true by construction: */ ")
+                emit(expression.trueExpression)
+                out.print(")")
+            }
         }
     }
 
@@ -668,6 +678,12 @@ class AstWriter(
         }
     }
 
+    fun emit(statement: MetamorphicStatement.DeadCodeFragment) {
+        emitIndent()
+        out.print("/* dead code fragment: */\n")
+        emit(statement.statement)
+    }
+
     fun emit(
         statement: Statement,
         inForLoopHeader: Boolean = false,
@@ -703,6 +719,7 @@ class AstWriter(
             is Statement.Value -> emit(statement, inForLoopHeader)
             is Statement.Variable -> emit(statement, inForLoopHeader)
             is Statement.While -> emit(statement)
+            is MetamorphicStatement.DeadCodeFragment -> emit(statement)
         }
     }
 

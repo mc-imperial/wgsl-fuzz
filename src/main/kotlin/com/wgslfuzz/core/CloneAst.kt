@@ -92,6 +92,18 @@ private fun cloneHelper(
             is Expression.Vec2ValueConstructor -> Expression.Vec2ValueConstructor(elementType.clone(replacements), args.clone(replacements))
             is Expression.Vec3ValueConstructor -> Expression.Vec3ValueConstructor(elementType.clone(replacements), args.clone(replacements))
             is Expression.Vec4ValueConstructor -> Expression.Vec4ValueConstructor(elementType.clone(replacements), args.clone(replacements))
+            is MetamorphicExpression.FalseByConstruction ->
+                MetamorphicExpression.FalseByConstruction(
+                    falseExpression.clone(
+                        replacements,
+                    ),
+                )
+            is MetamorphicExpression.TrueByConstruction ->
+                MetamorphicExpression.TrueByConstruction(
+                    trueExpression.clone(
+                        replacements,
+                    ),
+                )
             is GlobalDecl.ConstAssert -> GlobalDecl.ConstAssert(expression.clone(replacements))
             is GlobalDecl.Constant -> GlobalDecl.Constant(name, type.clone(replacements), initializer.clone(replacements))
             is GlobalDecl.Empty -> GlobalDecl.Empty()
@@ -179,6 +191,12 @@ private fun cloneHelper(
                     clauses.clone(replacements),
                 )
             is Statement.While -> Statement.While(attributes.clone(replacements), condition.clone(replacements), body.clone(replacements))
+            is MetamorphicStatement.DeadCodeFragment ->
+                MetamorphicStatement.DeadCodeFragment(
+                    statement.clone(
+                        replacements,
+                    ),
+                )
             is StructMember -> StructMember(attributes.clone(replacements), name, type.clone(replacements))
             is SwitchClause -> SwitchClause(caseSelectors.clone(replacements), compoundStatement.clone(replacements))
             is TranslationUnit -> TranslationUnit(directives.clone(replacements), globalDecls.clone(replacements))
