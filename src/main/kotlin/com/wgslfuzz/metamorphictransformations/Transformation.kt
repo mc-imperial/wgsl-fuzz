@@ -4,4 +4,9 @@ import com.wgslfuzz.core.ParsedShaderJob
 
 typealias MetamorphicTransformation = (parsedShaderJob: ParsedShaderJob, fuzzerSettings: FuzzerSettings) -> ParsedShaderJob
 
-val metamorphicTransformations: List<MetamorphicTransformation> = listOf(::addDeadDiscards)
+val metamorphicTransformations: List<MetamorphicTransformation> =
+    listOf(
+        ::addDeadDiscards,
+        ::addDeadBreaks,
+        ::addDeadContinues,
+    )

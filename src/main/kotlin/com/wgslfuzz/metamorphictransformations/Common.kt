@@ -43,6 +43,10 @@ interface FuzzerSettings {
     val trueByConstructionWeights: TrueByConstructionWeights
         get() = TrueByConstructionWeights()
 
+    fun injectDeadBreak(): Boolean = randomInt(100) < 50
+
+    fun injectDeadContinue(): Boolean = randomInt(100) < 50
+
     fun injectDeadDiscard(): Boolean = randomInt(100) < 50
 }
 
