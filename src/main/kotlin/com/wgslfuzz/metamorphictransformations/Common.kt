@@ -48,6 +48,8 @@ interface FuzzerSettings {
     fun injectDeadContinue(): Boolean = randomInt(100) < 50
 
     fun injectDeadDiscard(): Boolean = randomInt(100) < 50
+
+    fun injectDeadReturn(): Boolean = randomInt(100) < 50
 }
 
 fun <T> choose(
@@ -286,7 +288,7 @@ fun generateTrueByConstructionExpression(
     parsedShaderJob: ParsedShaderJob,
 ): MetamorphicExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, parsedShaderJob)
 
-private fun generateArbitraryExpression(
+fun generateArbitraryExpression(
     depth: Int,
     type: Type,
     sideEffectsAllowed: Boolean,

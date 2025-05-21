@@ -9,4 +9,5 @@ val metamorphicTransformations: List<MetamorphicTransformation> =
         ::addDeadDiscards,
         ::addDeadBreaks,
         ::addDeadContinues,
+        ::addDeadReturns,
     )
