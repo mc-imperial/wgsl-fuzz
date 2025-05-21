@@ -72,6 +72,12 @@ fun <T> traverse(
             }
             node.args.forEach(actionWithState)
         }
+        is MetamorphicExpression.FalseByConstruction -> {
+            actionWithState(node.falseExpression)
+        }
+        is MetamorphicExpression.TrueByConstruction -> {
+            actionWithState(node.trueExpression)
+        }
         is GlobalDecl.ConstAssert -> {
             actionWithState(node.expression)
         }
@@ -181,6 +187,9 @@ fun <T> traverse(
             node.attributes.forEach(actionWithState)
             actionWithState(node.condition)
             actionWithState(node.body)
+        }
+        is MetamorphicStatement.DeadCodeFragment -> {
+            actionWithState(node.statement)
         }
         is StructMember -> {
             node.attributes.forEach(actionWithState)

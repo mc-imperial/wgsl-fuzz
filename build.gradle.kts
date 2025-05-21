@@ -19,6 +19,7 @@ repositories {
 
 dependencies {
     antlr("org.antlr:antlr4:4.10")
+    testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.0")
     testImplementation(kotlin("test"))
 }
 

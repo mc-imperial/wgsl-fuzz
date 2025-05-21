@@ -522,6 +522,8 @@ private fun resolveExpressionType(
                     expression.typeName,
                 ) as ScopeEntry.TypeAlias
             ).type
+        is MetamorphicExpression.FalseByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.falseExpression)
+        is MetamorphicExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
     }
 
 private fun resolveLhsExpressionType(
