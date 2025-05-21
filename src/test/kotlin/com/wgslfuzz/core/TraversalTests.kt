@@ -26,13 +26,13 @@ class TraversalTests {
         val tu = parseFromString(shader, LoggingParseErrorListener())
         val function = tu.globalDecls[0] as GlobalDecl.Function
         val returnType = function.returnType
-        val variableStatement = function.body[0] as Statement.Variable
-        val forStatement = function.body[1] as Statement.For
+        val variableStatement = function.body.statements[0] as Statement.Variable
+        val forStatement = function.body.statements[1] as Statement.For
         val forInit = forStatement.init!! as Statement.Variable
         val forCond = forStatement.condition!! as Expression.Binary
         val forUpdate = forStatement.update!! as Statement.Increment
-        val forBodyStatement = forStatement.body[0] as Statement.Assignment
-        val returnStatement = function.body[2] as Statement.Return
+        val forBodyStatement = forStatement.body.statements[0] as Statement.Assignment
+        val returnStatement = function.body.statements[2] as Statement.Return
 
         val expectedPreorder =
             listOf(

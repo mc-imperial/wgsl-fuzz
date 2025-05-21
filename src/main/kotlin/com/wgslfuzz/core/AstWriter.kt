@@ -473,13 +473,7 @@ class AstWriter(
             out.print("; ")
             update?.let { emit(it, true) }
             out.print(")\n")
-            emitIndent()
-            out.print("{\n")
-            increaseIndent()
-            body.forEach(::emit)
-            decreaseIndent()
-            emitIndent()
-            out.print("}\n")
+            emit(body)
         }
     }
 
@@ -545,7 +539,7 @@ class AstWriter(
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            body.forEach {
+            body.statements.forEach {
                 emit(it)
             }
             continuingStatement?.let {
@@ -555,7 +549,7 @@ class AstWriter(
                 emitIndent()
                 out.print("{\n")
                 increaseIndent()
-                it.statements.forEach { statement ->
+                it.statements.statements.forEach { statement ->
                     emit(statement)
                 }
                 it.breakIfExpr?.let { breakIfExpr ->
@@ -797,13 +791,7 @@ class AstWriter(
                 emit(returnType)
             }
             out.print("\n")
-            emitIndent()
-            out.print("{\n")
-            increaseIndent()
-            body.forEach(::emit)
-            decreaseIndent()
-            emitIndent()
-            out.print("}\n")
+            emit(body)
         }
     }
 

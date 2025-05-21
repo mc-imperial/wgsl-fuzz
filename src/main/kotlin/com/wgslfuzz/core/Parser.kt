@@ -193,10 +193,12 @@ private class AstBuilder(
             returnType =
                 ctx.function_header().type_decl()?.let(::visitType_decl),
             body =
-                ctx
-                    .compound_statement()
-                    .statement()
-                    .map(::visitStatement),
+                Statement.Compound(
+                    ctx
+                        .compound_statement()
+                        .statement()
+                        .map(::visitStatement),
+                ),
         )
 
     override fun visitGlobal_decl(ctx: WGSLParser.Global_declContext): GlobalDecl = super.visitGlobal_decl(ctx) as GlobalDecl
@@ -270,18 +272,20 @@ private class AstBuilder(
         Statement.Loop(
             attributesAtStart = gatherAttributes(ctx.attributes_at_start),
             attributesBeforeBody = gatherAttributes(ctx.attributes_before_body),
-            body = ctx.statement().map(::visitStatement),
+            body = Statement.Compound(ctx.statement().map(::visitStatement)),
             continuingStatement =
                 ctx.continuing_statement()?.let {
                     ContinuingStatement(
                         attributes = gatherAttributes(it.continuing_compound_statement().attribute()),
                         statements =
-                            it
-                                .continuing_compound_statement()
-                                .statement()
-                                .map { statement ->
-                                    visitStatement(statement)
-                                },
+                            Statement.Compound(
+                                it
+                                    .continuing_compound_statement()
+                                    .statement()
+                                    .map { statement ->
+                                        visitStatement(statement)
+                                    },
+                            ),
                         breakIfExpr =
                             it.continuing_compound_statement().break_if_statement()?.let { breakIfStatement ->
                                 visitExpression(breakIfStatement.expression())
@@ -327,10 +331,12 @@ private class AstBuilder(
                     }
                 },
             body =
-                ctx
-                    .compound_statement()
-                    .statement()
-                    .map(::visitStatement),
+                Statement.Compound(
+                    ctx
+                        .compound_statement()
+                        .statement()
+                        .map(::visitStatement),
+                ),
         )
 
     override fun visitWhile_statement(ctx: WGSLParser.While_statementContext): Statement.While =

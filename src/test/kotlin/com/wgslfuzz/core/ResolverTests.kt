@@ -2,6 +2,9 @@ package com.wgslfuzz.core
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 
 class ResolverTests {
@@ -46,7 +49,7 @@ class ResolverTests {
         }
 
         val functionDecl = tu.globalDecls[0] as GlobalDecl.Function
-        val whileStmt = functionDecl.body[1] as Statement.While
+        val whileStmt = functionDecl.body.statements[1] as Statement.While
         val whileCondition = whileStmt.condition as Expression.Paren
         assertEquals(Type.Bool, environment.typeOf(whileCondition))
         val whileConditionInner = whileCondition.target as Expression.Binary
@@ -175,8 +178,8 @@ class ResolverTests {
         val fn = tu.globalDecls[2] as GlobalDecl.Function
         val xParam = fn.parameters[0]
         val yParam = fn.parameters[1]
-        val a1 = fn.body[0] as Statement.Value
-        val a2 = fn.body[1] as Statement.If
+        val a1 = fn.body.statements[0] as Statement.Value
+        val a2 = fn.body.statements[1] as Statement.If
         val a2Body = a2.thenBranch
         val b1 = a2Body.statements[0]
         val b2 = a2Body.statements[1]
@@ -187,7 +190,7 @@ class ResolverTests {
         val a4 = a3.elseBranch as Statement.Compound
         val d1 = a4.statements[0]
         val d2 = a4.statements[1]
-        val a5 = fn.body[2]
+        val a5 = fn.body.statements[2]
 
         run {
             val outerScope = environment.enclosingScope(a1)
@@ -265,5 +268,112 @@ class ResolverTests {
             assertSame(d1, inner3EntryC.astNode)
             assertEquals(Type.Bool, inner3EntryC.type)
         }
+    }
+
+    @Test
+    fun duplicateScopeEntryFunctionBody() {
+        val input =
+            """
+            fn f(i: i32) {
+               var i: i32 = 42;
+            }
+            """.trimIndent()
+        val errorListener = LoggingParseErrorListener()
+        val tu = parseFromString(input, errorListener)
+        try {
+            resolve(tu)
+        } catch (exception: IllegalArgumentException) {
+            assertEquals("An entry for i already exists in the current scope.", exception.message)
+        }
+    }
+
+    @Test
+    fun noDuplicateScopeEntryForLoop() {
+        val input =
+            """
+            fn f() {
+               for (var i = 0; i < 10; i++) {
+                  var i: i32 = 42;
+               }
+            }
+            """.trimIndent()
+        val errorListener = LoggingParseErrorListener()
+        val tu = parseFromString(input, errorListener)
+        val environment = resolve(tu)
+        val forLoop = (tu.globalDecls[0] as GlobalDecl.Function).body.statements[0] as Statement.For
+        val forLoopInit = forLoop.init!!
+        val forLoopUpdate = forLoop.update!!
+        val forLoopFirstStatement = forLoop.body.statements[0]
+
+        val scopeEnclosingForLoop = environment.enclosingScope(forLoop)
+        val scopeEnclosingForLoopInit = environment.enclosingScope(forLoopInit)
+        val scopeEnclosingForLoopFirstStatement = environment.enclosingScope(forLoopFirstStatement)
+        assertNotSame(scopeEnclosingForLoop, scopeEnclosingForLoopInit)
+        assertNotSame(scopeEnclosingForLoop, scopeEnclosingForLoopFirstStatement)
+        assertNotSame(scopeEnclosingForLoopInit, scopeEnclosingForLoopFirstStatement)
+        assertSame(scopeEnclosingForLoopInit, environment.enclosingScope(forLoopUpdate))
+        assertNotSame(scopeEnclosingForLoopInit.getEntry("i"), scopeEnclosingForLoopFirstStatement.getEntry("i"))
+        assertNull(scopeEnclosingForLoop.getEntry("i"))
+    }
+
+    @Test
+    fun testScopeOfContinuing() {
+        val input =
+            """
+            fn foo() {
+              var i = 0;
+              loop {
+                var x = 42;
+                continuing {
+                  var x = x + 4;
+                  i += x;
+                  let j = i;
+                  break if j > 10;
+                }
+              }
+            }
+            """.trimIndent()
+        val errorListener = LoggingParseErrorListener()
+        val tu = parseFromString(input, errorListener)
+        val environment = resolve(tu)
+        val loopStatement = (tu.globalDecls[0] as GlobalDecl.Function).body.statements[1] as Statement.Loop
+        val loopBody = loopStatement.body
+        val firstStatementInLoop = loopBody.statements[0]
+        val continuingStatementCompound = loopStatement.continuingStatement!!.statements
+        val continuingStatementFirstInnerStatement = continuingStatementCompound.statements[0]
+
+        val enclosingScopeLoopStatement = environment.enclosingScope(loopStatement)
+        val enclosingScopeLoopBody = environment.enclosingScope(loopBody)
+        val enclosingScopeFirstStatementInLoop = environment.enclosingScope(firstStatementInLoop)
+        val enclosingScopeContinuingStatementCompound = environment.enclosingScope(continuingStatementCompound)
+        val enclosingScopeContinuingStatementFirstInnerStatement = environment.enclosingScope(continuingStatementFirstInnerStatement)
+
+        assertNotSame(enclosingScopeLoopStatement, enclosingScopeLoopBody)
+        assertNotSame(enclosingScopeLoopStatement, enclosingScopeFirstStatementInLoop)
+        assertNotSame(enclosingScopeLoopStatement, enclosingScopeContinuingStatementCompound)
+        assertNotSame(enclosingScopeLoopStatement, enclosingScopeContinuingStatementFirstInnerStatement)
+
+        // These DO have the same scope: the loop construct itself introduces the scope (rather than the compound)
+        assertSame(enclosingScopeLoopBody, enclosingScopeFirstStatementInLoop)
+
+        assertNotSame(enclosingScopeLoopBody, enclosingScopeContinuingStatementCompound)
+        assertNotSame(enclosingScopeLoopBody, enclosingScopeContinuingStatementFirstInnerStatement)
+
+        // These DO have the same scope: the continuing statement itself introduces the scope (rather than the compound)
+        assertSame(enclosingScopeContinuingStatementCompound, enclosingScopeContinuingStatementFirstInnerStatement)
+
+        assertNotNull(enclosingScopeLoopStatement.getEntry("i"))
+        assertNull(enclosingScopeLoopStatement.getEntry("x"))
+        assertNull(enclosingScopeLoopStatement.getEntry("j"))
+
+        assertNotNull(enclosingScopeLoopBody.getEntry("i"))
+        assertNotNull(enclosingScopeLoopBody.getEntry("x"))
+        assertNull(enclosingScopeLoopBody.getEntry("j"))
+
+        assertNotNull(enclosingScopeContinuingStatementCompound.getEntry("i"))
+        assertNotNull(enclosingScopeContinuingStatementCompound.getEntry("x"))
+        assertNotNull(enclosingScopeContinuingStatementCompound.getEntry("j"))
+
+        assertNotSame(enclosingScopeLoopBody.getEntry("x"), enclosingScopeContinuingStatementCompound.getEntry("x"))
     }
 }

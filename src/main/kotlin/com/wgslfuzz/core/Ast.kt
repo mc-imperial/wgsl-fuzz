@@ -497,7 +497,7 @@ sealed interface TypeDecl : AstNode {
 
 class ContinuingStatement(
     val attributes: List<Attribute> = emptyList(),
-    val statements: List<Statement>,
+    val statements: Statement.Compound,
     val breakIfExpr: Expression? = null,
 ) : AstNode
 
@@ -539,9 +539,7 @@ sealed interface Statement : AstNode {
     class Loop(
         val attributesAtStart: List<Attribute> = emptyList(),
         val attributesBeforeBody: List<Attribute> = emptyList(),
-        // A list of statements is used, rather than a compound statement, because the continuing statement
-        // (if present) is part of the body of the loop.
-        val body: List<Statement>,
+        val body: Compound,
         val continuingStatement: ContinuingStatement? = null,
     ) : Statement
 
@@ -554,9 +552,7 @@ sealed interface Statement : AstNode {
         val init: ForInit? = null,
         val condition: Expression? = null,
         val update: ForUpdate? = null,
-        // For scoping reasons the body is represented as a statement list, rather than a compound statement,
-        // because the scope of the body includes declarations occurring in the header.
-        val body: List<Statement>,
+        val body: Compound,
     ) : Statement
 
     class While(
@@ -655,7 +651,7 @@ sealed interface GlobalDecl : AstNode {
         val parameters: List<ParameterDecl>,
         val returnAttributes: List<Attribute> = emptyList(),
         val returnType: TypeDecl? = null,
-        val body: List<Statement>,
+        val body: Statement.Compound,
     ) : GlobalDecl
 
     class Struct(

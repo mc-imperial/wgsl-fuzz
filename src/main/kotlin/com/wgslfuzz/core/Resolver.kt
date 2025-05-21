@@ -70,7 +70,9 @@ private class ScopeImpl(
         name: String,
         node: ScopeEntry,
     ) {
-        assert(name !in entries.keys)
+        if (name in entries.keys) {
+            throw IllegalArgumentException("An entry for $name already exists in the current scope.")
+        }
         entries[name] = node
     }
 
@@ -262,6 +264,8 @@ private class ResolverState(
     val resolvedEnvironment: ResolvedEnvironmentImpl,
     var currentScope: ScopeImpl,
 ) {
+    val ancestorsStack: MutableList<AstNode> = mutableListOf()
+
     fun withScope(
         node: AstNode,
         action: () -> Unit,
@@ -290,10 +294,17 @@ private fun resolveAstNode(
         resolverState.resolvedEnvironment.recordScope(node, resolverState.currentScope)
     }
 
-    if (node is Statement.Compound ||
+    val parentNode = resolverState.ancestorsStack.firstOrNull()
+    resolverState.ancestorsStack.addFirst(node)
+    if (node is Statement.Loop ||
+        node is ContinuingStatement ||
         node is Statement.For ||
-        node is Statement.Loop ||
-        node is ContinuingStatement
+        (
+            node is Statement.Compound &&
+                parentNode !is GlobalDecl.Function &&
+                parentNode !is Statement.Loop &&
+                parentNode !is ContinuingStatement
+        )
     ) {
         resolverState.withScope(node) {
             traverse(::resolveAstNode, node, resolverState)
@@ -301,6 +312,7 @@ private fun resolveAstNode(
     } else {
         traverse(::resolveAstNode, node, resolverState)
     }
+    resolverState.ancestorsStack.removeFirst()
 
     when (node) {
         is GlobalDecl.TypeAlias -> {
@@ -1841,7 +1853,7 @@ private fun resolveFunctionBody(
                 ),
             )
         }
-        functionDecl.body.forEach {
+        functionDecl.body.statements.forEach {
             resolveAstNode(it, resolverState)
         }
     }
