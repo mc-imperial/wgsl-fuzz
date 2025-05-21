@@ -28,7 +28,7 @@ fun <T> traverse(
         }
         is ContinuingStatement -> {
             node.attributes.forEach(actionWithState)
-            node.statements.forEach(actionWithState)
+            actionWithState(node.statements)
             node.breakIfExpr?.let(actionWithState)
         }
         is Expression.Binary -> {
@@ -84,7 +84,7 @@ fun <T> traverse(
             node.parameters.forEach(actionWithState)
             node.returnAttributes.forEach(actionWithState)
             node.returnType?.let(actionWithState)
-            node.body.forEach(actionWithState)
+            actionWithState(node.body)
         }
         is GlobalDecl.Override -> {
             node.attributes.forEach(actionWithState)
@@ -139,7 +139,7 @@ fun <T> traverse(
             node.init?.let(actionWithState)
             node.condition?.let(actionWithState)
             node.update?.let(actionWithState)
-            node.body.forEach(actionWithState)
+            actionWithState(node.body)
         }
         is Statement.Assignment -> {
             node.lhsExpression?.let(actionWithState)
@@ -165,7 +165,7 @@ fun <T> traverse(
         is Statement.Loop -> {
             node.attributesAtStart.forEach(actionWithState)
             node.attributesBeforeBody.forEach(actionWithState)
-            node.body.forEach(actionWithState)
+            actionWithState(node.body)
             node.continuingStatement?.let(actionWithState)
         }
         is Statement.Return -> {

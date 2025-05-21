@@ -26,19 +26,22 @@ class TraversalTests {
         val tu = parseFromString(shader, LoggingParseErrorListener())
         val function = tu.globalDecls[0] as GlobalDecl.Function
         val returnType = function.returnType
-        val variableStatement = function.body[0] as Statement.Variable
-        val forStatement = function.body[1] as Statement.For
+        val functionBody = function.body
+        val variableStatement = functionBody.statements[0] as Statement.Variable
+        val forStatement = function.body.statements[1] as Statement.For
         val forInit = forStatement.init!! as Statement.Variable
         val forCond = forStatement.condition!! as Expression.Binary
         val forUpdate = forStatement.update!! as Statement.Increment
-        val forBodyStatement = forStatement.body[0] as Statement.Assignment
-        val returnStatement = function.body[2] as Statement.Return
+        val forBody = forStatement.body
+        val forBodyStatement = forBody.statements[0] as Statement.Assignment
+        val returnStatement = function.body.statements[2] as Statement.Return
 
         val expectedPreorder =
             listOf(
                 tu,
                 function,
                 returnType,
+                functionBody,
                 variableStatement,
                 variableStatement.type!!,
                 variableStatement.initializer!!,
@@ -51,6 +54,7 @@ class TraversalTests {
                 forCond.rhs,
                 forUpdate,
                 forUpdate.target,
+                forBody,
                 forBodyStatement,
                 forBodyStatement.lhsExpression,
                 forBodyStatement.rhs,
@@ -76,9 +80,11 @@ class TraversalTests {
                 forBodyStatement.lhsExpression,
                 forBodyStatement.rhs,
                 forBodyStatement,
+                forBody,
                 forStatement,
                 returnStatement.expression,
                 returnStatement,
+                functionBody,
                 function,
                 tu,
             )

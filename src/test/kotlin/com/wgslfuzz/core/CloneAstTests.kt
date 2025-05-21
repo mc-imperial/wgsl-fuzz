@@ -32,7 +32,7 @@ class CloneAstTests {
             """.trimIndent()
         val tu = parseFromString(original, LoggingParseErrorListener())
         val identifierExpression =
-            ((tu.globalDecls[0] as GlobalDecl.Function).body[0] as Statement.Return).expression
+            ((tu.globalDecls[0] as GlobalDecl.Function).body.statements[0] as Statement.Return).expression
                 as Expression.Identifier
         val replacement =
             mapOf(
@@ -91,29 +91,33 @@ class CloneAstTests {
 
             """.trimIndent()
         val tu = parseFromString(original, LoggingParseErrorListener())
-        val forLoop = (tu.globalDecls[0] as GlobalDecl.Function).body[1] as Statement.For
+        val forLoop = (tu.globalDecls[0] as GlobalDecl.Function).body.statements[1] as Statement.For
         val replacementForLoop =
             Statement.Compound(
                 listOf(
                     forLoop.init!!.clone(),
                     Statement.Loop(
                         body =
-                            listOf(
-                                Statement.If(
-                                    condition =
-                                        Expression.Unary(
-                                            operator = UnaryOperator.LOGICAL_NOT,
-                                            target = Expression.Paren(forLoop.condition!!),
-                                        ),
-                                    thenBranch = Statement.Compound(listOf(Statement.Break())),
+                            Statement.Compound(
+                                listOf(
+                                    Statement.If(
+                                        condition =
+                                            Expression.Unary(
+                                                operator = UnaryOperator.LOGICAL_NOT,
+                                                target = Expression.Paren(forLoop.condition!!),
+                                            ),
+                                        thenBranch = Statement.Compound(listOf(Statement.Break())),
+                                    ),
+                                    forLoop.body.statements[0].clone(),
                                 ),
-                                forLoop.body[0].clone(),
                             ),
                         continuingStatement =
                             ContinuingStatement(
                                 statements =
-                                    listOf(
-                                        forLoop.update!!.clone(),
+                                    Statement.Compound(
+                                        listOf(
+                                            forLoop.update!!.clone(),
+                                        ),
                                     ),
                             ),
                     ),
