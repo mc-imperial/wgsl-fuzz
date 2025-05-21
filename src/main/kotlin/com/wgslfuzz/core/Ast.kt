@@ -1,4 +1,4 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
 sealed interface AstNode
 
@@ -653,6 +653,7 @@ sealed interface GlobalDecl : AstNode {
         val attributes: List<Attribute> = emptyList(),
         val name: String,
         val parameters: List<ParameterDecl>,
+        val returnAttributes: List<Attribute> = emptyList(),
         val returnType: TypeDecl? = null,
         val body: List<Statement>,
     ) : GlobalDecl

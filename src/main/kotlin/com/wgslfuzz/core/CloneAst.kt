@@ -1,5 +1,6 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
+@Suppress("UNCHECKED_CAST")
 fun <T : AstNode?> T.clone(replacements: (AstNode?) -> AstNode? = { null }): T = cloneHelper(this, replacements) as T
 
 fun <T : AstNode?> List<T>.clone(replacements: (AstNode?) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
@@ -99,6 +100,7 @@ private fun cloneHelper(
                     attributes.clone(replacements),
                     name,
                     parameters.clone(replacements),
+                    returnAttributes.clone(replacements),
                     returnType.clone(replacements),
                     body.clone(replacements),
                 )

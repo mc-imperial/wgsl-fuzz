@@ -1,4 +1,4 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
 fun <T> traverse(
     action: (node: AstNode, traversalState: T) -> Unit,
@@ -82,6 +82,7 @@ fun <T> traverse(
         is GlobalDecl.Function -> {
             node.attributes.forEach(actionWithState)
             node.parameters.forEach(actionWithState)
+            node.returnAttributes.forEach(actionWithState)
             node.returnType?.let(actionWithState)
             node.body.forEach(actionWithState)
         }

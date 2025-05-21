@@ -1,4 +1,4 @@
-package com.wgslfuzz
+package com.wgslfuzz.core
 
 sealed interface Type {
     fun isAbstract(): Boolean
