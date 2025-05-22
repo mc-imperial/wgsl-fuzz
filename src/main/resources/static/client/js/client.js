@@ -84,8 +84,7 @@ async function startSessionWithServer() {
 }
 
 function canvasToPngJson(canvas) {
-  const dataUrl = canvas.toDataURL("image/png"); // Returns "data:image/png;base64,..."
-  const base64Data = dataUrl.split(",")[1]; // Strip metadata prefix
+  const [_, base64Data] = canvas.toDataURL("image/png").split(",", 2);
   return {
     type: "image/png",
     encoding: "base64",
@@ -137,9 +136,9 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
     label: "Shader",
     code: job.shaderText,
   });
-  let createShaderModuleErrorsInternal = device.popErrorScope()
-  let createShaderModuleErrorsOutOfMemory = device.popErrorScope()
-  let createShaderModuleErrorsValidation = device.popErrorScope()
+  const createShaderModuleErrorsInternal = device.popErrorScope()
+  const createShaderModuleErrorsOutOfMemory = device.popErrorScope()
+  const createShaderModuleErrorsValidation = device.popErrorScope()
 
   device.pushErrorScope("validation");
   device.pushErrorScope("out-of-memory");
@@ -229,11 +228,11 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
 
   vertexBuffer.destroy()
 
-  let otherErrorsInternal = device.popErrorScope()
-  let otherErrorsOutOfMemory = device.popErrorScope()
-  let otherErrorsValidation = device.popErrorScope()
+  const otherErrorsInternal = device.popErrorScope()
+  const otherErrorsOutOfMemory = device.popErrorScope()
+  const otherErrorsValidation = device.popErrorScope()
 
-  var renderImageResult = {
+  const renderImageResult = {
     compilationMessages: compilationInfo.messages.map(message => ({
       message: message.message,
       type: message.type.toString(),
