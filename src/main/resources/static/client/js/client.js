@@ -359,11 +359,3 @@ async function executeJob(job, repetitions) {
 
   return jobResult;
 }
-
-function showResponse(title, data) {
-  console.log(title + "Response: " + JSON.stringify(data, null, 2));
-}
-
-function log(message) {
-  document.getElementById("output").textContent += message + "\n";
-}
