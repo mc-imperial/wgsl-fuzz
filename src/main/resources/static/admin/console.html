@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Management Console</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 1rem;
+    background: #fafafa;
+  }
+  label {
+    display: inline-block;
+    margin: 0.5rem 0 0.2rem;
+  }
+  input, textarea, button {
+    font-size: 1rem;
+    padding: 0.3rem;
+  }
+  textarea {
+    width: 100%;
+    max-width: 600px;
+    height: 120px;
+    resize: vertical;
+  }
+  #log {
+    margin-top: 1rem;
+    background: #222;
+    color: #eee;
+    padding: 1rem;
+    font-family: monospace;
+    max-width: 600px;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    border-radius: 4px;
+    border: 1px solid #444;
+  }
+  button {
+    margin-top: 0.5rem;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<h1>Management Console</h1>
+
+<form id="consoleForm" onsubmit="return false;">
+  <label for="username">Username:</label><br />
+  <input type="text" id="username" autocomplete="username" required /><br />
+
+  <label for="password">Password:</label><br />
+  <input type="password" id="password" autocomplete="current-password" required /><br />
+
+  <label for="command">Enter Command:</label><br />
+  <textarea id="command" placeholder="LAUNCH JOBS client-id job-list" required></textarea><br />
+
+  <button id="runBtn" type="submit">Run Command</button>
+</form>
+
+<h3>Console Log</h3>
+<div id="log"></div>
+
+<script>
+  const form = document.getElementById('consoleForm');
+  const log = document.getElementById('log');
+  const runBtn = document.getElementById('runBtn');
+
+  function appendLog(text) {
+    log.textContent += text + "\n\n";
+    log.scrollTop = log.scrollHeight;
+  }
+
+  form.addEventListener('submit', async () => {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const command = document.getElementById('command').value.trim();
+
+    if (!username || !password || !command) {
+      alert("Please fill in username, password, and command.");
+      return;
+    }
+
+    runBtn.disabled = true;
+    appendLog(`> ${command}`);
+
+    try {
+      const response = await fetch('/console', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + btoa(username + ':' + password),
+          'Content-Type': 'text/plain'
+        },
+        body: command
+      });
+
+      if (!response.ok) {
+        appendLog(`Error: ${response.status} ${response.statusText}`);
+      } else {
+        const text = await response.text();
+        appendLog(text);
+      }
+    } catch (err) {
+      appendLog('Network error: ' + err.message);
+    } finally {
+      runBtn.disabled = false;
+      document.getElementById('command').value = '';
+    }
+  });
+</script>
+
+</body>
+</html>

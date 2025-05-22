@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wgsl-fuzz Client</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 2rem;
+      background-color: #fafafa;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 1rem;
+    }
+
+    canvas {
+      display: block;
+      border: 1px solid #ccc;
+      margin-top: 1rem;
+    }
+
+    pre#output {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background-color: #f0f0f0;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>wgsl-fuzz Client</h1>
+    <canvas id="thecanvas" width="256" height="256" aria-label="WebGPU rendering canvas"></canvas>
+    <pre id="output" aria-live="polite"></pre>
+  </main>
+
+  <script src="js/logger.js" defer></script>
+  <script src="js/client.js" defer></script>  
+</body>
+</html>
+

@@ -1,0 +1,68 @@
+package com.wgslfuzz.server
+
+import com.wgslfuzz.core.ShaderJob
+
+// An encoding of an image - typically a PNG in practice
+data class ImageData(
+    val type: String,
+    val encoding: String,
+    val data: String,
+)
+
+// Records information obtained by a client by requesting information from a WebGPU adapter
+data class AdapterInfo(
+    val vendor: String,
+    val architecture: String,
+    val device: String,
+    val description: String,
+)
+
+// Records information associated with a warning or error message obtained during WebGPU compilation
+data class GPUCompilationMessage(
+    val message: String,
+    val type: String,
+    val lineNum: Int,
+    val linePos: Int,
+    val offset: Int,
+    val length: Int,
+)
+
+// The result obtained on attempting to render an image.
+// All being well, the error fields will all be null, the compilation messages will at worst contain warnings, and an
+// image will be present.
+data class RenderImageResult(
+    val compilationMessages: List<GPUCompilationMessage>,
+    val createShaderModuleValidationError: String?,
+    val createShaderModuleOutOfMemoryError: String?,
+    val createShaderModuleInternalError: String?,
+    val otherValidationError: String?,
+    val otherOutOfMemoryError: String?,
+    val otherInternalError: String?,
+    val frame: ImageData?,
+)
+
+// A render job leads to information obtained from the adapter, plus a number of results. This is because rendering is
+// attempted multiple times to check for nondeterminism.
+data class RenderJobResult(
+    val adapterInfo: AdapterInfo,
+    val renderImageResults: List<RenderImageResult>,
+)
+
+// A message from client to server encapsulating the result of a render job.
+data class MessageRenderJobResult(
+    val type: String = "RenderJobResult",
+    val clientName: String,
+    val renderJobResult: RenderJobResult,
+)
+
+// Message from server to client indicating that there is no current job
+data class MessageNoJob(
+    val type: String = "NoJob",
+)
+
+// Message from server to client specifying a render job with a number of repetitions
+data class MessageRenderJob(
+    val type: String = "RenderJob",
+    val job: ShaderJob,
+    val repetitions: Int,
+)
