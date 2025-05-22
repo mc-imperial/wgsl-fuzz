@@ -8,6 +8,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.jackson.jackson
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.UserIdPrincipal
@@ -35,28 +36,40 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
-val adminUsername: String =
-    System.getenv("WGSL_FUZZ_ADMIN_USERNAME") ?: throw RuntimeException("Environment variable WGSL_FUZZ_ADMIN_USERNAME not set.")
+object Config {
+    val adminUsername: String = getenv("WGSL_FUZZ_ADMIN_USERNAME")
+    val adminPassword: String = getenv("WGSL_FUZZ_ADMIN_PASSWORD")
 
-val adminPassword: String =
-    System.getenv("WGSL_FUZZ_ADMIN_PASSWORD") ?: throw RuntimeException("Environment variable WGSL_FUZZ_ADMIN_PASSWORD not set.")
+    private fun getenv(key: String): String = System.getenv(key) ?: error("Environment variable $key not set.")
 
-val consoleCommands: String =
-    """
-    help        Display this help message
-    clients     Get a list of the ids of all connected clients
-    """.trimIndent()
+    val consoleCommands: String =
+        """
+        help        Display this help message
+        clients     Get a list of the ids of all connected clients
+        job         Issue a job to a client (usage: job <client> <pattern>...)
+        """.trimIndent()
+}
 
-class ClientSessionInfo(
-    val mutex: Mutex,
-    val pendingJobFiles: MutableList<String>,
-    var currentlyIssuedJobFile: String?,
-)
+class ClientSessionInfo {
+    val mutex: Mutex = Mutex()
+    val pendingJobFiles: MutableList<String> = mutableListOf()
+    var currentlyIssuedJobFile: String? = null
+}
+
+val clientSessions: MutableMap<String, ClientSessionInfo> = ConcurrentHashMap()
+val logger = LoggerFactory.getLogger("com.wgslfuzz")
 
 fun main() {
-    embeddedServer(Netty, applicationEnvironment { log = LoggerFactory.getLogger("com.wgslfuzz") }, {
-        envConfig()
-    }, module = Application::module).start(wait = true)
+    embeddedServer(
+        Netty,
+        applicationEnvironment {
+            log = logger
+        },
+        {
+            envConfig()
+        },
+        module = Application::module,
+    ).start(wait = true)
 }
 
 private fun ApplicationEngine.Configuration.envConfig() {
@@ -67,13 +80,11 @@ private fun ApplicationEngine.Configuration.envConfig() {
 }
 
 fun Application.module() {
-    val clientSessions: MutableMap<String, ClientSessionInfo> = ConcurrentHashMap()
-
     install(Authentication) {
         basic("admin-auth") {
             realm = "Admin Area"
             validate { credentials ->
-                if (credentials.name == adminUsername && credentials.password == adminPassword) {
+                if (credentials.name == Config.adminUsername && credentials.password == Config.adminPassword) {
                     UserIdPrincipal(credentials.name)
                 } else {
                     null
@@ -102,54 +113,12 @@ fun Application.module() {
 
         authenticate("admin-auth") {
             post("/console") {
-                val command = call.receiveText().split(" ")
+                val command = call.receiveText().split(" ").filter { it.isNotBlank() }
                 if (command.isEmpty()) {
                     call.respondText("Empty command")
-                } else {
-                    when (command[0]) {
-                        "help" -> call.respond(consoleCommands)
-                        "clients" -> {
-                            if (clientSessions.isEmpty()) {
-                                call.respond("No client sessions")
-                            } else {
-                                call.respond(
-                                    clientSessions.keys.sorted().joinToString("\n"),
-                                )
-                            }
-                        }
-                        "job" -> {
-                            if (command.size < 3) {
-                                call.respond("job takes client and JSON arguments")
-                                return@post
-                            }
-                            val clientName = command[1]
-                            val clientSession: ClientSessionInfo? = clientSessions[clientName]
-                            if (clientSession == null) {
-                                call.respond("Client $clientName not found")
-                                return@post
-                            }
-                            val newJobs = mutableListOf<String>()
-                            for (jobWildcard in command.subList(2, command.size)) {
-                                val regexPattern = jobWildcard.replace("*", ".*").plus("\\.json").toRegex()
-                                val files =
-                                    File("work")
-                                        .listFiles { file ->
-                                            file.isFile && file.name.matches(regexPattern)
-                                        }?.toList() ?: emptyList()
-                                newJobs.addAll(
-                                    files.map {
-                                        it.name
-                                    },
-                                )
-                            }
-                            clientSession.mutex.withLock {
-                                clientSession.pendingJobFiles.addAll(newJobs)
-                            }
-                            call.respond("Jobs issued to client $clientName:\n  ${newJobs.joinToString("\n  ")}")
-                        }
-                        else -> call.respond("Unknown command")
-                    }
+                    return@post
                 }
+                handleConsoleCommand(call, command)
             }
         }
 
@@ -159,32 +128,28 @@ fun Application.module() {
 
         post("/register") {
             val name = call.receiveText()
-            if (name in clientSessions) {
+            if (clientSessions.containsKey(name)) {
                 call.respondText("Client $name already registered")
+                return@post
             }
-            clientSessions[name] =
-                ClientSessionInfo(
-                    mutex = Mutex(),
-                    pendingJobFiles = mutableListOf(),
-                    currentlyIssuedJobFile = null,
-                )
+            clientSessions[name] = ClientSessionInfo()
             call.respondText("Registered client $name")
         }
 
         post("/job") {
             val name = call.receiveText()
-            val clientConnection = clientSessions[name]
-            if (clientConnection == null) {
-                call.respond("Client $name not found")
+            val clientSession = clientSessions[name]
+            if (clientSession == null) {
+                call.respondText("Client $name not found")
                 return@post
             }
-            clientConnection.mutex.withLock {
-                if (clientConnection.pendingJobFiles.isEmpty()) {
+            clientSession.mutex.withLock {
+                if (clientSession.pendingJobFiles.isEmpty()) {
                     call.respond(MessageNoJob())
                 } else {
-                    assert(clientConnection.currentlyIssuedJobFile == null)
-                    clientConnection.currentlyIssuedJobFile = clientConnection.pendingJobFiles.removeFirst()
-                    val jsonString = File("work", clientConnection.currentlyIssuedJobFile!!).readText()
+                    check(clientSession.currentlyIssuedJobFile == null)
+                    clientSession.currentlyIssuedJobFile = clientSession.pendingJobFiles.removeFirst()
+                    val jsonString = File("work", clientSession.currentlyIssuedJobFile!!).readText()
                     val job = jacksonObjectMapper().readValue<ShaderJob>(jsonString)
                     call.respond(
                         MessageRenderJob(
@@ -197,16 +162,59 @@ fun Application.module() {
         }
 
         post("/renderjobresult") {
-            val messageRenderJobResult = call.receive<MessageRenderJobResult>()
-            val clientSession = clientSessions[messageRenderJobResult.clientName]
+            val result = call.receive<MessageRenderJobResult>()
+            val clientSession = clientSessions[result.clientName]
             if (clientSession == null) {
-                call.respond("Client $messageRenderJobResult.clientName not found")
+                call.respondText("Client ${result.clientName} not found")
                 return@post
             }
-            assert(clientSession.currentlyIssuedJobFile != null)
-            // TODO: do something meaningful with the result, e.g. save it out.
+            check(clientSession.currentlyIssuedJobFile != null)
+            // TODO: process result (e.g. persist it)
             clientSession.currentlyIssuedJobFile = null
             call.respondText("Job result received.")
         }
+    }
+}
+
+suspend fun handleConsoleCommand(
+    call: ApplicationCall,
+    command: List<String>,
+) {
+    when (command[0]) {
+        "help" -> call.respondText(Config.consoleCommands)
+        "clients" -> {
+            val clients =
+                clientSessions.keys
+                    .sorted()
+                    .joinToString("\n")
+                    .ifEmpty { "No client sessions" }
+            call.respondText(clients)
+        }
+        "job" -> {
+            if (command.size < 3) {
+                call.respondText("Usage: job <client> <pattern>...")
+                return
+            }
+            val clientName = command[1]
+            val client = clientSessions[clientName]
+            if (client == null) {
+                call.respondText("Client $clientName not found")
+                return
+            }
+
+            val jobPatterns = command.drop(2)
+            val matchedJobs =
+                jobPatterns.flatMap { pattern ->
+                    val regex = pattern.replace("*", ".*").plus("\\.json").toRegex()
+                    File("work").listFiles()?.filter { it.isFile && it.name.matches(regex) }?.map { it.name } ?: emptyList()
+                }
+
+            client.mutex.withLock {
+                client.pendingJobFiles += matchedJobs
+            }
+
+            call.respondText("Jobs issued to client $clientName:\n  ${matchedJobs.joinToString("\n  ")}")
+        }
+        else -> call.respondText("Unknown command: ${command[0]}")
     }
 }
