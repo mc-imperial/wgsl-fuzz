@@ -1,28 +1,39 @@
 package com.wgslfuzz.core
 
+/**
+ * Deeply clones an [AstNode], allowing for given subtrees to be replaced according to a provided replacements function.
+ *
+ * @receiver an [AstNode] to be cloned
+ * @param replacements a partial function on [AstNode]s. If the function provides a non-null result for the node being
+ *   cloned, that result will be returned instead of a clone operation occurring. The [replacements] function must be
+ *   constructed such that whatever it returns for a given node should have an appropriate type for replacing the node
+ *   in the AST.
+ */
 @Suppress("UNCHECKED_CAST")
-fun <T : AstNode?> T.clone(replacements: (AstNode?) -> AstNode? = { null }): T = cloneHelper(this, replacements) as T
+fun <T : AstNode> T.clone(replacements: (AstNode) -> AstNode? = { null }): T = cloneHelper(this, replacements) as T
 
-fun <T : AstNode?> List<T>.clone(replacements: (AstNode?) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
+private fun <T : AstNode> List<T>.clone(replacements: (AstNode) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
 
 private fun cloneHelper(
-    node: AstNode?,
-    replacements: (AstNode?) -> AstNode?,
-): AstNode? =
+    node: AstNode,
+    replacements: (AstNode) -> AstNode?,
+): AstNode =
+    // If the replacements function provides a replacement for this node, return the replacement.
     replacements(node) ?: with(node) {
+        // No replacement was provided, so proceed to deep-clone the node.
         when (this) {
             is Attribute -> Attribute(kind, args.clone(replacements))
             is ContinuingStatement ->
                 ContinuingStatement(
                     attributes.clone(replacements),
                     statements.clone(replacements),
-                    breakIfExpr.clone(replacements),
+                    breakIfExpr?.clone(replacements),
                 )
             is Directive -> Directive(text)
             is Expression.Binary -> Expression.Binary(operator, lhs.clone(replacements), rhs.clone(replacements))
             is Expression.BoolLiteral -> Expression.BoolLiteral(text)
             is Expression.FloatLiteral -> Expression.FloatLiteral(text)
-            is Expression.FunctionCall -> Expression.FunctionCall(callee, templateParameter.clone(replacements), args.clone(replacements))
+            is Expression.FunctionCall -> Expression.FunctionCall(callee, templateParameter?.clone(replacements), args.clone(replacements))
             is Expression.Identifier -> Expression.Identifier(name)
             is Expression.IndexLookup -> Expression.IndexLookup(target.clone(replacements), index.clone(replacements))
             is Expression.IntLiteral -> Expression.IntLiteral(text)
@@ -31,53 +42,53 @@ private fun cloneHelper(
             is Expression.Unary -> Expression.Unary(operator, target.clone(replacements))
             is Expression.ArrayValueConstructor ->
                 Expression.ArrayValueConstructor(
-                    elementType.clone(replacements),
-                    elementCount.clone(replacements),
+                    elementType?.clone(replacements),
+                    elementCount?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat2x2ValueConstructor ->
                 Expression.Mat2x2ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat2x3ValueConstructor ->
                 Expression.Mat2x3ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat2x4ValueConstructor ->
                 Expression.Mat2x4ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat3x2ValueConstructor ->
                 Expression.Mat3x2ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat3x3ValueConstructor ->
                 Expression.Mat3x3ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat3x4ValueConstructor ->
                 Expression.Mat3x4ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat4x2ValueConstructor ->
                 Expression.Mat4x2ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat4x3ValueConstructor ->
                 Expression.Mat4x3ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.Mat4x4ValueConstructor ->
                 Expression.Mat4x4ValueConstructor(
-                    elementType.clone(replacements),
+                    elementType?.clone(replacements),
                     args.clone(replacements),
                 )
             is Expression.BoolValueConstructor -> Expression.BoolValueConstructor(args.clone(replacements))
@@ -87,9 +98,21 @@ private fun cloneHelper(
             is Expression.U32ValueConstructor -> Expression.U32ValueConstructor(args.clone(replacements))
             is Expression.StructValueConstructor -> Expression.StructValueConstructor(typeName, args.clone(replacements))
             is Expression.TypeAliasValueConstructor -> Expression.TypeAliasValueConstructor(typeName, args.clone(replacements))
-            is Expression.Vec2ValueConstructor -> Expression.Vec2ValueConstructor(elementType.clone(replacements), args.clone(replacements))
-            is Expression.Vec3ValueConstructor -> Expression.Vec3ValueConstructor(elementType.clone(replacements), args.clone(replacements))
-            is Expression.Vec4ValueConstructor -> Expression.Vec4ValueConstructor(elementType.clone(replacements), args.clone(replacements))
+            is Expression.Vec2ValueConstructor ->
+                Expression.Vec2ValueConstructor(
+                    elementType?.clone(replacements),
+                    args.clone(replacements),
+                )
+            is Expression.Vec3ValueConstructor ->
+                Expression.Vec3ValueConstructor(
+                    elementType?.clone(replacements),
+                    args.clone(replacements),
+                )
+            is Expression.Vec4ValueConstructor ->
+                Expression.Vec4ValueConstructor(
+                    elementType?.clone(replacements),
+                    args.clone(replacements),
+                )
             is MetamorphicExpression.FalseByConstruction ->
                 MetamorphicExpression.FalseByConstruction(
                     falseExpression.clone(
@@ -103,7 +126,7 @@ private fun cloneHelper(
                     ),
                 )
             is GlobalDecl.ConstAssert -> GlobalDecl.ConstAssert(expression.clone(replacements))
-            is GlobalDecl.Constant -> GlobalDecl.Constant(name, type.clone(replacements), initializer.clone(replacements))
+            is GlobalDecl.Constant -> GlobalDecl.Constant(name, type?.clone(replacements), initializer.clone(replacements))
             is GlobalDecl.Empty -> GlobalDecl.Empty()
             is GlobalDecl.Function ->
                 GlobalDecl.Function(
@@ -111,15 +134,15 @@ private fun cloneHelper(
                     name,
                     parameters.clone(replacements),
                     returnAttributes.clone(replacements),
-                    returnType.clone(replacements),
+                    returnType?.clone(replacements),
                     body.clone(replacements),
                 )
             is GlobalDecl.Override ->
                 GlobalDecl.Override(
                     attributes.clone(replacements),
                     name,
-                    type.clone(replacements),
-                    initializer.clone(replacements),
+                    type?.clone(replacements),
+                    initializer?.clone(replacements),
                 )
             is GlobalDecl.Struct -> GlobalDecl.Struct(name, members.clone(replacements))
             is GlobalDecl.TypeAlias -> GlobalDecl.TypeAlias(name, type.clone(replacements))
@@ -129,8 +152,8 @@ private fun cloneHelper(
                     name,
                     addressSpace,
                     accessMode,
-                    type.clone(replacements),
-                    initializer.clone(replacements),
+                    type?.clone(replacements),
+                    initializer?.clone(replacements),
                 )
             is LhsExpression.AddressOf -> LhsExpression.AddressOf(target.clone(replacements))
             is LhsExpression.Dereference -> LhsExpression.Dereference(target.clone(replacements))
@@ -149,38 +172,38 @@ private fun cloneHelper(
                     attributes.clone(replacements),
                     condition.clone(replacements),
                     thenBranch.clone(replacements),
-                    elseBranch.clone(replacements),
+                    elseBranch?.clone(replacements),
                 )
             is Statement.Empty -> Statement.Empty()
             is Statement.For ->
                 Statement.For(
                     attributes.clone(replacements),
-                    init.clone(replacements),
-                    condition.clone(replacements),
-                    update.clone(replacements),
+                    init?.clone(replacements),
+                    condition?.clone(replacements),
+                    update?.clone(replacements),
                     body.clone(replacements),
                 )
-            is Statement.Assignment -> Statement.Assignment(lhsExpression.clone(replacements), assignmentOperator, rhs.clone(replacements))
+            is Statement.Assignment -> Statement.Assignment(lhsExpression?.clone(replacements), assignmentOperator, rhs.clone(replacements))
             is Statement.Decrement -> Statement.Decrement(target.clone(replacements))
             is Statement.FunctionCall -> Statement.FunctionCall(callee, args.clone(replacements))
             is Statement.Increment -> Statement.Increment(target.clone(replacements))
-            is Statement.Value -> Statement.Value(isConst, name, type.clone(replacements), initializer.clone(replacements))
+            is Statement.Value -> Statement.Value(isConst, name, type?.clone(replacements), initializer.clone(replacements))
             is Statement.Variable ->
                 Statement.Variable(
                     name,
                     addressSpace,
                     accessMode,
-                    type.clone(replacements),
-                    initializer.clone(replacements),
+                    type?.clone(replacements),
+                    initializer?.clone(replacements),
                 )
             is Statement.Loop ->
                 Statement.Loop(
                     attributesAtStart.clone(replacements),
                     attributesBeforeBody.clone(replacements),
                     body.clone(replacements),
-                    continuingStatement.clone(replacements),
+                    continuingStatement?.clone(replacements),
                 )
-            is Statement.Return -> Statement.Return(expression.clone(replacements))
+            is Statement.Return -> Statement.Return(expression?.clone(replacements))
             is Statement.Switch ->
                 Statement.Switch(
                     attributesAtStart.clone(replacements),
@@ -196,9 +219,9 @@ private fun cloneHelper(
                     ),
                 )
             is StructMember -> StructMember(attributes.clone(replacements), name, type.clone(replacements))
-            is SwitchClause -> SwitchClause(caseSelectors.clone(replacements), compoundStatement.clone(replacements))
+            is SwitchClause -> SwitchClause(caseSelectors.map { it?.clone(replacements) }, compoundStatement.clone(replacements))
             is TranslationUnit -> TranslationUnit(directives.clone(replacements), globalDecls.clone(replacements))
-            is TypeDecl.Array -> TypeDecl.Array(elementType.clone(replacements), elementCount.clone(replacements))
+            is TypeDecl.Array -> TypeDecl.Array(elementType.clone(replacements), elementCount?.clone(replacements))
             is TypeDecl.Atomic -> TypeDecl.Atomic(targetType.clone(replacements))
             is TypeDecl.Mat2x2 -> TypeDecl.Mat2x2(elementType.clone(replacements))
             is TypeDecl.Mat2x3 -> TypeDecl.Mat2x3(elementType.clone(replacements))
@@ -238,6 +261,5 @@ private fun cloneHelper(
             is TypeDecl.Vec2 -> TypeDecl.Vec2(elementType.clone(replacements))
             is TypeDecl.Vec3 -> TypeDecl.Vec3(elementType.clone(replacements))
             is TypeDecl.Vec4 -> TypeDecl.Vec4(elementType.clone(replacements))
-            null -> null
         }
     }

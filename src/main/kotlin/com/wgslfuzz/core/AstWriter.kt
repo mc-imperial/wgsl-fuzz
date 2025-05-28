@@ -4,6 +4,10 @@ import java.io.PrintStream
 
 private const val DEFAULT_INDENT = 4
 
+/**
+ * This class facilitates pretty-printing AST nodes (including a full translation unit) as text, to standard output by
+ * default.
+ */
 class AstWriter(
     private val out: PrintStream = System.out,
     private val indentValue: Int = DEFAULT_INDENT,
