@@ -2,11 +2,30 @@ package com.wgslfuzz.core
 
 import java.io.PrintStream
 
+private const val DEFAULT_INDENT = 4
+
 class AstWriter(
     private val out: PrintStream = System.out,
-    private val indentValue: Int = 4,
+    private val indentValue: Int = DEFAULT_INDENT,
 ) {
     private var currentIndentLevel = 0
+
+    fun emit(node: AstNode) {
+        when (node) {
+            is TranslationUnit -> emitTranslationUnit(node)
+            is Attribute -> emitAttribute(node)
+            is ContinuingStatement -> emitContinuingStatement(node)
+            is Directive -> emitDirective(node)
+            is Expression -> emitExpression(node)
+            is GlobalDecl -> emitGlobalDecl(node)
+            is LhsExpression -> emitLhsExpression(node)
+            is ParameterDecl -> emitParameterDecl(node)
+            is Statement -> emitStatement(node)
+            is StructMember -> emitStructMember(node)
+            is SwitchClause -> emitSwitchClause(node)
+            is TypeDecl -> emitTypeDecl(node)
+        }
+    }
 
     private fun emitIndent() =
         repeat((0..<currentIndentLevel).count()) {
@@ -21,7 +40,7 @@ class AstWriter(
         currentIndentLevel -= indentValue
     }
 
-    fun emit(accessMode: AccessMode) {
+    private fun emitAccessMode(accessMode: AccessMode) {
         out.print(
             when (accessMode) {
                 AccessMode.READ -> "read"
@@ -31,7 +50,7 @@ class AstWriter(
         )
     }
 
-    fun emit(texelFormat: TexelFormat) {
+    private fun emitTexelFormat(texelFormat: TexelFormat) {
         out.print(
             when (texelFormat) {
                 TexelFormat.RGBA8UNORM -> "rgba8unorm"
@@ -55,7 +74,7 @@ class AstWriter(
         )
     }
 
-    fun emit(addressSpace: AddressSpace) {
+    private fun emitAddressSpace(addressSpace: AddressSpace) {
         out.print(
             when (addressSpace) {
                 AddressSpace.FUNCTION -> "function"
@@ -68,7 +87,7 @@ class AstWriter(
         )
     }
 
-    fun emit(attributeKind: AttributeKind) {
+    private fun emitAttributeKind(attributeKind: AttributeKind) {
         out.print(
             when (attributeKind) {
                 AttributeKind.ALIGN -> "align"
@@ -93,21 +112,21 @@ class AstWriter(
         )
     }
 
-    fun emit(attributes: List<Attribute>) {
+    private fun emitAttributes(attributes: List<Attribute>) {
         attributes.forEach {
-            emit(it)
+            emitAttribute(it)
         }
     }
 
-    fun emit(attribute: Attribute) {
+    private fun emitAttribute(attribute: Attribute) {
         with(attribute) {
             emitIndent()
             out.print("@")
-            emit(kind)
+            emitAttributeKind(kind)
             if (args.isNotEmpty()) {
                 out.print("(")
                 args.forEach {
-                    emit(it)
+                    emitExpression(it)
                     out.print(", ")
                 }
                 out.print(")")
@@ -116,7 +135,7 @@ class AstWriter(
         }
     }
 
-    fun emit(assignmentOperator: AssignmentOperator) {
+    private fun emitAssignmentOperator(assignmentOperator: AssignmentOperator) {
         when (assignmentOperator) {
             AssignmentOperator.EQUAL -> out.print("=")
             AssignmentOperator.PLUS_EQUAL -> out.print("+=")
@@ -132,7 +151,7 @@ class AstWriter(
         }
     }
 
-    fun emit(operator: UnaryOperator) {
+    private fun emitUnaryOperator(operator: UnaryOperator) {
         when (operator) {
             UnaryOperator.MINUS -> out.print("-")
             UnaryOperator.LOGICAL_NOT -> out.print("!")
@@ -142,7 +161,7 @@ class AstWriter(
         }
     }
 
-    fun emit(operator: BinaryOperator) {
+    private fun emitBinaryOperator(operator: BinaryOperator) {
         when (operator) {
             BinaryOperator.SHORT_CIRCUIT_OR -> out.print("||")
             BinaryOperator.SHORT_CIRCUIT_AND -> out.print("&&")
@@ -165,47 +184,47 @@ class AstWriter(
         }
     }
 
-    fun emit(lhsExpression: LhsExpression) {
+    private fun emitLhsExpression(lhsExpression: LhsExpression) {
         when (lhsExpression) {
             is LhsExpression.AddressOf -> {
                 out.print("&")
-                emit(lhsExpression.target)
+                emitLhsExpression(lhsExpression.target)
             }
             is LhsExpression.IndexLookup -> {
-                emit(lhsExpression.target)
+                emitLhsExpression(lhsExpression.target)
                 out.print("[")
-                emit(lhsExpression.index)
+                emitExpression(lhsExpression.index)
                 out.print("]")
             }
             is LhsExpression.Identifier -> out.print(lhsExpression.name)
             is LhsExpression.MemberLookup -> {
-                emit(lhsExpression.receiver)
+                emitLhsExpression(lhsExpression.receiver)
                 out.print(".${lhsExpression.memberName}")
             }
             is LhsExpression.Paren -> {
                 out.print("(")
-                emit(lhsExpression.target)
+                emitLhsExpression(lhsExpression.target)
                 out.print(")")
             }
             is LhsExpression.Dereference -> {
                 out.print("*")
-                emit(lhsExpression.target)
+                emitLhsExpression(lhsExpression.target)
             }
         }
     }
 
-    fun emit(expression: Expression) {
+    private fun emitExpression(expression: Expression) {
         when (expression) {
             is Expression.Binary -> {
-                emit(expression.lhs)
+                emitExpression(expression.lhs)
                 out.print(" ")
-                emit(expression.operator)
+                emitBinaryOperator(expression.operator)
                 out.print(" ")
-                emit(expression.rhs)
+                emitExpression(expression.rhs)
             }
             is Expression.Unary -> {
-                emit(expression.operator)
-                emit(expression.target)
+                emitUnaryOperator(expression.operator)
+                emitExpression(expression.target)
             }
             is Expression.BoolLiteral -> out.print(expression.text)
             is Expression.FloatLiteral -> out.print(expression.text)
@@ -213,7 +232,7 @@ class AstWriter(
             is Expression.Identifier -> out.print(expression.name)
             is Expression.Paren -> {
                 out.print("(")
-                emit(expression.target)
+                emitExpression(expression.target)
                 out.print(")")
             }
             is Expression.ValueConstructor -> {
@@ -222,7 +241,7 @@ class AstWriter(
                     is Expression.VectorValueConstructor -> {
                         expression.elementType?.let {
                             out.print("<")
-                            emit(it)
+                            emitTypeDecl(it)
                             out.print(">")
                         }
                     }
@@ -230,7 +249,7 @@ class AstWriter(
                     is Expression.MatrixValueConstructor -> {
                         expression.elementType?.let {
                             out.print("<")
-                            emit(it)
+                            emitTypeDecl(it)
                             out.print(">")
                         }
                     }
@@ -238,10 +257,10 @@ class AstWriter(
                     is Expression.ArrayValueConstructor -> {
                         expression.elementType?.let {
                             out.print("<")
-                            emit(it)
+                            emitTypeDecl(it)
                             expression.elementCount?.let { itInner ->
                                 out.print(", ")
-                                emit(itInner)
+                                emitExpression(itInner)
                             }
                             out.print(">")
                         }
@@ -252,7 +271,7 @@ class AstWriter(
                 }
                 out.print("(")
                 expression.args.forEach {
-                    emit(it)
+                    emitExpression(it)
                     out.print(", ")
                 }
                 out.print(")")
@@ -261,52 +280,52 @@ class AstWriter(
                 out.print(expression.callee)
                 expression.templateParameter?.let {
                     out.print("<")
-                    emit(it)
+                    emitTypeDecl(it)
                     out.print(">")
                 }
                 out.print("(")
                 expression.args.forEach {
-                    emit(it)
+                    emitExpression(it)
                     out.print(", ")
                 }
                 out.print(")")
             }
             is Expression.IndexLookup -> {
-                emit(expression.target)
+                emitExpression(expression.target)
                 out.print("[")
-                emit(expression.index)
+                emitExpression(expression.index)
                 out.print("]")
             }
             is Expression.MemberLookup -> {
-                emit(expression.receiver)
+                emitExpression(expression.receiver)
                 out.print(".${expression.memberName}")
             }
             is MetamorphicExpression.FalseByConstruction -> {
                 out.print("(/* false by construction: */ ")
-                emit(expression.falseExpression)
+                emitExpression(expression.falseExpression)
                 out.print(")")
             }
             is MetamorphicExpression.TrueByConstruction -> {
                 out.print("(/* true by construction: */ ")
-                emit(expression.trueExpression)
+                emitExpression(expression.trueExpression)
                 out.print(")")
             }
         }
     }
 
-    fun emit(typeDecl: TypeDecl) {
+    private fun emitTypeDecl(typeDecl: TypeDecl) {
         when (typeDecl) {
             is TypeDecl.ScalarTypeDecl -> out.print(typeDecl.name)
             is TypeDecl.MatrixTypeDecl -> {
                 out.print(typeDecl.name)
                 out.print("<")
-                emit(typeDecl.elementType)
+                emitTypeDecl(typeDecl.elementType)
                 out.print(">")
             }
             is TypeDecl.VectorTypeDecl -> {
                 out.print(typeDecl.name)
                 out.print("<")
-                emit(typeDecl.elementType)
+                emitTypeDecl(typeDecl.elementType)
                 out.print(">")
             }
             is TypeDecl.NamedType -> {
@@ -315,28 +334,28 @@ class AstWriter(
             is TypeDecl.Array -> {
                 out.print("array")
                 out.print("<")
-                emit(typeDecl.elementType)
+                emitTypeDecl(typeDecl.elementType)
                 typeDecl.elementCount?.let {
                     out.print(", ")
-                    emit(it)
+                    emitExpression(it)
                 }
                 out.print(">")
             }
             is TypeDecl.Pointer -> {
                 out.print("ptr<")
-                emit(typeDecl.addressSpace)
+                emitAddressSpace(typeDecl.addressSpace)
                 out.print(", ")
-                emit(typeDecl.pointeeType)
+                emitTypeDecl(typeDecl.pointeeType)
                 typeDecl.accessMode?.let {
                     out.print(", ")
-                    emit(it)
+                    emitAccessMode(it)
                 }
                 out.print(">")
             }
 
             is TypeDecl.Atomic -> {
                 out.print("atomic<")
-                emit(typeDecl.targetType)
+                emitTypeDecl(typeDecl.targetType)
                 out.print(">")
             }
             is TypeDecl.SamplerComparison -> out.print("sampler_comparison")
@@ -349,122 +368,138 @@ class AstWriter(
             is TypeDecl.TextureExternal -> out.print("texture_external")
             is TypeDecl.TextureMultisampled2d -> {
                 out.print("texture_multisampled_2d<")
-                emit(typeDecl.sampledType)
+                emitTypeDecl(typeDecl.sampledType)
                 out.print(">")
             }
             is TypeDecl.TextureSampled1D -> {
                 out.print("texture_1d<")
-                emit(typeDecl.sampledType)
+                emitTypeDecl(typeDecl.sampledType)
                 out.print(">")
             }
             is TypeDecl.TextureSampled2D -> {
                 out.print("texture_2d<")
-                emit(typeDecl.sampledType)
+                emitTypeDecl(typeDecl.sampledType)
                 out.print(">")
             }
             is TypeDecl.TextureSampled2DArray -> {
                 out.print("texture_2d_array<")
-                emit(typeDecl.sampledType)
+                emitTypeDecl(typeDecl.sampledType)
                 out.print(">")
             }
             is TypeDecl.TextureSampled3D -> {
                 out.print("texture_3d<")
-                emit(typeDecl.sampledType)
+                emitTypeDecl(typeDecl.sampledType)
                 out.print(">")
             }
             is TypeDecl.TextureSampledCube -> {
                 out.print("texture_cube<")
-                emit(typeDecl.sampledType)
+                emitTypeDecl(typeDecl.sampledType)
                 out.print(">")
             }
             is TypeDecl.TextureSampledCubeArray -> {
                 out.print("texture_cube_array<")
-                emit(typeDecl.sampledType)
+                emitTypeDecl(typeDecl.sampledType)
                 out.print(">")
             }
             is TypeDecl.TextureStorage1D -> {
                 out.print("texture_storage_1d<")
-                emit(typeDecl.format)
+                emitTexelFormat(typeDecl.format)
                 out.print(", ")
-                emit(typeDecl.accessMode)
+                emitAccessMode(typeDecl.accessMode)
                 out.print(">")
             }
             is TypeDecl.TextureStorage2D -> {
                 out.print("texture_storage_2d<")
-                emit(typeDecl.format)
+                emitTexelFormat(typeDecl.format)
                 out.print(", ")
-                emit(typeDecl.accessMode)
+                emitAccessMode(typeDecl.accessMode)
                 out.print(">")
             }
             is TypeDecl.TextureStorage2DArray -> {
                 out.print("texture_storage_2d_array<")
-                emit(typeDecl.format)
+                emitTexelFormat(typeDecl.format)
                 out.print(", ")
-                emit(typeDecl.accessMode)
+                emitAccessMode(typeDecl.accessMode)
                 out.print(">")
             }
             is TypeDecl.TextureStorage3D -> {
                 out.print("texture_storage_3d<")
-                emit(typeDecl.format)
+                emitTexelFormat(typeDecl.format)
                 out.print(", ")
-                emit(typeDecl.accessMode)
+                emitAccessMode(typeDecl.accessMode)
                 out.print(">")
             }
         }
     }
 
-    fun emit(
-        assignmentStatement: Statement.Assignment,
+    private fun emitStatementAssignment(
+        assignment: Statement.Assignment,
         inForLoopHeader: Boolean,
     ) {
-        with(assignmentStatement) {
+        with(assignment) {
             if (!inForLoopHeader) {
                 emitIndent()
             }
             lhsExpression?.let {
-                emit(it)
+                emitLhsExpression(it)
             } ?: run {
                 out.print("_")
             }
             out.print(" ")
-            emit(assignmentOperator)
+            emitAssignmentOperator(assignmentOperator)
             out.print(" ")
-            emit(rhs)
+            emitExpression(rhs)
             if (!inForLoopHeader) {
                 out.print(";\n")
             }
         }
     }
 
-    fun emit(compoundStatement: Statement.Compound) {
-        with(compoundStatement) {
+    private fun emitStatementCompound(compound: Statement.Compound) {
+        with(compound) {
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            statements.forEach(::emit)
+            statements.forEach(::emitStatement)
             decreaseIndent()
             emitIndent()
             out.print("}\n")
         }
     }
 
-    fun emit(constAssertStatement: Statement.ConstAssert) {
-        with(constAssertStatement) {
+    private fun emitStatementConstAssert(constAssert: Statement.ConstAssert) {
+        with(constAssert) {
             out.print("const_assert ")
-            emit(expression)
+            emitExpression(expression)
             out.print(";\n")
         }
     }
 
-    fun emit(
-        decrementStatement: Statement.Decrement,
+    private fun emitStatementIncrement(
+        increment: Statement.Increment,
         inForLoopHeader: Boolean,
     ) {
-        with(decrementStatement) {
+        with(increment) {
             if (!inForLoopHeader) {
                 emitIndent()
             }
-            emit(target)
+            emitLhsExpression(target)
+            out.print("++")
+            if (!inForLoopHeader) {
+                out.print(";\n")
+            }
+        }
+    }
+
+    private fun emitStatementDecrement(
+        decrement: Statement.Decrement,
+        inForLoopHeader: Boolean,
+    ) {
+        with(decrement) {
+            if (!inForLoopHeader) {
+                emitIndent()
+            }
+            emitLhsExpression(target)
             out.print("--")
             if (!inForLoopHeader) {
                 out.print(";\n")
@@ -472,33 +507,33 @@ class AstWriter(
         }
     }
 
-    fun emit(forStatement: Statement.For) {
-        with(forStatement) {
-            emit(attributes)
+    private fun emitStatementFor(statementFor: Statement.For) {
+        with(statementFor) {
+            emitAttributes(attributes)
             emitIndent()
             out.print("for (")
-            init?.let { emit(it, true) }
+            init?.let { emitStatement(it, true) }
             out.print("; ")
-            condition?.let(::emit)
+            condition?.let(::emitExpression)
             out.print("; ")
-            update?.let { emit(it, true) }
+            update?.let { emitStatement(it, true) }
             out.print(")\n")
-            emit(body)
+            emitStatementCompound(body)
         }
     }
 
-    fun emit(
-        functionCallStatement: Statement.FunctionCall,
+    private fun emitStatementFunctionCall(
+        functionCall: Statement.FunctionCall,
         inForLoopHeader: Boolean,
     ) {
-        with(functionCallStatement) {
+        with(functionCall) {
             if (!inForLoopHeader) {
                 emitIndent()
             }
             out.print(callee)
             out.print("(")
             args.forEach {
-                emit(it)
+                emitExpression(it)
                 out.print(", ")
             }
             out.print(")")
@@ -508,126 +543,74 @@ class AstWriter(
         }
     }
 
-    fun emit(ifStatement: Statement.If) {
-        with(ifStatement) {
-            emit(attributes)
+    private fun emitStatementIf(statementIf: Statement.If) {
+        with(statementIf) {
+            emitAttributes(attributes)
             emitIndent()
             out.print("if ")
-            emit(condition)
+            emitExpression(condition)
             out.print("\n")
-            emit(thenBranch)
+            emitStatementCompound(thenBranch)
             elseBranch?.let {
                 emitIndent()
                 out.print("else\n")
-                emit(it)
+                emitStatement(it)
             }
         }
     }
 
-    fun emit(
-        incrementStatement: Statement.Increment,
-        inForLoopHeader: Boolean,
-    ) {
-        with(incrementStatement) {
-            if (!inForLoopHeader) {
-                emitIndent()
-            }
-            emit(target)
-            out.print("++")
-            if (!inForLoopHeader) {
-                out.print(";\n")
-            }
-        }
-    }
-
-    fun emit(loopStatement: Statement.Loop) {
-        with(loopStatement) {
-            emit(attributesAtStart)
+    private fun emitStatementLoop(loop: Statement.Loop) {
+        with(loop) {
+            emitAttributes(attributesAtStart)
             emitIndent()
             out.print("loop\n")
-            emit(attributesBeforeBody)
+            emitAttributes(attributesBeforeBody)
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            body.statements.forEach {
-                emit(it)
-            }
-            continuingStatement?.let {
-                emitIndent()
-                out.print("continuing\n")
-                emit(it.attributes)
-                emitIndent()
-                out.print("{\n")
-                increaseIndent()
-                it.statements.statements.forEach { statement ->
-                    emit(statement)
-                }
-                it.breakIfExpr?.let { breakIfExpr ->
-                    emitIndent()
-                    out.print("break if ")
-                    emit(breakIfExpr)
-                    out.print(";\n")
-                }
-                decreaseIndent()
-                emitIndent()
-                out.print("}\n")
-            }
+            body.statements.forEach(::emitStatement)
+            continuingStatement?.let(::emitContinuingStatement)
             decreaseIndent()
             emitIndent()
             out.print("}\n")
         }
     }
 
-    fun emit(returnStatement: Statement.Return) {
-        with(returnStatement) {
+    private fun emitStatementReturn(statementReturn: Statement.Return) {
+        with(statementReturn) {
             emitIndent()
             out.print("return")
             expression?.let {
                 out.print(" ")
-                emit(it)
+                emitExpression(it)
             }
             out.print(";\n")
         }
     }
 
-    fun emit(switchStatement: Statement.Switch) {
-        with(switchStatement) {
-            emit(attributesAtStart)
+    private fun emitStatementSwitch(switch: Statement.Switch) {
+        with(switch) {
+            emitAttributes(attributesAtStart)
             emitIndent()
             out.print("switch ")
-            emit(expression)
+            emitExpression(expression)
             out.print("\n")
-            emit(attributesBeforeBody)
+            emitAttributes(attributesBeforeBody)
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            clauses.forEach {
-                emitIndent()
-                if (it.caseSelectors == listOf(null)) {
-                    out.print("default")
-                } else {
-                    out.print("case ")
-                    it.caseSelectors.forEach { expression ->
-                        expression?.let { emit(expression) } ?: run {
-                            out.print("default")
-                        }
-                        out.print(", ")
-                    }
-                }
-                out.print("\n")
-                emit(it.compoundStatement)
-            }
+            clauses.forEach(::emitSwitchClause)
             decreaseIndent()
             emitIndent()
             out.print("}\n")
         }
     }
 
-    fun emit(
-        valueStatement: Statement.Value,
+    private fun emitStatementValue(
+        value: Statement.Value,
         inForLoopHeader: Boolean,
     ) {
-        with(valueStatement) {
+        with(value) {
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -641,21 +624,21 @@ class AstWriter(
             out.print(" $name")
             type?.let {
                 out.print(" : ")
-                emit(it)
+                emitTypeDecl(it)
             }
             out.print(" = ")
-            emit(initializer)
+            emitExpression(initializer)
             if (!inForLoopHeader) {
                 out.print(";\n")
             }
         }
     }
 
-    fun emit(
-        variableStatement: Statement.Variable,
+    private fun emitStatementVariable(
+        variable: Statement.Variable,
         inForLoopHeader: Boolean,
     ) {
-        with(variableStatement) {
+        with(variable) {
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -666,40 +649,40 @@ class AstWriter(
         }
     }
 
-    fun emit(whileStatement: Statement.While) {
-        with(whileStatement) {
-            emit(attributes)
+    private fun emitStatementWhile(statementWhile: Statement.While) {
+        with(statementWhile) {
+            emitAttributes(attributes)
             emitIndent()
             out.print("while ")
-            emit(condition)
+            emitExpression(condition)
             out.print("\n")
-            emit(body)
+            emitStatement(body)
         }
     }
 
-    fun emit(statement: MetamorphicStatement.DeadCodeFragment) {
+    private fun emitMetamorphicStatementDeadCodeFragment(deadCodeFragment: MetamorphicStatement.DeadCodeFragment) {
         emitIndent()
         out.print("/* dead code fragment: */\n")
-        emit(statement.statement)
+        emitStatement(deadCodeFragment.statement)
     }
 
-    fun emit(
+    private fun emitStatement(
         statement: Statement,
         inForLoopHeader: Boolean = false,
     ) {
         when (statement) {
-            is Statement.Assignment -> emit(statement, inForLoopHeader)
+            is Statement.Assignment -> emitStatementAssignment(statement, inForLoopHeader)
             is Statement.Break -> {
                 emitIndent()
                 out.print("break;\n")
             }
-            is Statement.Compound -> emit(statement)
-            is Statement.ConstAssert -> emit(statement)
+            is Statement.Compound -> emitStatementCompound(statement)
+            is Statement.ConstAssert -> emitStatementConstAssert(statement)
             is Statement.Continue -> {
                 emitIndent()
                 out.print("continue;\n")
             }
-            is Statement.Decrement -> emit(statement, inForLoopHeader)
+            is Statement.Decrement -> emitStatementDecrement(statement, inForLoopHeader)
             is Statement.Discard -> {
                 emitIndent()
                 out.print("discard;\n")
@@ -708,87 +691,113 @@ class AstWriter(
                 emitIndent()
                 out.print(";\n")
             }
-            is Statement.For -> emit(statement)
-            is Statement.FunctionCall -> emit(statement, inForLoopHeader)
-            is Statement.If -> emit(statement)
-            is Statement.Increment -> emit(statement, inForLoopHeader)
-            is Statement.Loop -> emit(statement)
-            is Statement.Return -> emit(statement)
-            is Statement.Switch -> emit(statement)
-            is Statement.Value -> emit(statement, inForLoopHeader)
-            is Statement.Variable -> emit(statement, inForLoopHeader)
-            is Statement.While -> emit(statement)
-            is MetamorphicStatement.DeadCodeFragment -> emit(statement)
+            is Statement.For -> emitStatementFor(statement)
+            is Statement.FunctionCall -> emitStatementFunctionCall(statement, inForLoopHeader)
+            is Statement.If -> emitStatementIf(statement)
+            is Statement.Increment -> emitStatementIncrement(statement, inForLoopHeader)
+            is Statement.Loop -> emitStatementLoop(statement)
+            is Statement.Return -> emitStatementReturn(statement)
+            is Statement.Switch -> emitStatementSwitch(statement)
+            is Statement.Value -> emitStatementValue(statement, inForLoopHeader)
+            is Statement.Variable -> emitStatementVariable(statement, inForLoopHeader)
+            is Statement.While -> emitStatementWhile(statement)
+            is MetamorphicStatement.DeadCodeFragment -> emitMetamorphicStatementDeadCodeFragment(statement)
         }
     }
 
-    fun emit(struct: GlobalDecl.Struct) {
+    private fun emitContinuingStatement(continuingStatement: ContinuingStatement) {
+        with(continuingStatement) {
+            emitIndent()
+            out.print("continuing\n")
+            emitAttributes(attributes)
+            emitIndent()
+            out.print("{\n")
+            increaseIndent()
+            statements.statements.forEach(::emitStatement)
+            breakIfExpr?.let { breakIfExpr ->
+                emitIndent()
+                out.print("break if ")
+                emitExpression(breakIfExpr)
+                out.print(";\n")
+            }
+            decreaseIndent()
+            emitIndent()
+            out.print("}\n")
+        }
+    }
+
+    private fun emitSwitchClause(switchClause: SwitchClause) {
+        emitIndent()
+        if (switchClause.caseSelectors == listOf(null)) {
+            out.print("default")
+        } else {
+            out.print("case ")
+            switchClause.caseSelectors.forEach { expression ->
+                expression?.let { emitExpression(expression) } ?: run {
+                    out.print("default")
+                }
+                out.print(", ")
+            }
+        }
+        out.print("\n")
+        emitStatementCompound(switchClause.compoundStatement)
+    }
+
+    private fun emitGlobalDeclStruct(struct: GlobalDecl.Struct) {
         with(struct) {
             out.print("struct $name {\n")
             increaseIndent()
-            for (member in members) {
-                emit(member.attributes)
-                emitIndent()
-                out.print("${member.name} : ")
-                emit(member.type)
-                out.print(",\n")
-            }
+            members.forEach(::emitStructMember)
             decreaseIndent()
             out.print("}\n")
         }
     }
 
-    fun emit(globalConstantDecl: GlobalDecl.Constant) {
-        with(globalConstantDecl) {
+    private fun emitGlobalDeclConstant(constant: GlobalDecl.Constant) {
+        with(constant) {
             out.print("const $name ")
             type?.let {
                 out.print(": ")
-                emit(it)
+                emitTypeDecl(it)
             }
             out.print(" = ")
-            emit(initializer)
+            emitExpression(initializer)
             out.print(";\n")
         }
     }
 
-    fun emit(globalOverrideDecl: GlobalDecl.Override) {
-        with(globalOverrideDecl) {
-            emit(attributes)
+    private fun emitGlobalDeclOverride(override: GlobalDecl.Override) {
+        with(override) {
+            emitAttributes(attributes)
             out.print("override $name ")
             type?.let {
                 out.print(": ")
-                emit(it)
+                emitTypeDecl(it)
             }
             initializer?.let {
                 out.print(" = ")
-                emit(it)
+                emitExpression(it)
             }
             out.print(";\n")
         }
     }
 
-    fun emit(globalVarDecl: GlobalDecl.Variable) {
-        with(globalVarDecl) {
-            emit(attributes)
+    private fun emitGlobalDeclVariable(variable: GlobalDecl.Variable) {
+        with(variable) {
+            emitAttributes(attributes)
             emitVariableDeclaration(addressSpace, accessMode, name, type, initializer)
             out.print(";\n")
         }
     }
 
-    fun emit(functionDecl: GlobalDecl.Function) {
-        with(functionDecl) {
-            emit(attributes)
+    private fun emitGlobalDeclFunction(function: GlobalDecl.Function) {
+        with(function) {
+            emitAttributes(attributes)
             out.print("fn $name(")
             if (parameters.isNotEmpty()) {
                 out.print("\n")
                 increaseIndent()
-                parameters.forEach {
-                    emit(it.attributes)
-                    emitIndent()
-                    out.print("${it.name} : ")
-                    emit(it.typeDecl)
-                    out.print(",\n")
-                }
+                parameters.forEach(::emitParameterDecl)
                 decreaseIndent()
             }
             out.print(")")
@@ -798,52 +807,56 @@ class AstWriter(
                     increaseIndent()
                     out.print("\n")
                     emitIndent()
-                    emit(returnAttributes)
+                    emitAttributes(returnAttributes)
                     emitIndent()
                     decreaseIndent()
                 } else {
                     out.print(" ")
                 }
-                emit(returnType)
+                emitTypeDecl(returnType)
             }
             out.print("\n")
-            emit(body)
+            emitStatementCompound(body)
         }
     }
 
-    fun emit(decl: GlobalDecl) {
+    private fun emitGlobalDeclTypeAlias(typeAlias: GlobalDecl.TypeAlias) {
+        out.print("alias ${typeAlias.name} = ")
+        emitTypeDecl(typeAlias.type)
+        out.print(";\n")
+    }
+
+    private fun emitGlobalDeclConstAssert(constAssert: GlobalDecl.ConstAssert) {
+        out.print("const_assert ")
+        emitExpression(constAssert.expression)
+        out.print(";\n")
+    }
+
+    private fun emitGlobalDecl(decl: GlobalDecl) {
         when (decl) {
-            is GlobalDecl.Constant -> emit(decl)
-            is GlobalDecl.Override -> emit(decl)
-            is GlobalDecl.Variable -> emit(decl)
-            is GlobalDecl.Function -> emit(decl)
-            is GlobalDecl.Struct -> emit(decl)
-            is GlobalDecl.TypeAlias -> {
-                out.print("alias ${decl.name} = ")
-                emit(decl.type)
+            is GlobalDecl.Constant -> emitGlobalDeclConstant(decl)
+            is GlobalDecl.Override -> emitGlobalDeclOverride(decl)
+            is GlobalDecl.Variable -> emitGlobalDeclVariable(decl)
+            is GlobalDecl.Function -> emitGlobalDeclFunction(decl)
+            is GlobalDecl.Struct -> emitGlobalDeclStruct(decl)
+            is GlobalDecl.TypeAlias -> emitGlobalDeclTypeAlias(decl)
+            is GlobalDecl.ConstAssert -> emitGlobalDeclConstAssert(decl)
+            is GlobalDecl.Empty -> {
                 out.print(";\n")
             }
-            is GlobalDecl.ConstAssert -> {
-                out.print("const_assert ")
-                emit(decl.expression)
-                out.print(";\n\n")
-            }
-            is GlobalDecl.Empty -> {
-                out.print(";\n\n")
-            }
         }
     }
 
-    fun emit(tu: TranslationUnit) {
-        tu.directives.forEach {
-            out.print("${it.text}\n\n")
-        }
-        tu.globalDecls.forEachIndexed { index, decl ->
-            emit(decl)
-            if (index < tu.globalDecls.size - 1) {
-                out.print("\n")
-            }
-        }
+    private fun emitParameterDecl(parameterDecl: ParameterDecl) {
+        emitAttributes(parameterDecl.attributes)
+        emitIndent()
+        out.print("${parameterDecl.name} : ")
+        emitTypeDecl(parameterDecl.typeDecl)
+        out.print(",\n")
+    }
+
+    private fun emitDirective(directive: Directive) {
+        out.print("${directive.text}\n")
     }
 
     private fun emitVariableDeclaration(
@@ -856,21 +869,42 @@ class AstWriter(
         out.print("var")
         addressSpace?.let {
             out.print("<")
-            emit(it)
+            emitAddressSpace(it)
             accessMode?.let { itInner ->
                 out.print(", ")
-                emit(itInner)
+                emitAccessMode(itInner)
             }
             out.print(">")
         }
         out.print(" $name")
         type?.let {
             out.print(" : ")
-            emit(it)
+            emitTypeDecl(it)
         }
         initializer?.let {
             out.print(" = ")
-            emit(it)
+            emitExpression(it)
+        }
+    }
+
+    private fun emitStructMember(member: StructMember) {
+        emitAttributes(member.attributes)
+        emitIndent()
+        out.print("${member.name} : ")
+        emitTypeDecl(member.type)
+        out.print(",\n")
+    }
+
+    private fun emitTranslationUnit(tu: TranslationUnit) {
+        tu.directives.forEach {
+            emitDirective(it)
+            out.print("\n")
+        }
+        tu.globalDecls.forEachIndexed { index, decl ->
+            emitGlobalDecl(decl)
+            if (index < tu.globalDecls.size - 1) {
+                out.print("\n")
+            }
         }
     }
 }
