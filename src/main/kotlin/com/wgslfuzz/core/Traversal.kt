@@ -7,7 +7,6 @@ fun <T> traverse(
 ) {
     val actionWithState: (child: AstNode) -> Unit = { child -> action(child, traversalState) }
     when (node) {
-        is CaseSelectors.DefaultAlone -> {}
         is GlobalDecl.Empty -> {}
         is Statement.Break -> {}
         is Statement.Continue -> {}
@@ -21,11 +20,6 @@ fun <T> traverse(
         is Expression.IntLiteral -> {}
         is LhsExpression.Identifier -> {}
 
-        is CaseSelectors.ExpressionsOrDefault -> {
-            node.expressions.forEach {
-                it?.let(actionWithState)
-            }
-        }
         is ContinuingStatement -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.statements)
@@ -196,7 +190,9 @@ fun <T> traverse(
             actionWithState(node.type)
         }
         is SwitchClause -> {
-            actionWithState(node.caseSelectors)
+            node.caseSelectors.forEach {
+                it?.let(actionWithState)
+            }
             actionWithState(node.compoundStatement)
         }
         is TranslationUnit -> {

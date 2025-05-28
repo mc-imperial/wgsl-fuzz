@@ -603,19 +603,18 @@ class AstWriter(
             increaseIndent()
             clauses.forEach {
                 emitIndent()
-                when (it.caseSelectors) {
-                    is CaseSelectors.DefaultAlone -> out.print("default\n")
-                    is CaseSelectors.ExpressionsOrDefault -> {
-                        out.print("case ")
-                        it.caseSelectors.expressions.forEach { expression ->
-                            expression?.let { emit(expression) } ?: run {
-                                out.print("default")
-                            }
-                            out.print(", ")
+                if (it.caseSelectors == listOf(null)) {
+                    out.print("default")
+                } else {
+                    out.print("case ")
+                    it.caseSelectors.forEach { expression ->
+                        expression?.let { emit(expression) } ?: run {
+                            out.print("default")
                         }
-                        out.print("\n")
+                        out.print(", ")
                     }
                 }
+                out.print("\n")
                 emit(it.compoundStatement)
             }
             decreaseIndent()
