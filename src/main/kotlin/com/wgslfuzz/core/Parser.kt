@@ -242,26 +242,23 @@ private class AstBuilder(
                     .map {
                         if (it.DEFAULT() != null) {
                             SwitchClause(
-                                caseSelectors = CaseSelectors.DefaultAlone(),
+                                caseSelectors = listOf(null),
                                 compoundStatement = visitCompound_statement(it.compound_statement()),
                             )
                         } else {
                             SwitchClause(
                                 caseSelectors =
-                                    CaseSelectors.ExpressionsOrDefault(
-                                        expressions =
-                                            it
-                                                .case_selectors()
-                                                .expression_or_default()
-                                                .map { expressionOrDefault ->
-                                                    if (expressionOrDefault.DEFAULT() != null) {
-                                                        // Null is used to represent occurrences of default in a sequence of selector expressions
-                                                        null
-                                                    } else {
-                                                        visitExpression(expressionOrDefault.expression())
-                                                    }
-                                                },
-                                    ),
+                                    it
+                                        .case_selectors()
+                                        .expression_or_default()
+                                        .map { expressionOrDefault ->
+                                            if (expressionOrDefault.DEFAULT() != null) {
+                                                // Null is used to represent occurrences of default in a sequence of selector expressions
+                                                null
+                                            } else {
+                                                visitExpression(expressionOrDefault.expression())
+                                            }
+                                        },
                                 compoundStatement = visitCompound_statement(it.compound_statement()),
                             )
                         }

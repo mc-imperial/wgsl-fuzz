@@ -12,8 +12,6 @@ private fun cloneHelper(
     replacements(node) ?: with(node) {
         when (this) {
             is Attribute -> Attribute(kind, args.clone(replacements))
-            is CaseSelectors.DefaultAlone -> CaseSelectors.DefaultAlone()
-            is CaseSelectors.ExpressionsOrDefault -> CaseSelectors.ExpressionsOrDefault(expressions.clone(replacements))
             is ContinuingStatement ->
                 ContinuingStatement(
                     attributes.clone(replacements),
