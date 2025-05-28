@@ -376,6 +376,34 @@ private fun resolveAstNode(
                 ),
             )
         }
+        is Statement.FunctionCall -> {
+            when (val entry = resolverState.currentScope.getEntry(node.callee)) {
+                is ScopeEntry.Function -> {
+                    // Good; nothing to do.
+                }
+                null -> {
+                    // This set should contain the names of all builtin functions that do not have the 'must_use' attribute
+                    val statementFunctionCallBuiltins =
+                        setOf(
+                            "atomicStore",
+                            "storageBarrier",
+                            "textureBarrier",
+                            "textureStore",
+                            "workgroupBarrier",
+                        )
+                    if (node.callee !in statementFunctionCallBuiltins) {
+                        throw UnsupportedOperationException(
+                            "Statement function call refers to ${node.callee} which is not in scope not the name of a known builtin.",
+                        )
+                    }
+                }
+                else -> {
+                    throw UnsupportedOperationException(
+                        "Statement function call to name ${node.callee} does not refer to a function; scope entry is $entry",
+                    )
+                }
+            }
+        }
         is Statement.Value -> {
             var type: Type =
                 node.type?.let {
