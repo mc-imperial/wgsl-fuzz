@@ -110,7 +110,7 @@ fun Application.module() {
     }
 
     install(CORS) {
-        anyHost() // ⚠️ For dev only — don't use in production!
+        anyHost() // TODO: this is for dev only - don't use in production!
         allowMethod(HttpMethod.Get)
         allowMethod(HttpMethod.Post)
         allowHeader(HttpHeaders.ContentType)
