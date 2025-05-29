@@ -16,7 +16,7 @@ fun parseShaderJob(shaderJob: ShaderJob): ParsedShaderJob {
         val binding: Int = uniformBuffer.binding
         val bufferBytes: List<UByte> = uniformBuffer.data.map(Int::toUByte)
 
-        val uniformDeclaration = getUniformDeclaration(tu, group, binding)
+        val uniformDeclaration = tu.getUniformDeclaration(group, binding)
         val structType =
             (
                 environment.globalScope

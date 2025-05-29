@@ -1,28 +1,28 @@
-package com.wgslfuzz.metamorphictransformations
+package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
-import com.wgslfuzz.core.MetamorphicStatement
 import com.wgslfuzz.core.ParsedShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
 import java.util.LinkedList
 
-private typealias DeadContinueInjections = MutableMap<Statement.Compound, Set<Int>>
+private typealias DeadBreakInjections = MutableMap<Statement.Compound, Set<Int>>
 
-private class InjectDeadContinues(
+private class InjectDeadBreaks(
     private val parsedShaderJob: ParsedShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
-    // Records all enclosing loops (of all kinds) and continuing statements during traversal.
-    // This is necessary because a continue can only occur from inside a loop, but should not occur from
-    // inside a continuing statement (unless inside a loop within that statement).
+    // Records all enclosing loops (of all kinds), switch statements and continuing statements during traversal.
+    // This is necessary because a break can only occur from inside a loop or switch, but should not occur from
+    // inside a continuing statement (unless inside a loop or switch within that statement).
     private val enclosingConstructsStack: MutableList<AstNode> = LinkedList()
 
-    private fun injectDeadContinues(
+    private fun injectDeadBreaks(
         node: AstNode?,
-        injections: DeadContinueInjections,
+        injections: DeadBreakInjections,
     ): AstNode? =
         injections[node]?.let { injectionPoints ->
             val compound = node as Statement.Compound
@@ -30,43 +30,44 @@ private class InjectDeadContinues(
             compound.statements.forEachIndexed { index, statement ->
                 if (index in injectionPoints) {
                     newBody.add(
-                        createDeadContinue(),
+                        createDeadBreak(),
                     )
                 }
                 newBody.add(
                     statement.clone {
-                        injectDeadContinues(it, injections)
+                        injectDeadBreaks(it, injections)
                     },
                 )
             }
             if (compound.statements.size in injectionPoints) {
                 newBody.add(
-                    createDeadContinue(),
+                    createDeadBreak(),
                 )
             }
             Statement.Compound(newBody)
         }
 
-    private fun createDeadContinue() =
-        MetamorphicStatement.DeadCodeFragment(
+    private fun createDeadBreak() =
+        AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
                     generateFalseByConstructionExpression(fuzzerSettings, parsedShaderJob),
                 thenBranch =
                     Statement.Compound(
-                        listOf(Statement.Continue()),
+                        listOf(Statement.Break()),
                     ),
             ),
         )
 
     private fun selectInjectionPoints(
         node: AstNode,
-        injectionPoints: DeadContinueInjections,
+        injectionPoints: DeadBreakInjections,
     ) {
         if (node is ContinuingStatement ||
             node is Statement.Loop ||
             node is Statement.For ||
-            node is Statement.While
+            node is Statement.While ||
+            node is Statement.Switch
         ) {
             // Push node on to constructs stack
             enclosingConstructsStack.addFirst(node)
@@ -75,7 +76,8 @@ private class InjectDeadContinues(
         if (node is ContinuingStatement ||
             node is Statement.Loop ||
             node is Statement.For ||
-            node is Statement.While
+            node is Statement.While ||
+            node is Statement.Switch
         ) {
             enclosingConstructsStack.removeFirst()
         }
@@ -86,26 +88,26 @@ private class InjectDeadContinues(
             injectionPoints[node] =
                 (0..node.statements.size)
                     .filter {
-                        fuzzerSettings.injectDeadContinue()
+                        fuzzerSettings.injectDeadBreak()
                     }.toSet()
         }
     }
 
     fun apply(): ParsedShaderJob {
-        val injections: DeadContinueInjections = mutableMapOf()
+        val injections: DeadBreakInjections = mutableMapOf()
         traverse(::selectInjectionPoints, parsedShaderJob.tu, injections)
         return ParsedShaderJob(
-            tu = parsedShaderJob.tu.clone { injectDeadContinues(it, injections) },
+            tu = parsedShaderJob.tu.clone { injectDeadBreaks(it, injections) },
             uniformValues = parsedShaderJob.uniformValues,
         )
     }
 }
 
-fun addDeadContinues(
+fun addDeadBreaks(
     parsedShaderJob: ParsedShaderJob,
     fuzzerSettings: FuzzerSettings,
 ): ParsedShaderJob =
-    InjectDeadContinues(
+    InjectDeadBreaks(
         parsedShaderJob,
         fuzzerSettings,
     ).apply()

@@ -30,14 +30,12 @@ import java.io.File
 import java.io.InputStream
 import java.util.BitSet
 
-private val ParserRuleContext.fullText: String
-    get() =
-        if (start == null || stop == null || start.startIndex < 0 || stop.stopIndex < 0) {
-            text
-        } else {
-            start.inputStream.getText(Interval.of(start.startIndex, stop.stopIndex))
-        }
+private const val DEFAULT_PARSE_TIMEOUT_MILLISECONDS: Int = 10000
 
+/**
+ * When using Antlr for parsing an error listener should be attached to record any errors that occur. This is the
+ * default error listener for the wgsl-fuzz project. If parsing fails, it can be queried for error messages.
+ */
 class LoggingParseErrorListener : ANTLRErrorListener {
     val loggedMessages: String
         get() = _loggedMessages.toString()
@@ -64,6 +62,7 @@ class LoggingParseErrorListener : ANTLRErrorListener {
         ambigAlts: BitSet?,
         configs: ATNConfigSet?,
     ) {
+        // No action required.
     }
 
     override fun reportAttemptingFullContext(
@@ -74,6 +73,7 @@ class LoggingParseErrorListener : ANTLRErrorListener {
         conflictingAlts: BitSet?,
         configs: ATNConfigSet?,
     ) {
+        // No action required.
     }
 
     override fun reportContextSensitivity(
@@ -84,8 +84,67 @@ class LoggingParseErrorListener : ANTLRErrorListener {
         prediction: Int,
         configs: ATNConfigSet?,
     ) {
+        // No action required.
     }
 }
+
+/**
+ * Parses a translation unit from a given string.
+ *
+ * @param wgslString the WGSL to be parsed
+ * @param errorListener for capturing error messages
+ * @param timeoutMilliseconds a timeout in case parsing takes too long
+ * @return the parsed translation unit
+ */
+fun parseFromString(
+    wgslString: String,
+    errorListener: ANTLRErrorListener,
+    timeoutMilliseconds: Int = DEFAULT_PARSE_TIMEOUT_MILLISECONDS,
+): TranslationUnit {
+    val inputStream: InputStream = wgslString.byteInputStream()
+    val antlrTranslationUnit: Translation_unitContext =
+        try {
+            tryFastParse(
+                inputStream = inputStream,
+                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + timeoutMilliseconds),
+            )
+        } catch (exception: ParseCancellationException) {
+            inputStream.reset()
+            slowParse(
+                inputStream = inputStream,
+                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + timeoutMilliseconds),
+                errorListener = errorListener,
+            )
+        }
+    val nameCollector = ModuleScopeNameCollector()
+    nameCollector.visitTranslation_unit(antlrTranslationUnit)
+    return AstBuilder(nameCollector.names).visitTranslation_unit(
+        antlrTranslationUnit,
+    )
+}
+
+/**
+ * Parses from a file rather than a string.
+ *
+ * @see parseFromString
+ */
+fun parseFromFile(
+    filename: String,
+    errorListener: ANTLRErrorListener,
+    timeoutMilliseconds: Int = DEFAULT_PARSE_TIMEOUT_MILLISECONDS,
+): TranslationUnit =
+    parseFromString(wgslString = File(filename).readText(), errorListener = errorListener, timeoutMilliseconds = timeoutMilliseconds)
+
+// The remainder of this file is internal implementation detail about how the Antlr syntax tree is transformed into an
+// AstNode style syntax tree. It should need to be changed only rarely.
+
+private val ParserRuleContext.fullText: String
+    get() =
+        if (start == null || stop == null || start.startIndex < 0 || stop.stopIndex < 0) {
+            text
+        } else {
+            start.inputStream.getText(Interval.of(start.startIndex, stop.stopIndex))
+        }
 
 private class TimeoutParseTreeListener(
     private val timeToStop: Long,
@@ -1311,37 +1370,3 @@ private fun slowParse(
         parser.interpreter.clearDFA()
     }
 }
-
-fun parseFromString(
-    wgslString: String,
-    errorListener: ANTLRErrorListener,
-    timeoutMilliseconds: Int = 10000,
-): TranslationUnit {
-    val inputStream: InputStream = wgslString.byteInputStream()
-    val antlrTranslationUnit: Translation_unitContext =
-        try {
-            tryFastParse(
-                inputStream = inputStream,
-                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + timeoutMilliseconds),
-            )
-        } catch (exception: ParseCancellationException) {
-            inputStream.reset()
-            slowParse(
-                inputStream = inputStream,
-                parseTreeListener = TimeoutParseTreeListener(System.currentTimeMillis() + timeoutMilliseconds),
-                errorListener = errorListener,
-            )
-        }
-    val nameCollector = ModuleScopeNameCollector()
-    nameCollector.visitTranslation_unit(antlrTranslationUnit)
-    return AstBuilder(nameCollector.names).visitTranslation_unit(
-        antlrTranslationUnit,
-    )
-}
-
-fun parseFromFile(
-    filename: String,
-    errorListener: ANTLRErrorListener,
-    timeoutMilliseconds: Int = 10000,
-): TranslationUnit =
-    parseFromString(wgslString = File(filename).readText(), errorListener = errorListener, timeoutMilliseconds = timeoutMilliseconds)

@@ -113,14 +113,14 @@ private fun cloneHelper(
                     elementType?.clone(replacements),
                     args.clone(replacements),
                 )
-            is MetamorphicExpression.FalseByConstruction ->
-                MetamorphicExpression.FalseByConstruction(
+            is AugmentedExpression.FalseByConstruction ->
+                AugmentedExpression.FalseByConstruction(
                     falseExpression.clone(
                         replacements,
                     ),
                 )
-            is MetamorphicExpression.TrueByConstruction ->
-                MetamorphicExpression.TrueByConstruction(
+            is AugmentedExpression.TrueByConstruction ->
+                AugmentedExpression.TrueByConstruction(
                     trueExpression.clone(
                         replacements,
                     ),
@@ -212,8 +212,8 @@ private fun cloneHelper(
                     clauses.clone(replacements),
                 )
             is Statement.While -> Statement.While(attributes.clone(replacements), condition.clone(replacements), body.clone(replacements))
-            is MetamorphicStatement.DeadCodeFragment ->
-                MetamorphicStatement.DeadCodeFragment(
+            is AugmentedStatement.DeadCodeFragment ->
+                AugmentedStatement.DeadCodeFragment(
                     statement.clone(
                         replacements,
                     ),

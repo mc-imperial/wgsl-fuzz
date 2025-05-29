@@ -1,9 +1,9 @@
-package com.wgslfuzz.metamorphictransformations
+package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.GlobalDecl
-import com.wgslfuzz.core.MetamorphicStatement
 import com.wgslfuzz.core.ParsedShaderJob
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Statement
@@ -63,8 +63,8 @@ private class InjectDeadReturns(
             }
         }
 
-    private fun createDeadReturn(): MetamorphicStatement.DeadCodeFragment =
-        MetamorphicStatement.DeadCodeFragment(
+    private fun createDeadReturn(): AugmentedStatement.DeadCodeFragment =
+        AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
                     generateFalseByConstructionExpression(fuzzerSettings, parsedShaderJob),

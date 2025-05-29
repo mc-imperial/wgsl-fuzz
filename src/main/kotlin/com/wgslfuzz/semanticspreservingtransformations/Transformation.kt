@@ -1,4 +1,4 @@
-package com.wgslfuzz.metamorphictransformations
+package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.ParsedShaderJob
 
