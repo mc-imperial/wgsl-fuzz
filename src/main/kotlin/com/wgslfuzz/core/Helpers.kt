@@ -34,13 +34,21 @@ package com.wgslfuzz.core
 fun TranslationUnit.getUniformDeclaration(
     group: Int,
     binding: Int,
-): GlobalDecl.Variable =
-    globalDecls.filterIsInstance<GlobalDecl.Variable>().first {
-        it.hasIntegerAttribute(AttributeKind.GROUP, group) &&
-            it.hasIntegerAttribute(AttributeKind.BINDING, binding)
-    }
-
-private fun GlobalDecl.Variable.hasIntegerAttribute(
-    kind: AttributeKind,
-    value: Int,
-) = (attributes.first { attribute -> attribute.kind == kind }.args[0] as Expression.IntLiteral).text.toInt() == value
+): GlobalDecl.Variable {
+    val uniformDeclaration =
+        globalDecls.filterIsInstance<GlobalDecl.Variable>().first {
+            (
+                it.attributes
+                    .filterIsInstance<Attribute.Group>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt() == group &&
+                (
+                    it.attributes
+                        .filterIsInstance<Attribute.Binding>()
+                        .first()
+                        .expression as Expression.IntLiteral
+                ).text.toInt() == binding
+        }
+    return uniformDeclaration
+}

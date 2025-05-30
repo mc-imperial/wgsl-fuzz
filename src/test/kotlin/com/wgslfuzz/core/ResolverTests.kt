@@ -60,9 +60,7 @@ class ResolverTests {
         gatherExpressions(tu, expressions)
 
         // Confirm that a type was found for every expression.
-        expressions.forEach {
-            environment.typeOf(it)
-        }
+        expressions.forEach(environment::typeOf)
 
         val functionDecl = tu.globalDecls[0] as GlobalDecl.Function
         val whileStmt = functionDecl.body.statements[1] as Statement.While
@@ -140,7 +138,7 @@ class ResolverTests {
             }
 
             @compute
-            @workgroup_size(1, )
+            @workgroup_size(1)
             fn main()
             {
               var v1 = 0;
@@ -160,9 +158,7 @@ class ResolverTests {
         gatherExpressions(tu, expressions)
 
         // Confirm that a type was found for every expression.
-        expressions.forEach {
-            environment.typeOf(it)
-        }
+        expressions.forEach(environment::typeOf)
     }
 
     @Test
@@ -391,5 +387,26 @@ class ResolverTests {
         assertNotNull(enclosingScopeContinuingStatementCompound.getEntry("j"))
 
         assertNotSame(enclosingScopeLoopBody.getEntry("x"), enclosingScopeContinuingStatementCompound.getEntry("x"))
+    }
+
+    @Test
+    fun testWorkgroupSizeExpressionsAreTyped() {
+        val input =
+            """
+            @compute
+            @workgroup_size(1, )
+            fn main()
+            {
+            }
+            """.trimIndent()
+        val errorListener = LoggingParseErrorListener()
+        val tu = parseFromString(input, errorListener)
+        val environment = resolve(tu)
+
+        val expressions = mutableSetOf<Expression>()
+        gatherExpressions(tu, expressions)
+        assertEquals(1, expressions.size)
+        val workgroupSize = expressions.toList()[0] as Expression.IntLiteral
+        assertEquals(Type.AbstractInteger, environment.typeOf(workgroupSize))
     }
 }

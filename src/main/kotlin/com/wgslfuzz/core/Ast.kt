@@ -27,29 +27,6 @@ package com.wgslfuzz.core
 // AST nodes depend on a number of enum classes. The enum classes that are *only* used by AST
 // nodes appear here. Enum classes that are also used by types appear in separate files.
 
-enum class AttributeKind {
-    ALIGN,
-    BINDING,
-    BUILTIN,
-    COMPUTE,
-    CONST,
-    DIAGNOSTIC,
-    FRAGMENT,
-    GROUP,
-    ID,
-    INTERPOLATE,
-    INVARIANT,
-    LOCATION,
-    BLEND_SRC,
-    MUST_USE,
-    SIZE,
-    VERTEX,
-    WORKGROUP_SIZE,
-
-    // Extensions:
-    INPUT_ATTACHMENT_INDEX,
-}
-
 enum class AssignmentOperator {
     EQUAL,
     PLUS_EQUAL,
@@ -93,6 +70,50 @@ enum class BinaryOperator {
     MODULO,
 }
 
+enum class BuiltinValue {
+    VERTEX_INDEX,
+    INSTANCE_INDEX,
+    CLIP_DISTANCES,
+    POSITION,
+    FRONT_FACING,
+    FRAG_DEPTH,
+    SAMPLE_INDEX,
+    SAMPLE_MASK,
+    LOCAL_INVOCATION_ID,
+    LOCAL_INVOCATION_INDEX,
+    GLOBAL_INVOCATION_ID,
+    WORKGROUP_ID,
+    NUM_WORKGROUPS,
+    SUBGROUP_INVOCATION_ID,
+    SUBGROUP_SIZE,
+}
+
+enum class SeverityControl {
+    ERROR,
+    WARNING,
+    INFO,
+    OFF,
+}
+
+enum class DiagnosticRule {
+    DERIVATIVE_UNIFORMITY,
+    SUBGROUP_UNIFORMITY,
+}
+
+enum class InterpolateType {
+    PERSPECTIVE,
+    LINEAR,
+    FLAT,
+}
+
+enum class InterpolateSampling {
+    CENTER,
+    CENTROID,
+    SAMPLE,
+    FIRST,
+    EITHER,
+}
+
 /**
  * Every AST node (indirectly) implements this interface.
  */
@@ -107,12 +128,75 @@ class TranslationUnit(
 ) : AstNode
 
 /**
- * Many AST nodes have associated attributes, some of which take expression arguments.
+ * Many AST nodes have associated attributes, some of which take arguments.
  */
-class Attribute(
-    val kind: AttributeKind,
-    val args: List<Expression>,
-) : AstNode
+sealed interface Attribute : AstNode {
+    class Align(
+        val expression: Expression,
+    ) : Attribute
+
+    class Binding(
+        val expression: Expression,
+    ) : Attribute
+
+    class BlendSrc(
+        val expression: Expression,
+    ) : Attribute
+
+    class Builtin(
+        val name: BuiltinValue,
+    ) : Attribute
+
+    class Compute : Attribute
+
+    class Const : Attribute
+
+    class Diagnostic(
+        val severityControl: SeverityControl,
+        val diagnosticRule: DiagnosticRule,
+    ) : Attribute
+
+    class Fragment : Attribute
+
+    class Group(
+        val expression: Expression,
+    ) : Attribute
+
+    class Id(
+        val expression: Expression,
+    ) : Attribute
+
+    class Interpolate(
+        val interpolateType: InterpolateType,
+        val interpolateSampling: InterpolateSampling? = null,
+    ) : Attribute
+
+    class Invariant : Attribute
+
+    class Location(
+        val expression: Expression,
+    ) : Attribute
+
+    class MustUse : Attribute
+
+    class Size(
+        val expression: Expression,
+    ) : Attribute
+
+    class Vertex : Attribute
+
+    class WorkgroupSize(
+        val sizeX: Expression,
+        val sizeY: Expression? = null,
+        val sizeZ: Expression? = null,
+    ) : Attribute
+
+    // Extensions:
+
+    class InputAttachmentIndex(
+        val expression: Expression,
+    ) : Attribute
+}
 
 /**
  * At present, the details of directives are not represented in the AST; a directive is simply

@@ -23,18 +23,40 @@ fun <T> traverse(
 ) {
     val actionWithState: (child: AstNode) -> Unit = { child -> action(child, traversalState) }
     when (node) {
+        is Attribute.Builtin -> {}
+        is Attribute.Compute -> {}
+        is Attribute.Const -> {}
+        is Attribute.Diagnostic -> {}
+        is Attribute.Fragment -> {}
+        is Attribute.Interpolate -> {}
+        is Attribute.Invariant -> {}
+        is Attribute.MustUse -> {}
+        is Attribute.Vertex -> {}
         is GlobalDecl.Empty -> {}
         is Statement.Break -> {}
         is Statement.Continue -> {}
         is Statement.Discard -> {}
         is Statement.Empty -> {}
-        is Attribute -> {}
         is Directive -> {}
         is Expression.BoolLiteral -> {}
         is Expression.FloatLiteral -> {}
         is Expression.Identifier -> {}
         is Expression.IntLiteral -> {}
         is LhsExpression.Identifier -> {}
+
+        is Attribute.Align -> actionWithState(node.expression)
+        is Attribute.Binding -> actionWithState(node.expression)
+        is Attribute.BlendSrc -> actionWithState(node.expression)
+        is Attribute.Group -> actionWithState(node.expression)
+        is Attribute.Id -> actionWithState(node.expression)
+        is Attribute.InputAttachmentIndex -> actionWithState(node.expression)
+        is Attribute.Location -> actionWithState(node.expression)
+        is Attribute.Size -> actionWithState(node.expression)
+        is Attribute.WorkgroupSize -> {
+            actionWithState(node.sizeX)
+            node.sizeY?.let(actionWithState)
+            node.sizeZ?.let(actionWithState)
+        }
 
         is ContinuingStatement -> {
             node.attributes.forEach(actionWithState)

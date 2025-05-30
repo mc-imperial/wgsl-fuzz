@@ -107,31 +107,6 @@ class AstWriter(
         )
     }
 
-    private fun emitAttributeKind(attributeKind: AttributeKind) {
-        out.print(
-            when (attributeKind) {
-                AttributeKind.ALIGN -> "align"
-                AttributeKind.BINDING -> "binding"
-                AttributeKind.BUILTIN -> "builtin"
-                AttributeKind.COMPUTE -> "compute"
-                AttributeKind.CONST -> "const"
-                AttributeKind.DIAGNOSTIC -> "diagnostic"
-                AttributeKind.FRAGMENT -> "fragment"
-                AttributeKind.GROUP -> "group"
-                AttributeKind.ID -> "id"
-                AttributeKind.INTERPOLATE -> "interpolate"
-                AttributeKind.INVARIANT -> "invariant"
-                AttributeKind.LOCATION -> "location"
-                AttributeKind.BLEND_SRC -> "blend_src"
-                AttributeKind.MUST_USE -> "must_use"
-                AttributeKind.SIZE -> "size"
-                AttributeKind.VERTEX -> "vertex"
-                AttributeKind.WORKGROUP_SIZE -> "workgroup_size"
-                AttributeKind.INPUT_ATTACHMENT_INDEX -> "input_attachment_index"
-            },
-        )
-    }
-
     private fun emitAttributes(attributes: List<Attribute>) {
         attributes.forEach {
             emitAttribute(it)
@@ -139,21 +114,140 @@ class AstWriter(
     }
 
     private fun emitAttribute(attribute: Attribute) {
-        with(attribute) {
-            emitIndent()
-            out.print("@")
-            emitAttributeKind(kind)
-            if (args.isNotEmpty()) {
-                out.print("(")
-                args.forEach {
-                    emitExpression(it)
+        emitIndent()
+        when (attribute) {
+            is Attribute.Align -> {
+                out.print("@align(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.Binding -> {
+                out.print("@binding(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.BlendSrc -> {
+                out.print("@blend_src(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.Builtin -> {
+                out.print("@builtin(")
+                emitBuiltinValue(attribute.name)
+                out.print(")")
+            }
+            is Attribute.Compute -> out.print("@compute")
+            is Attribute.Const -> out.print("@const")
+            is Attribute.Diagnostic -> {
+                out.print("@diagnostic(")
+                emitSeverityControl(attribute.severityControl)
+                out.print(", ")
+                emitDiagnosticRule(attribute.diagnosticRule)
+                out.print(")")
+            }
+            is Attribute.Fragment -> out.print("@fragment")
+            is Attribute.Group -> {
+                out.print("@group(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.Id -> {
+                out.print("@id(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.InputAttachmentIndex -> {
+                out.print("@input_attachment_index(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.Interpolate -> {
+                out.print("@interpolate(")
+                emitInterpolateType(attribute.interpolateType)
+                attribute.interpolateSampling?.let {
                     out.print(", ")
+                    emitInterpolateSampling(attribute.interpolateSampling)
                 }
                 out.print(")")
             }
-            out.print("\n")
+            is Attribute.Invariant -> out.print("@invariant")
+            is Attribute.Location -> {
+                out.print("@location(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.MustUse -> out.print("@must_use")
+            is Attribute.Size -> {
+                out.print("@size(")
+                emitExpression(attribute.expression)
+                out.print(")")
+            }
+            is Attribute.Vertex -> out.print("@vertex")
+            is Attribute.WorkgroupSize -> {
+                out.print("@workgroup_size(")
+                emitExpression(attribute.sizeX)
+                attribute.sizeY?.let {
+                    out.print(", ")
+                    emitExpression(it)
+                }
+                attribute.sizeZ?.let {
+                    out.print(", ")
+                    emitExpression(it)
+                }
+                out.print(")")
+            }
         }
+        out.print("\n")
     }
+
+    private fun emitSeverityControl(severityControl: SeverityControl) =
+        when (severityControl) {
+            SeverityControl.ERROR -> out.print("error")
+            SeverityControl.WARNING -> out.print("warning")
+            SeverityControl.INFO -> out.print("info")
+            SeverityControl.OFF -> out.print("off")
+        }
+
+    private fun emitDiagnosticRule(diagnosticRule: DiagnosticRule) =
+        when (diagnosticRule) {
+            DiagnosticRule.DERIVATIVE_UNIFORMITY -> out.print("derivative_uniformity")
+            DiagnosticRule.SUBGROUP_UNIFORMITY -> out.print("subgroup_uniformity")
+        }
+
+    private fun emitInterpolateType(interpolateType: InterpolateType) =
+        when (interpolateType) {
+            InterpolateType.PERSPECTIVE -> out.print("perspective")
+            InterpolateType.LINEAR -> out.print("linear")
+            InterpolateType.FLAT -> out.print("flat")
+        }
+
+    private fun emitInterpolateSampling(interpolateSampling: InterpolateSampling) =
+        when (interpolateSampling) {
+            InterpolateSampling.CENTER -> out.print("center")
+            InterpolateSampling.CENTROID -> out.print("centroid")
+            InterpolateSampling.SAMPLE -> out.print("sample")
+            InterpolateSampling.FIRST -> out.print("first")
+            InterpolateSampling.EITHER -> out.print("either")
+        }
+
+    private fun emitBuiltinValue(builtinValue: BuiltinValue) =
+        when (builtinValue) {
+            BuiltinValue.VERTEX_INDEX -> out.print("vertex_index")
+            BuiltinValue.INSTANCE_INDEX -> out.print("instance_index")
+            BuiltinValue.CLIP_DISTANCES -> out.print("clip_distances")
+            BuiltinValue.POSITION -> out.print("position")
+            BuiltinValue.FRONT_FACING -> out.print("front_facing")
+            BuiltinValue.FRAG_DEPTH -> out.print("frag_depth")
+            BuiltinValue.SAMPLE_INDEX -> out.print("sample_index")
+            BuiltinValue.SAMPLE_MASK -> out.print("sample_mask")
+            BuiltinValue.LOCAL_INVOCATION_ID -> out.print("local_invocation_id")
+            BuiltinValue.LOCAL_INVOCATION_INDEX -> out.print("local_invocation_index")
+            BuiltinValue.GLOBAL_INVOCATION_ID -> out.print("global_invocation_id")
+            BuiltinValue.WORKGROUP_ID -> out.print("workgroup_id")
+            BuiltinValue.NUM_WORKGROUPS -> out.print("num_workgroups")
+            BuiltinValue.SUBGROUP_INVOCATION_ID -> out.print("subgroup_invocation_id")
+            BuiltinValue.SUBGROUP_SIZE -> out.print("subgroup_size")
+        }
 
     private fun emitAssignmentOperator(assignmentOperator: AssignmentOperator) {
         when (assignmentOperator) {

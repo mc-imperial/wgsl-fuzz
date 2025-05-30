@@ -1239,59 +1239,231 @@ private class AstBuilder(
     }
 
     private fun gatherAttributes(attributes: List<AttributeContext>): List<Attribute> =
-        attributes
-            .map {
-                val attributeTokenName =
-                    if (it.attr_name() == null) {
-                        it.IDENT().text
-                    } else if (it.attr_name().attr_keyword() != null && it.attr_name().attr_keyword().CONST() != null) {
-                        it
-                            .attr_name()
-                            .attr_keyword()
-                            .CONST()
-                            .text
-                    } else if (it.attr_name().attr_keyword() != null && it.attr_name().attr_keyword().DIAGNOSTIC() != null) {
-                        it
-                            .attr_name()
-                            .attr_keyword()
-                            .DIAGNOSTIC()
-                            .text
-                    } else {
-                        it.attr_name().IDENT().text
+        attributes.map {
+            val attributeName: String =
+                if (it.attr_name() == null) {
+                    it.IDENT().text
+                } else if (it.attr_name().attr_keyword() != null && it.attr_name().attr_keyword().CONST() != null) {
+                    it
+                        .attr_name()
+                        .attr_keyword()
+                        .CONST()
+                        .text
+                } else if (it.attr_name().attr_keyword() != null &&
+                    it
+                        .attr_name()
+                        .attr_keyword()
+                        .DIAGNOSTIC() != null
+                ) {
+                    it
+                        .attr_name()
+                        .attr_keyword()
+                        .DIAGNOSTIC()
+                        .text
+                } else {
+                    it.attr_name().IDENT().text
+                }
+            val numArgs = it.expression().size
+            when (attributeName) {
+                "align" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @align attribute takes one argument.")
                     }
-                val kind: AttributeKind =
-                    when (attributeTokenName) {
-                        "align" -> AttributeKind.ALIGN
-                        "binding" -> AttributeKind.BINDING
-                        "builtin" -> AttributeKind.BUILTIN
-                        "compute" -> AttributeKind.COMPUTE
-                        "const" -> AttributeKind.CONST
-                        "diagnostic" -> AttributeKind.DIAGNOSTIC
-                        "fragment" -> AttributeKind.FRAGMENT
-                        "group" -> AttributeKind.GROUP
-                        "id" -> AttributeKind.ID
-                        "interpolate" -> AttributeKind.INTERPOLATE
-                        "invariant" -> AttributeKind.INVARIANT
-                        "location" -> AttributeKind.LOCATION
-                        "blend_src" -> AttributeKind.BLEND_SRC
-                        "must_use" -> AttributeKind.MUST_USE
-                        "size" -> AttributeKind.SIZE
-                        "vertex" -> AttributeKind.VERTEX
-                        "workgroup_size" -> AttributeKind.WORKGROUP_SIZE
-                        "input_attachment_index" -> AttributeKind.INPUT_ATTACHMENT_INDEX
-                        else -> throw UnsupportedOperationException("Unknown attribute kind: $attributeTokenName")
+                    Attribute.Align(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                "binding" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @binding attribute takes one argument.")
                     }
-                Attribute(
-                    kind = kind,
-                    args =
-                        it
-                            .expression()
-                            ?.map { expression ->
-                                visitExpression(expression)
-                            } ?: emptyList(),
-                )
+                    Attribute.Binding(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                "builtin" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @builtin attribute takes one argument.")
+                    }
+                    Attribute.Builtin(
+                        name = builtinFromString(it.expression(0).fullText),
+                    )
+                }
+                "compute" -> {
+                    if (numArgs != 0) {
+                        throw UnsupportedOperationException("The @compute attribute does not take arguments.")
+                    }
+                    Attribute.Compute()
+                }
+                "const" -> {
+                    if (numArgs != 0) {
+                        throw UnsupportedOperationException("The @const attribute does not take arguments.")
+                    }
+                    Attribute.Const()
+                }
+                "diagnostic" -> {
+                    if (numArgs != 2) {
+                        throw UnsupportedOperationException("The @diagnostic attribute takes two argument.")
+                    }
+                    Attribute.Diagnostic(
+                        severityControl = severityControlFromString(it.expression(0).fullText),
+                        diagnosticRule = diagnosticRuleFromString(it.expression(1).fullText),
+                    )
+                }
+                "fragment" -> {
+                    if (numArgs != 0) {
+                        throw UnsupportedOperationException("The @fragment attribute does not take arguments.")
+                    }
+                    Attribute.Fragment()
+                }
+                "group" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @group attribute takes one argument.")
+                    }
+                    Attribute.Group(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                "id" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @id attribute takes one argument.")
+                    }
+                    Attribute.Id(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                "interpolate" -> {
+                    if (numArgs !in 1..2) {
+                        throw UnsupportedOperationException("The @interpolate attribute takes 1--2 arguments.")
+                    }
+                    Attribute.Interpolate(
+                        interpolateType = interpolateTypeFromString(it.expression(0).fullText),
+                        interpolateSampling =
+                            if (numArgs == 1) {
+                                null
+                            } else {
+                                interpolateSamplingFromString(it.expression(1).fullText)
+                            },
+                    )
+                }
+                "invariant" -> Attribute.Invariant()
+                "location" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @location attribute takes one argument.")
+                    }
+                    Attribute.Location(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                "blend_src" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @blend_src attribute takes one argument.")
+                    }
+                    Attribute.BlendSrc(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                "must_use" -> Attribute.MustUse()
+                "size" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @size attribute takes one argument.")
+                    }
+                    Attribute.Size(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                "vertex" -> {
+                    if (numArgs != 0) {
+                        throw UnsupportedOperationException("The @vertex attribute does not take arguments.")
+                    }
+                    Attribute.Vertex()
+                }
+                "workgroup_size" -> {
+                    if (numArgs !in 1..3) {
+                        throw UnsupportedOperationException("The @workgroup_size attribute takes 1--3 arguments.")
+                    }
+                    Attribute.WorkgroupSize(
+                        sizeX = visitExpression(it.expression(0)),
+                        sizeY =
+                            if (numArgs > 1) {
+                                visitExpression(it.expression(1))
+                            } else {
+                                null
+                            },
+                        sizeZ =
+                            if (numArgs > 2) {
+                                visitExpression(it.expression(2))
+                            } else {
+                                null
+                            },
+                    )
+                }
+                "input_attachment_index" -> {
+                    if (numArgs != 1) {
+                        throw UnsupportedOperationException("The @input_attachment_index attribute takes one argument.")
+                    }
+                    Attribute.InputAttachmentIndex(
+                        expression = visitExpression(it.expression(0)),
+                    )
+                }
+                else -> throw UnsupportedOperationException("Unknown attribute kind: $attributeName")
             }
+        }
 }
+
+private fun builtinFromString(name: String): BuiltinValue =
+    when (name) {
+        "vertex_index" -> BuiltinValue.VERTEX_INDEX
+        "instance_index" -> BuiltinValue.INSTANCE_INDEX
+        "clip_distances" -> BuiltinValue.CLIP_DISTANCES
+        "position" -> BuiltinValue.POSITION
+        "front_facing" -> BuiltinValue.FRONT_FACING
+        "frag_depth" -> BuiltinValue.FRAG_DEPTH
+        "sample_index" -> BuiltinValue.SAMPLE_INDEX
+        "sample_mask" -> BuiltinValue.SAMPLE_MASK
+        "local_invocation_id" -> BuiltinValue.LOCAL_INVOCATION_ID
+        "local_invocation_index" -> BuiltinValue.LOCAL_INVOCATION_INDEX
+        "global_invocation_id" -> BuiltinValue.GLOBAL_INVOCATION_ID
+        "workgroup_id" -> BuiltinValue.WORKGROUP_ID
+        "num_workgroups" -> BuiltinValue.NUM_WORKGROUPS
+        "subgroup_invocation_id" -> BuiltinValue.SUBGROUP_INVOCATION_ID
+        "subgroup_size" -> BuiltinValue.SUBGROUP_SIZE
+        else -> throw UnsupportedOperationException("Unknown builtin name '$name'")
+    }
+
+private fun severityControlFromString(severityControl: String): SeverityControl =
+    when (severityControl) {
+        "error" -> SeverityControl.ERROR
+        "warning" -> SeverityControl.WARNING
+        "info" -> SeverityControl.INFO
+        "off" -> SeverityControl.OFF
+        else -> throw UnsupportedOperationException("Unknown severity control '$severityControl'")
+    }
+
+private fun diagnosticRuleFromString(diagnosticRule: String): DiagnosticRule =
+    when (diagnosticRule) {
+        "derivative_uniformity" -> DiagnosticRule.DERIVATIVE_UNIFORMITY
+        "subgroup_uniformity" -> DiagnosticRule.SUBGROUP_UNIFORMITY
+        else -> throw UnsupportedOperationException("Unknown diagnostic rule '$diagnosticRule'")
+    }
+
+private fun interpolateTypeFromString(interpolateType: String): InterpolateType =
+    when (interpolateType) {
+        "perspective" -> InterpolateType.PERSPECTIVE
+        "linear" -> InterpolateType.LINEAR
+        "flat" -> InterpolateType.FLAT
+        else -> throw UnsupportedOperationException("Unknown interpolate type '$interpolateType'")
+    }
+
+private fun interpolateSamplingFromString(interpolateSampling: String): InterpolateSampling =
+    when (interpolateSampling) {
+        "center" -> InterpolateSampling.CENTER
+        "centroid" -> InterpolateSampling.CENTROID
+        "sample" -> InterpolateSampling.SAMPLE
+        "first" -> InterpolateSampling.FIRST
+        "either" -> InterpolateSampling.EITHER
+        else -> throw UnsupportedOperationException("Unknown interpolate sampling '$interpolateSampling'")
+    }
 
 private class ModuleScopeNames(
     val structNames: Set<String>,

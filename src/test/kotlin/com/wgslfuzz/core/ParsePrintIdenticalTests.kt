@@ -30,8 +30,8 @@ class ParsePrintIdenticalTests {
               injected : i32,
             }
 
-            @group(0, )
-            @binding(0, )
+            @group(0)
+            @binding(0)
             var<uniform> x_9 : buf0;
 
             var<private> x_GLF_color : vec4<f32>;
@@ -136,7 +136,7 @@ class ParsePrintIdenticalTests {
             }
 
             struct main_out {
-              @location(0, )
+              @location(0)
               x_GLF_color_1 : vec4<f32>,
             }
 
@@ -176,7 +176,7 @@ class ParsePrintIdenticalTests {
         val input =
             """
             @compute
-            @workgroup_size(1, )
+            @workgroup_size(1)
             fn f()
             {
               var i : i32 = 0;
@@ -233,18 +233,18 @@ class ParsePrintIdenticalTests {
             enable dual_source_blending;
 
             struct FragInput {
-              @location(0, )
+              @location(0)
               a : vec4<f32>,
-              @location(1, )
+              @location(1)
               b : vec4<f32>,
             }
 
             struct FragOutput {
-              @location(0, )
-              @blend_src(0, )
+              @location(0)
+              @blend_src(0)
               color : vec4<f32>,
-              @location(0, )
-              @blend_src(1, )
+              @location(0)
+              @blend_src(1)
               blend : vec4<f32>,
             }
 
@@ -271,17 +271,17 @@ class ParsePrintIdenticalTests {
             """
             diagnostic(warning, derivative_uniformity);
 
-            @group(0, )
-            @binding(1, )
+            @group(0)
+            @binding(1)
             var t : texture_2d<f32>;
 
-            @group(0, )
-            @binding(2, )
+            @group(0)
+            @binding(2)
             var s : sampler;
 
             @fragment
             fn main(
-              @location(0, )
+              @location(0)
               x : f32,
             )
             {
@@ -300,21 +300,21 @@ class ParsePrintIdenticalTests {
     fun switchTest() {
         val input =
             """
-            @group(0, )
-            @binding(1, )
+            @group(0)
+            @binding(1)
             var t : texture_2d<f32>;
 
-            @group(0, )
-            @binding(2, )
+            @group(0)
+            @binding(2)
             var s : sampler;
 
             @fragment
             fn main(
-              @location(0, )
+              @location(0)
               x : f32,
             )
             {
-              @diagnostic(warning, derivative_uniformity, )
+              @diagnostic(warning, derivative_uniformity)
               switch (i32(x == 0.0 && dpdx(1.0, ) == 0.0, ))
               {
                 default
@@ -347,8 +347,8 @@ class ParsePrintIdenticalTests {
     fun pointerTest() {
         val input =
             """
-            @group(0, )
-            @binding(0, )
+            @group(0)
+            @binding(0)
             var<storage, read_write> s : i32;
 
             var<workgroup> g1 : atomic<i32>;
@@ -409,7 +409,7 @@ class ParsePrintIdenticalTests {
             }
 
             @compute
-            @workgroup_size(1, )
+            @workgroup_size(1)
             fn main()
             {
               var v1 = 0;
