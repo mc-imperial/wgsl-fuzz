@@ -17,7 +17,7 @@
 package com.wgslfuzz.analysis
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AttributeKind
+import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.ResolvedEnvironment
@@ -93,13 +93,13 @@ fun runFunctionToShaderStageAnalysis(
     for (function in tu.globalDecls.filterIsInstance<GlobalDecl.Function>()) {
         for (attribute in function.attributes) {
             val stages = mutableSetOf<ShaderStage>()
-            if (attribute.kind == AttributeKind.VERTEX) {
+            if (attribute is Attribute.Vertex) {
                 stages.add(ShaderStage.VERTEX)
             }
-            if (attribute.kind == AttributeKind.FRAGMENT) {
+            if (attribute is Attribute.Fragment) {
                 stages.add(ShaderStage.FRAGMENT)
             }
-            if (attribute.kind == AttributeKind.COMPUTE) {
+            if (attribute is Attribute.Compute) {
                 stages.add(ShaderStage.COMPUTE)
             }
             if (stages.isNotEmpty()) {

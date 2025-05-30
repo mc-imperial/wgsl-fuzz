@@ -140,7 +140,7 @@ class ResolverTests {
             }
 
             @compute
-            @workgroup_size(1, )
+            @workgroup_size(1)
             fn main()
             {
               var v1 = 0;

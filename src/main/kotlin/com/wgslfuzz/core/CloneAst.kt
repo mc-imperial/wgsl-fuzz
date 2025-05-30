@@ -38,7 +38,29 @@ private fun cloneHelper(
     replacements(node) ?: with(node) {
         // No replacement was provided, so proceed to deep-clone the node.
         when (this) {
-            is Attribute -> Attribute(kind, args.clone(replacements))
+            is Attribute.Align -> Attribute.Align(expression.clone(replacements))
+            is Attribute.Binding -> Attribute.Binding(expression.clone(replacements))
+            is Attribute.BlendSrc -> Attribute.BlendSrc(expression.clone(replacements))
+            is Attribute.Builtin -> Attribute.Builtin(name)
+            is Attribute.Compute -> Attribute.Compute()
+            is Attribute.Const -> Attribute.Const()
+            is Attribute.Diagnostic -> Attribute.Diagnostic(severityControl, diagnosticRule)
+            is Attribute.Fragment -> Attribute.Fragment()
+            is Attribute.Group -> Attribute.Group(expression.clone(replacements))
+            is Attribute.Id -> Attribute.Id(expression.clone(replacements))
+            is Attribute.InputAttachmentIndex -> Attribute.InputAttachmentIndex(expression.clone(replacements))
+            is Attribute.Interpolate -> Attribute.Interpolate(interpolateType, interpolateSampling)
+            is Attribute.Invariant -> Attribute.Invariant()
+            is Attribute.Location -> Attribute.Location(expression.clone(replacements))
+            is Attribute.MustUse -> Attribute.MustUse()
+            is Attribute.Size -> Attribute.Size(expression.clone(replacements))
+            is Attribute.Vertex -> Attribute.Vertex()
+            is Attribute.WorkgroupSize ->
+                Attribute.WorkgroupSize(
+                    sizeX.clone(replacements),
+                    sizeY?.clone(replacements),
+                    sizeZ?.clone(replacements),
+                )
             is ContinuingStatement ->
                 ContinuingStatement(
                     attributes.clone(replacements),
