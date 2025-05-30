@@ -18,6 +18,7 @@ package com.wgslfuzz.core
 
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class TraversalTests {
     @Test
@@ -105,5 +106,29 @@ class TraversalTests {
                 tu,
             )
         assertEquals(expectedPostOrder, nodesPostOrder(tu))
+    }
+
+    @Test
+    fun testAttributeTraversal() {
+        val shader =
+            """
+            struct S { a: i32, }
+            @group(0)
+            @binding(0)
+            var<uniform> v: S;
+            """.trimIndent()
+        val tu = parseFromString(shader, LoggingParseErrorListener())
+        val nodes = nodesPreOrder(tu)
+        assertEquals(10, nodes.size)
+        assertTrue(nodes[0] is TranslationUnit)
+        assertTrue(nodes[1] is GlobalDecl.Struct)
+        assertTrue(nodes[2] is StructMember)
+        assertTrue(nodes[3] is TypeDecl.I32)
+        assertTrue(nodes[4] is GlobalDecl.Variable)
+        assertTrue(nodes[5] is Attribute)
+        assertTrue(nodes[6] is Expression.IntLiteral)
+        assertTrue(nodes[7] is Attribute)
+        assertTrue(nodes[8] is Expression.IntLiteral)
+        assertTrue(nodes[9] is TypeDecl.NamedType)
     }
 }
