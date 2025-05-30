@@ -1849,6 +1849,12 @@ private fun resolveFunctionHeader(
     functionDecl: GlobalDecl.Function,
     resolverState: ResolverState,
 ) {
+    functionDecl.attributes.forEach { attribute ->
+        attribute.args.forEach {
+            resolverState.resolvedEnvironment.recordType(it, resolveExpressionType(it, resolverState))
+        }
+    }
+
     val functionType =
         FunctionType(
             functionDecl.parameters.map {
