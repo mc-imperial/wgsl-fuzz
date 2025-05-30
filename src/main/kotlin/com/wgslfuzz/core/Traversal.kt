@@ -12,14 +12,13 @@ fun <T> traverse(
         is Statement.Continue -> {}
         is Statement.Discard -> {}
         is Statement.Empty -> {}
-        is Attribute -> {}
         is Directive -> {}
         is Expression.BoolLiteral -> {}
         is Expression.FloatLiteral -> {}
         is Expression.Identifier -> {}
         is Expression.IntLiteral -> {}
         is LhsExpression.Identifier -> {}
-
+        is Attribute -> node.args.forEach(actionWithState)
         is ContinuingStatement -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.statements)
