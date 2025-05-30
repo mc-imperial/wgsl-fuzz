@@ -1,25 +1,45 @@
+/*
+ * Copyright 2025 The wgsl-fuzz Project Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.wgslfuzz.core
 
-sealed interface Type {
-    fun isAbstract(): Boolean
+/**
+ * Interfaces and classes representing the types associated with AST nodes after resolving has taken place.
+ * This hierarchy of interfaces and classes is deliberately entirely separate from those that represent type declarations
+ * in an AST.
+ *
+ * By design, all concrete classes representing types are data classes (or data objects).
+ */
 
-    class Reference(
+sealed interface Type {
+    /**
+     * Numeric types, and vectors and matrices of numeric elements, can be abstract. This method provides a convenient
+     * way to check whether a type is abstract; by default types are not.
+     */
+    fun isAbstract(): Boolean = false
+
+    data class Reference(
         val storeType: Type,
         val addressSpace: AddressSpace,
         val accessMode: AccessMode,
-    ) : Type {
-        override fun isAbstract(): Nothing = throw RuntimeException("It does not make sense to ask whether a reference type is abstract.")
-    }
-
-    // Scalar types. These are all data objects - i.e., there is only one instance of each of the specific scalar types
-    // (Bool, I32, U32, F16, F32, AbstractInt, AbstractFloat). For this reason, equals and hashCode need not be
-    // overridden for scalar types.
+    ) : Type
 
     sealed interface Scalar : Type
 
-    data object Bool : Scalar {
-        override fun isAbstract(): Boolean = false
-    }
+    data object Bool : Scalar
 
     sealed interface Integer : Scalar
 
@@ -27,13 +47,9 @@ sealed interface Type {
         override fun isAbstract(): Boolean = true
     }
 
-    data object I32 : Integer {
-        override fun isAbstract(): Boolean = false
-    }
+    data object I32 : Integer
 
-    data object U32 : Integer {
-        override fun isAbstract(): Boolean = false
-    }
+    data object U32 : Integer
 
     sealed interface Float : Scalar
 
@@ -41,16 +57,9 @@ sealed interface Type {
         override fun isAbstract(): Boolean = true
     }
 
-    data object F16 : Float {
-        override fun isAbstract(): Boolean = false
-    }
+    data object F16 : Float
 
-    data object F32 : Float {
-        override fun isAbstract(): Boolean = false
-    }
-
-    // Vector types. A vector type has an element type and width, and two vector types that match on these are
-    // considered equal.
+    data object F32 : Float
 
     data class Vector(
         val width: Int,
@@ -58,9 +67,6 @@ sealed interface Type {
     ) : Type {
         override fun isAbstract(): Boolean = elementType.isAbstract()
     }
-
-    // Matrix types. A matrix type has an element type, a number of columns and a number of rows. Two matrix types that
-    // match on these are considered equal.
 
     data class Matrix(
         val numCols: Int,
@@ -70,11 +76,12 @@ sealed interface Type {
         override fun isAbstract(): Boolean = elementType.isAbstract()
     }
 
-    // Array types. An array has an element type and an element count. The latter can be emitted in certain scenarios.
-    // Two array type should certainly be considered equal if they match on element type, and both have a matching
-    // element count. If they do *not* have an element count then it not entirely clear that they should be considered
-    // equal. This is something that might need to be revisited.
-
+    /**
+     * Array types. An array has an element type and an element count. The latter can be emitted in certain scenarios.
+     * Two array type should certainly be considered equal if they match on element type, and both have a matching
+     * element count. If they do *not* have an element count then it not entirely clear that they should be considered
+     * equal. This is something that might need to be revisited.
+     */
     data class Array(
         val elementType: Type,
         val elementCount: Int?,
@@ -82,29 +89,16 @@ sealed interface Type {
         override fun isAbstract(): Boolean = elementType.isAbstract()
     }
 
-    // Pointer types. A pointer has a pointee type, address space and access mode. Two pointer types are equal if they
-    // match on all these.
     data class Pointer(
         val pointeeType: Type,
         val addressSpace: AddressSpace,
         val accessMode: AccessMode,
-    ) : Type {
-        override fun isAbstract(): Boolean = false
-    }
-
-    // Struct types. A struct type has a name and a set of typed members. Two struct types are equal if they match on
-    // both. Since WGSL does not allow multiple struct types with the same name, it would also be OK to define equality
-    // simply based on type names. This could be considered if it proves inefficient to compare entire struct types.
+    ) : Type
 
     data class Struct(
         val name: String,
         val members: List<Pair<String, Type>>,
-    ) : Type {
-        override fun isAbstract(): Boolean = false
-    }
-
-    // Atomic types - there are two types, AtomicI32 and AtomicU32, both declared as data objects, therefore there is no
-    // need to spell out equality on these types.
+    ) : Type
 
     sealed interface Atomic : Type {
         val targetType: Integer
@@ -112,126 +106,118 @@ sealed interface Type {
 
     data object AtomicI32 : Atomic {
         override val targetType: I32 = I32
-
-        override fun isAbstract(): Boolean = false
     }
 
     data object AtomicU32 : Atomic {
         override val targetType: U32 = U32
-
-        override fun isAbstract(): Boolean = false
     }
 
     sealed interface Texture : Type {
-        override fun isAbstract(): Boolean = false
-
-        // Sampled Texture Types
-        sealed class Sampled(
-            val sampledType: Scalar,
-        ) : Texture
-
-        class Sampled1D(
-            sampledType: Scalar,
-        ) : Sampled(sampledType) {
-            override fun equals(other: Any?): Boolean = other is Sampled1D && sampledType == other.sampledType
-
-            override fun hashCode(): Int = sampledType.hashCode()
+        /**
+         * Sampled Texture Types
+         */
+        sealed interface Sampled : Texture {
+            val sampledType: Scalar
         }
 
-        class Sampled2D(
-            sampledType: Scalar,
-        ) : Sampled(sampledType) {
-            override fun equals(other: Any?): Boolean = other is Sampled2D && sampledType == other.sampledType
+        data class Sampled1D(
+            override val sampledType: Scalar,
+        ) : Sampled
 
-            override fun hashCode(): Int = sampledType.hashCode()
-        }
+        data class Sampled2D(
+            override val sampledType: Scalar,
+        ) : Sampled
 
-        class Sampled2DArray(
-            sampledType: Scalar,
-        ) : Sampled(sampledType) {
-            override fun equals(other: Any?): Boolean = other is Sampled2DArray && sampledType == other.sampledType
+        data class Sampled2DArray(
+            override val sampledType: Scalar,
+        ) : Sampled
 
-            override fun hashCode(): Int = sampledType.hashCode()
-        }
+        data class Sampled3D(
+            override val sampledType: Scalar,
+        ) : Sampled
 
-        class Sampled3D(
-            sampledType: Scalar,
-        ) : Sampled(sampledType) {
-            override fun equals(other: Any?): Boolean = other is Sampled3D && sampledType == other.sampledType
+        data class SampledCube(
+            override val sampledType: Scalar,
+        ) : Sampled
 
-            override fun hashCode(): Int = sampledType.hashCode()
-        }
+        data class SampledCubeArray(
+            override val sampledType: Scalar,
+        ) : Sampled
 
-        class SampledCube(
-            sampledType: Scalar,
-        ) : Sampled(sampledType) {
-            override fun equals(other: Any?): Boolean = other is SampledCube && sampledType == other.sampledType
-
-            override fun hashCode(): Int = sampledType.hashCode()
-        }
-
-        class SampledCubeArray(
-            sampledType: Scalar,
-        ) : Sampled(sampledType) {
-            override fun equals(other: Any?): Boolean = other is SampledCubeArray && sampledType == other.sampledType
-
-            override fun hashCode(): Int = sampledType.hashCode()
-        }
-
-        // Multisampled Texture Types
+        /**
+         * Multisampled Texture Types
+         */
         data class Multisampled2d(
             val sampledType: Scalar,
         ) : Texture
 
         data object DepthMultisampled2D : Texture
 
-        // External Sampled Texture Types
+        /**
+         * External Sampled Texture Types
+         */
         data object External : Texture
 
-        // Storage Texture Types
+        /**
+         * Storage Texture Types
+         */
+        sealed interface Storage : Texture {
+            val format: TexelFormat
+            val accessMode: AccessMode
+        }
+
         data class Storage1D(
-            val format: TexelFormat,
-            val accessMode: AccessMode,
-        ) : Texture
+            override val format: TexelFormat,
+            override val accessMode: AccessMode,
+        ) : Storage
 
         data class Storage2D(
-            val format: TexelFormat,
-            val accessMode: AccessMode,
-        ) : Texture
+            override val format: TexelFormat,
+            override val accessMode: AccessMode,
+        ) : Storage
 
         data class Storage2DArray(
-            val format: TexelFormat,
-            val accessMode: AccessMode,
-        ) : Texture
+            override val format: TexelFormat,
+            override val accessMode: AccessMode,
+        ) : Storage
 
         data class Storage3D(
-            val format: TexelFormat,
-            val accessMode: AccessMode,
-        ) : Texture
+            override val format: TexelFormat,
+            override val accessMode: AccessMode,
+        ) : Storage
 
-        // Depth Texture Types
-        data object Depth2D : Texture
+        /**
+         * Depth Texture Types
+         */
+        sealed interface Depth : Texture
 
-        data object Depth2DArray : Texture
+        data object Depth2D : Depth
 
-        data object DepthCube : Texture
+        data object Depth2DArray : Depth
 
-        data object DepthCubeArray : Texture
+        data object DepthCube : Depth
+
+        data object DepthCubeArray : Depth
     }
 
-    sealed interface Sampler : Type {
-        override fun isAbstract(): Boolean = false
-    }
+    sealed interface Sampler : Type
 
     data object SamplerRegular : Sampler
 
     data object SamplerComparison : Sampler
 }
 
-class FunctionType(
+/**
+ * An expression in WGSL cannot have [FunctionType] as its type. For this reason, [FunctionType] is deliberately not
+ * part of the [Type] hierarchy.
+ */
+data class FunctionType(
     val argTypes: List<Type>,
     val returnType: Type?,
 )
+
+// The following are builtin structures described in the WGSL specification, representing the result types of various
+// builtin functions.
 
 val FrexpResultF16 =
     Type.Struct(

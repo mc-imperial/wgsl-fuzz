@@ -14,24 +14,16 @@
  * limitations under the License.
  */
 
-package com.wgslfuzz.core
+package com.wgslfuzz.semanticspreservingtransformations
 
-enum class TexelFormat {
-    RGBA8UNORM,
-    RGBA8SNORM,
-    RGBA8UINT,
-    RGBA8SINT,
-    RGBA16UINT,
-    RGBA16SINT,
-    RGBA16FLOAT,
-    R32UINT,
-    R32SINT,
-    R32FLOAT,
-    RG32UINT,
-    RG32SINT,
-    RG32FLOAT,
-    RGBA32UINT,
-    RGBA32SINT,
-    RGBA32FLOAT,
-    BGRA8UNORM,
-}
+import com.wgslfuzz.core.ParsedShaderJob
+
+typealias MetamorphicTransformation = (parsedShaderJob: ParsedShaderJob, fuzzerSettings: FuzzerSettings) -> ParsedShaderJob
+
+val metamorphicTransformations: List<MetamorphicTransformation> =
+    listOf(
+        ::addDeadDiscards,
+        ::addDeadBreaks,
+        ::addDeadContinues,
+        ::addDeadReturns,
+    )

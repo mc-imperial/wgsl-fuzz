@@ -1,8 +1,24 @@
-package com.wgslfuzz.metamorphictransformations
+/*
+ * Copyright 2025 The wgsl-fuzz Project Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+package com.wgslfuzz.semanticspreservingtransformations
+
+import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.MetamorphicExpression
 import com.wgslfuzz.core.ParsedShaderJob
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
@@ -80,7 +96,7 @@ fun randomUniformScalarWithValue(
             .toList()
             .sorted()
     val binding = fuzzerSettings.randomElement(bindings)
-    val uniformDeclaration = getUniformDeclaration(parsedShaderJob.tu, group, binding)
+    val uniformDeclaration = parsedShaderJob.tu.getUniformDeclaration(group, binding)
     val typename: String = (uniformDeclaration.type as TypeDecl.NamedType).name
 
     var currentType: Type = (parsedShaderJob.environment.globalScope.getEntry(typename) as ScopeEntry.Struct).type
@@ -114,23 +130,23 @@ private fun generateFalseByConstructionExpression(
     depth: Int,
     fuzzerSettings: FuzzerSettings,
     parsedShaderJob: ParsedShaderJob,
-): MetamorphicExpression.FalseByConstruction {
+): AugmentedExpression.FalseByConstruction {
     if (depth >= fuzzerSettings.maxDepth) {
-        return MetamorphicExpression.FalseByConstruction(
+        return AugmentedExpression.FalseByConstruction(
             Expression.BoolLiteral("false"),
         )
     }
-    val choices: List<Pair<Int, () -> MetamorphicExpression.FalseByConstruction>> =
+    val choices: List<Pair<Int, () -> AugmentedExpression.FalseByConstruction>> =
         listOf(
             // A plain "false"
             fuzzerSettings.falseByConstructionWeights.plainFalse(depth) to {
-                MetamorphicExpression.FalseByConstruction(
+                AugmentedExpression.FalseByConstruction(
                     Expression.BoolLiteral("false"),
                 )
             },
             // A false expression && an arbitrary expression
             fuzzerSettings.falseByConstructionWeights.falseAndArbitrary(depth) to {
-                MetamorphicExpression.FalseByConstruction(
+                AugmentedExpression.FalseByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_AND,
                         generateFalseByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
@@ -146,7 +162,7 @@ private fun generateFalseByConstructionExpression(
             },
             // An arbitrary expression && a false expression
             fuzzerSettings.falseByConstructionWeights.arbitraryAndFalse(depth) to {
-                MetamorphicExpression.FalseByConstruction(
+                AugmentedExpression.FalseByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_AND,
                         generateArbitraryExpression(
@@ -162,7 +178,7 @@ private fun generateFalseByConstructionExpression(
             },
             // ! true expression
             fuzzerSettings.falseByConstructionWeights.notTrue(depth) to {
-                MetamorphicExpression.FalseByConstruction(
+                AugmentedExpression.FalseByConstruction(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
                         generateTrueByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
@@ -182,7 +198,7 @@ private fun generateFalseByConstructionExpression(
                 // Choose a random suitable operator.
                 // No need for custom weights for this choice.
                 val operators = listOf(BinaryOperator.NOT_EQUAL, BinaryOperator.LESS_THAN, BinaryOperator.GREATER_THAN)
-                MetamorphicExpression.FalseByConstruction(
+                AugmentedExpression.FalseByConstruction(
                     Expression.Binary(
                         fuzzerSettings.randomElement(operators),
                         lhs,
@@ -198,23 +214,23 @@ private fun generateTrueByConstructionExpression(
     depth: Int,
     fuzzerSettings: FuzzerSettings,
     parsedShaderJob: ParsedShaderJob,
-): MetamorphicExpression.TrueByConstruction {
+): AugmentedExpression.TrueByConstruction {
     if (depth >= fuzzerSettings.maxDepth) {
-        return MetamorphicExpression.TrueByConstruction(
+        return AugmentedExpression.TrueByConstruction(
             Expression.BoolLiteral("true"),
         )
     }
-    val choices: List<Pair<Int, () -> MetamorphicExpression.TrueByConstruction>> =
+    val choices: List<Pair<Int, () -> AugmentedExpression.TrueByConstruction>> =
         listOf(
             // A plain "true"
             fuzzerSettings.trueByConstructionWeights.plainTrue(depth) to {
-                MetamorphicExpression.TrueByConstruction(
+                AugmentedExpression.TrueByConstruction(
                     Expression.BoolLiteral("true"),
                 )
             },
             // A true expression || an arbitrary expression
             fuzzerSettings.trueByConstructionWeights.trueOrArbitrary(depth) to {
-                MetamorphicExpression.TrueByConstruction(
+                AugmentedExpression.TrueByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_OR,
                         generateTrueByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
@@ -230,7 +246,7 @@ private fun generateTrueByConstructionExpression(
             },
             // An arbitrary expression || a true expression
             fuzzerSettings.trueByConstructionWeights.arbitraryOrTrue(depth) to {
-                MetamorphicExpression.TrueByConstruction(
+                AugmentedExpression.TrueByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_OR,
                         generateArbitraryExpression(
@@ -246,7 +262,7 @@ private fun generateTrueByConstructionExpression(
             },
             // ! false expression
             fuzzerSettings.trueByConstructionWeights.notFalse(depth) to {
-                MetamorphicExpression.TrueByConstruction(
+                AugmentedExpression.TrueByConstruction(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
                         generateFalseByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
@@ -266,7 +282,7 @@ private fun generateTrueByConstructionExpression(
                 // Choose a random suitable operator.
                 // No need for custom weights for this choice.
                 val operators = listOf(BinaryOperator.EQUAL_EQUAL, BinaryOperator.LESS_THAN_EQUAL, BinaryOperator.GREATER_THAN_EQUAL)
-                MetamorphicExpression.TrueByConstruction(
+                AugmentedExpression.TrueByConstruction(
                     Expression.Binary(
                         fuzzerSettings.randomElement(operators),
                         lhs,
@@ -281,12 +297,12 @@ private fun generateTrueByConstructionExpression(
 fun generateFalseByConstructionExpression(
     fuzzerSettings: FuzzerSettings,
     parsedShaderJob: ParsedShaderJob,
-): MetamorphicExpression.FalseByConstruction = generateFalseByConstructionExpression(0, fuzzerSettings, parsedShaderJob)
+): AugmentedExpression.FalseByConstruction = generateFalseByConstructionExpression(0, fuzzerSettings, parsedShaderJob)
 
 fun generateTrueByConstructionExpression(
     fuzzerSettings: FuzzerSettings,
     parsedShaderJob: ParsedShaderJob,
-): MetamorphicExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, parsedShaderJob)
+): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, parsedShaderJob)
 
 fun generateArbitraryExpression(
     depth: Int,
