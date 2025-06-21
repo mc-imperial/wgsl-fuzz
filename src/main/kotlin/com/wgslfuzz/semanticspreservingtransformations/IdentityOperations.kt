@@ -1,7 +1,6 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AstWriter
 import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.Expression
@@ -10,9 +9,6 @@ import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
-import java.io.File
-import java.io.FileOutputStream
-import java.io.PrintStream
 
 private typealias IdentityOperationReplacements = MutableMap<Expression, AugmentedExpression.IdentityOperation>
 
@@ -20,7 +16,6 @@ private class AddIdentityOperations(
     private val parsedShaderJob: ParsedShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
-
     private fun selectIdentityOperationReplacements(
         node: AstNode,
         identityReplacements: IdentityOperationReplacements,
@@ -47,48 +42,49 @@ private class AddIdentityOperations(
         }
         val type = parsedShaderJob.environment.typeOf(node)
         if (type is Type.Integer || type is Type.Float) {
-            val choices: List<Pair<Int, () -> AugmentedExpression.IdentityOperation>> = listOf(
-                fuzzerSettings.scalarIdentityOperationWeights.addZeroLeft to {
-                    AugmentedExpression.AddZero(
-                        originalExpression = node,
-                        zeroExpression = generateZero(type),
-                        zeroOnLeft = true,
-                    )
-                },
-                fuzzerSettings.scalarIdentityOperationWeights.addZeroRight to {
-                    AugmentedExpression.AddZero(
-                        originalExpression = node,
-                        zeroExpression = generateZero(type),
-                        zeroOnLeft = false,
-                    )
-                },
-                fuzzerSettings.scalarIdentityOperationWeights.subZero to {
-                    AugmentedExpression.SubZero(
-                        originalExpression = node,
-                        zeroExpression = generateZero(type),
-                    )
-                },
-                fuzzerSettings.scalarIdentityOperationWeights.mulOneLeft to {
-                    AugmentedExpression.MulOne(
-                        originalExpression = node,
-                        oneExpression = generateOne(type),
-                        oneOnLeft = true,
-                    )
-                },
-                fuzzerSettings.scalarIdentityOperationWeights.mulOneRight to {
-                    AugmentedExpression.MulOne(
-                        originalExpression = node,
-                        oneExpression = generateOne(type),
-                        oneOnLeft = false,
-                    )
-                },
-                fuzzerSettings.scalarIdentityOperationWeights.divOne to {
-                    AugmentedExpression.DivOne(
-                        originalExpression = node,
-                        oneExpression = generateOne(type),
-                    )
-                },
-            )
+            val choices: List<Pair<Int, () -> AugmentedExpression.IdentityOperation>> =
+                listOf(
+                    fuzzerSettings.scalarIdentityOperationWeights.addZeroLeft to {
+                        AugmentedExpression.AddZero(
+                            originalExpression = node,
+                            zeroExpression = generateZero(type),
+                            zeroOnLeft = true,
+                        )
+                    },
+                    fuzzerSettings.scalarIdentityOperationWeights.addZeroRight to {
+                        AugmentedExpression.AddZero(
+                            originalExpression = node,
+                            zeroExpression = generateZero(type),
+                            zeroOnLeft = false,
+                        )
+                    },
+                    fuzzerSettings.scalarIdentityOperationWeights.subZero to {
+                        AugmentedExpression.SubZero(
+                            originalExpression = node,
+                            zeroExpression = generateZero(type),
+                        )
+                    },
+                    fuzzerSettings.scalarIdentityOperationWeights.mulOneLeft to {
+                        AugmentedExpression.MulOne(
+                            originalExpression = node,
+                            oneExpression = generateOne(type),
+                            oneOnLeft = true,
+                        )
+                    },
+                    fuzzerSettings.scalarIdentityOperationWeights.mulOneRight to {
+                        AugmentedExpression.MulOne(
+                            originalExpression = node,
+                            oneExpression = generateOne(type),
+                            oneOnLeft = false,
+                        )
+                    },
+                    fuzzerSettings.scalarIdentityOperationWeights.divOne to {
+                        AugmentedExpression.DivOne(
+                            originalExpression = node,
+                            oneExpression = generateOne(type),
+                        )
+                    },
+                )
             identityReplacements[node] = choose(fuzzerSettings, choices)
         } else {
             // TODO(vectors)
@@ -98,21 +94,23 @@ private class AddIdentityOperations(
         }
     }
 
-    private fun generateOne(type: Type) = generateKnownValueExpression(
-        depth = 0,
-        knownValue = constantWithSameValueEverywhere(1, type),
-        type = type,
-        fuzzerSettings = fuzzerSettings,
-        parsedShaderJob = parsedShaderJob,
-    )
+    private fun generateOne(type: Type) =
+        generateKnownValueExpression(
+            depth = 0,
+            knownValue = constantWithSameValueEverywhere(1, type),
+            type = type,
+            fuzzerSettings = fuzzerSettings,
+            parsedShaderJob = parsedShaderJob,
+        )
 
-    private fun generateZero(type: Type) = generateKnownValueExpression(
-        depth = 0,
-        knownValue = constantWithSameValueEverywhere(0, type),
-        type = type,
-        fuzzerSettings = fuzzerSettings,
-        parsedShaderJob = parsedShaderJob,
-    )
+    private fun generateZero(type: Type) =
+        generateKnownValueExpression(
+            depth = 0,
+            knownValue = constantWithSameValueEverywhere(0, type),
+            type = type,
+            fuzzerSettings = fuzzerSettings,
+            parsedShaderJob = parsedShaderJob,
+        )
 
     fun apply(): ParsedShaderJob {
         val identityReplacements: IdentityOperationReplacements = mutableMapOf()

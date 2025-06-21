@@ -15,8 +15,9 @@ import java.io.FileOutputStream
 import java.io.PrintStream
 import java.util.Random
 
-private class DefaultFuzzerSettings() : FuzzerSettings {
+private class DefaultFuzzerSettings : FuzzerSettings {
     private val generator = Random()
+
     override fun randomInt(limit: Int): Int = generator.nextInt(limit)
 
     override fun randomBool(): Boolean = generator.nextBoolean()
@@ -39,9 +40,11 @@ fun main(args: Array<String>) {
                     parsedShaderJob.environment.typeOf(node)
                 }
             }
-            transformedShaderJob = fuzzerSettings.randomElement(metamorphicTransformations)(
-                transformedShaderJob,
-                fuzzerSettings)
+            transformedShaderJob =
+                fuzzerSettings.randomElement(metamorphicTransformations)(
+                    transformedShaderJob,
+                    fuzzerSettings,
+                )
         } while (fuzzerSettings.randomBool())
         AstWriter(PrintStream(FileOutputStream(File("variant$i.wgsl")))).emit(transformedShaderJob.tu)
     }

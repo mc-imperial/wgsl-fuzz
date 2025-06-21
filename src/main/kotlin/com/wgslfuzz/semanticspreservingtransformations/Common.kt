@@ -27,7 +27,6 @@ import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.getUniformDeclaration
 import kotlin.math.max
-import kotlin.math.min
 
 interface FuzzerSettings {
     val maxDepth: Int
@@ -353,224 +352,243 @@ fun generateKnownValueExpression(
     if (type !is Type.Scalar) {
         TODO("Need to support non-scalar known values, e.g. vectors and matrices.")
     }
-    val knownValueAsInt: Int = getNumericValueFromConstant(
-        knownValue
-    )
+    val knownValueAsInt: Int =
+        getNumericValueFromConstant(
+            knownValue,
+        )
 
-    val literalSuffix = when(type) {
-        is Type.I32 -> "i"
-        is Type.U32 -> "u"
-        is Type.AbstractInteger -> ""
-        is Type.F32 -> "f"
-        is Type.AbstractFloat -> ""
-        else -> throw RuntimeException("Unsupported type.")
-    }
+    val literalSuffix =
+        when (type) {
+            is Type.I32 -> "i"
+            is Type.U32 -> "u"
+            is Type.AbstractInteger -> ""
+            is Type.F32 -> "f"
+            is Type.AbstractFloat -> ""
+            else -> throw RuntimeException("Unsupported type.")
+        }
 
-    val choices: MutableList<Pair<Int, () -> AugmentedExpression.KnownValue>> = mutableListOf(
-        fuzzerSettings.knownValueWeights.plainKnownValue(depth) to {
-            AugmentedExpression.KnownValue(
-                knownValue = knownValue.clone(),
-                expression = knownValue.clone(),
-            )
-        },
-        fuzzerSettings.knownValueWeights.sumOfKnownValues(depth) to {
-            val randomValue = fuzzerSettings.randomInt(1 shl 24)
-            val difference: Int = knownValueAsInt - randomValue
-            val randomValueText = "$randomValue$literalSuffix"
-            val differenceText = "$difference$literalSuffix"
-            val randomValueKnownExpression = if (type is Type.Integer) {
-                Expression.IntLiteral(randomValueText)
-            } else {
-                Expression.FloatLiteral(randomValueText)
-            }
-            val differenceKnownExpression = if (type is Type.Integer) {
-                Expression.IntLiteral(differenceText)
-            } else {
-                Expression.FloatLiteral(differenceText)
-            }
-            AugmentedExpression.KnownValue(
-                knownValue = knownValue.clone(),
-                expression = binaryExpressionRandomOperandOrder(
-                    fuzzerSettings,
-                    BinaryOperator.PLUS,
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = randomValueKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        parsedShaderJob = parsedShaderJob,
-                    ),
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = differenceKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        parsedShaderJob = parsedShaderJob,
-                    )
+    val choices: MutableList<Pair<Int, () -> AugmentedExpression.KnownValue>> =
+        mutableListOf(
+            fuzzerSettings.knownValueWeights.plainKnownValue(depth) to {
+                AugmentedExpression.KnownValue(
+                    knownValue = knownValue.clone(),
+                    expression = knownValue.clone(),
                 )
-            )
-        },
-        fuzzerSettings.knownValueWeights.differenceOfKnownValues(depth) to {
-            val randomValue = fuzzerSettings.randomInt(Math.max(1, (1 shl 24) - knownValueAsInt))
-            val sum: Int = knownValueAsInt + randomValue
-            val randomValueText = "$randomValue$literalSuffix"
-            val sumText = "$sum$literalSuffix"
-            val randomValueKnownExpression = if (type is Type.Integer) {
-                Expression.IntLiteral(randomValueText)
-            } else {
-                Expression.FloatLiteral(randomValueText)
-            }
-            val sumKnownExpression = if (type is Type.Integer) {
-                Expression.IntLiteral(sumText)
-            } else {
-                Expression.FloatLiteral(sumText)
-            }
-            AugmentedExpression.KnownValue(
-                knownValue = knownValue.clone(),
-                expression = Expression.Binary(
-                    BinaryOperator.MINUS,
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = sumKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        parsedShaderJob = parsedShaderJob,
-                    ),
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = randomValueKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        parsedShaderJob = parsedShaderJob,
-                    )
+            },
+            fuzzerSettings.knownValueWeights.sumOfKnownValues(depth) to {
+                val randomValue = fuzzerSettings.randomInt(1 shl 24)
+                val difference: Int = knownValueAsInt - randomValue
+                val randomValueText = "$randomValue$literalSuffix"
+                val differenceText = "$difference$literalSuffix"
+                val randomValueKnownExpression =
+                    if (type is Type.Integer) {
+                        Expression.IntLiteral(randomValueText)
+                    } else {
+                        Expression.FloatLiteral(randomValueText)
+                    }
+                val differenceKnownExpression =
+                    if (type is Type.Integer) {
+                        Expression.IntLiteral(differenceText)
+                    } else {
+                        Expression.FloatLiteral(differenceText)
+                    }
+                AugmentedExpression.KnownValue(
+                    knownValue = knownValue.clone(),
+                    expression =
+                        binaryExpressionRandomOperandOrder(
+                            fuzzerSettings,
+                            BinaryOperator.PLUS,
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = randomValueKnownExpression,
+                                type = type,
+                                fuzzerSettings = fuzzerSettings,
+                                parsedShaderJob = parsedShaderJob,
+                            ),
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = differenceKnownExpression,
+                                type = type,
+                                fuzzerSettings = fuzzerSettings,
+                                parsedShaderJob = parsedShaderJob,
+                            ),
+                        ),
                 )
-            )
-        },
-        fuzzerSettings.knownValueWeights.productOfKnownValues(depth) to {
-            val randomValue = max(1, fuzzerSettings.randomInt(max(1, knownValueAsInt / 2)))
-            val quotient: Int = knownValueAsInt / randomValue
-            val remainder: Int = knownValueAsInt % randomValue
+            },
+            fuzzerSettings.knownValueWeights.differenceOfKnownValues(depth) to {
+                val randomValue = fuzzerSettings.randomInt(Math.max(1, (1 shl 24) - knownValueAsInt))
+                val sum: Int = knownValueAsInt + randomValue
+                val randomValueText = "$randomValue$literalSuffix"
+                val sumText = "$sum$literalSuffix"
+                val randomValueKnownExpression =
+                    if (type is Type.Integer) {
+                        Expression.IntLiteral(randomValueText)
+                    } else {
+                        Expression.FloatLiteral(randomValueText)
+                    }
+                val sumKnownExpression =
+                    if (type is Type.Integer) {
+                        Expression.IntLiteral(sumText)
+                    } else {
+                        Expression.FloatLiteral(sumText)
+                    }
+                AugmentedExpression.KnownValue(
+                    knownValue = knownValue.clone(),
+                    expression =
+                        Expression.Binary(
+                            BinaryOperator.MINUS,
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = sumKnownExpression,
+                                type = type,
+                                fuzzerSettings = fuzzerSettings,
+                                parsedShaderJob = parsedShaderJob,
+                            ),
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = randomValueKnownExpression,
+                                type = type,
+                                fuzzerSettings = fuzzerSettings,
+                                parsedShaderJob = parsedShaderJob,
+                            ),
+                        ),
+                )
+            },
+            fuzzerSettings.knownValueWeights.productOfKnownValues(depth) to {
+                val randomValue = max(1, fuzzerSettings.randomInt(max(1, knownValueAsInt / 2)))
+                val quotient: Int = knownValueAsInt / randomValue
+                val remainder: Int = knownValueAsInt % randomValue
 
-            val randomValueText = "$randomValue$literalSuffix"
-            val quotientText = "$quotient$literalSuffix"
-            val remainderText = "$remainder$literalSuffix"
-            val randomValueKnownExpression = if (type is Type.Integer) {
-                Expression.IntLiteral(randomValueText)
-            } else {
-                Expression.FloatLiteral(randomValueText)
-            }
-            val quotientKnownExpression = if (type is Type.Integer) {
-                Expression.IntLiteral(quotientText)
-            } else {
-                Expression.FloatLiteral(quotientText)
-            }
-            val remainderKnownExpression = if (type is Type.Integer) {
-                Expression.IntLiteral(remainderText)
-            } else {
-                Expression.FloatLiteral(remainderText)
-            }
-            var resultExpression = binaryExpressionRandomOperandOrder(
-                fuzzerSettings,
-                BinaryOperator.TIMES,
-                generateKnownValueExpression(
-                    depth = depth + 1,
-                    knownValue = randomValueKnownExpression,
-                    type = type,
-                    fuzzerSettings = fuzzerSettings,
-                    parsedShaderJob = parsedShaderJob,
-                ),
-                generateKnownValueExpression(
-                    depth = depth + 1,
-                    knownValue = quotientKnownExpression,
-                    type = type,
-                    fuzzerSettings = fuzzerSettings,
-                    parsedShaderJob = parsedShaderJob,
-                )
-            )
-            if (remainder != 0 || fuzzerSettings.randomBool()) {
-                resultExpression = binaryExpressionRandomOperandOrder(
-                    fuzzerSettings,
-                    BinaryOperator.PLUS,
-                    resultExpression,
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = remainderKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        parsedShaderJob = parsedShaderJob,
+                val randomValueText = "$randomValue$literalSuffix"
+                val quotientText = "$quotient$literalSuffix"
+                val remainderText = "$remainder$literalSuffix"
+                val randomValueKnownExpression =
+                    if (type is Type.Integer) {
+                        Expression.IntLiteral(randomValueText)
+                    } else {
+                        Expression.FloatLiteral(randomValueText)
+                    }
+                val quotientKnownExpression =
+                    if (type is Type.Integer) {
+                        Expression.IntLiteral(quotientText)
+                    } else {
+                        Expression.FloatLiteral(quotientText)
+                    }
+                val remainderKnownExpression =
+                    if (type is Type.Integer) {
+                        Expression.IntLiteral(remainderText)
+                    } else {
+                        Expression.FloatLiteral(remainderText)
+                    }
+                var resultExpression =
+                    binaryExpressionRandomOperandOrder(
+                        fuzzerSettings,
+                        BinaryOperator.TIMES,
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = randomValueKnownExpression,
+                            type = type,
+                            fuzzerSettings = fuzzerSettings,
+                            parsedShaderJob = parsedShaderJob,
+                        ),
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = quotientKnownExpression,
+                            type = type,
+                            fuzzerSettings = fuzzerSettings,
+                            parsedShaderJob = parsedShaderJob,
+                        ),
                     )
+                if (remainder != 0 || fuzzerSettings.randomBool()) {
+                    resultExpression =
+                        binaryExpressionRandomOperandOrder(
+                            fuzzerSettings,
+                            BinaryOperator.PLUS,
+                            resultExpression,
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = remainderKnownExpression,
+                                type = type,
+                                fuzzerSettings = fuzzerSettings,
+                                parsedShaderJob = parsedShaderJob,
+                            ),
+                        )
+                }
+                AugmentedExpression.KnownValue(
+                    knownValue = knownValue.clone(),
+                    expression = resultExpression,
                 )
-            }
-            AugmentedExpression.KnownValue(
-                knownValue = knownValue.clone(),
-                expression = resultExpression,
-            )
-        },
-    )
+            },
+        )
     if (!type.isAbstract()) {
         // Deriving a known value from a uniform only works with concrete types.
         choices.add(
             fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
                 val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(parsedShaderJob, fuzzerSettings)
-                val valueOfUniformAsInt: Int = getNumericValueFromConstant(
-                    valueOfUniform
-                )
-                val uniformScalarWithCastIfNeeded = if (type is Type.U32) {
-                    Expression.U32ValueConstructor(listOf(uniformScalar))
-                } else if (scalarType is Type.Integer && type is Type.Float) {
-                    Expression.F32ValueConstructor(listOf(uniformScalar))
-                } else if (scalarType is Type.Float && type is Type.Integer) {
-                    Expression.I32ValueConstructor(listOf(uniformScalar))
-                } else {
-                    uniformScalar
-                }
-                val expression = if (valueOfUniformAsInt == knownValueAsInt) {
-                    uniformScalarWithCastIfNeeded
-                } else if (valueOfUniformAsInt > knownValueAsInt) {
-                    val difference = valueOfUniformAsInt - knownValueAsInt
-                    val differenceText = "$difference$literalSuffix"
-                    val differenceKnownExpression = if (type is Type.Integer) {
-                        Expression.IntLiteral(differenceText)
+                val valueOfUniformAsInt: Int =
+                    getNumericValueFromConstant(
+                        valueOfUniform,
+                    )
+                val uniformScalarWithCastIfNeeded =
+                    if (type is Type.U32) {
+                        Expression.U32ValueConstructor(listOf(uniformScalar))
+                    } else if (scalarType is Type.Integer && type is Type.Float) {
+                        Expression.F32ValueConstructor(listOf(uniformScalar))
+                    } else if (scalarType is Type.Float && type is Type.Integer) {
+                        Expression.I32ValueConstructor(listOf(uniformScalar))
                     } else {
-                        Expression.FloatLiteral(differenceText)
+                        uniformScalar
                     }
-                    Expression.Binary(
-                        BinaryOperator.MINUS,
-                        uniformScalarWithCastIfNeeded,
-                        generateKnownValueExpression(
-                            depth = depth + 1,
-                            knownValue = differenceKnownExpression,
-                            fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
-                            type = type,
+                val expression =
+                    if (valueOfUniformAsInt == knownValueAsInt) {
+                        uniformScalarWithCastIfNeeded
+                    } else if (valueOfUniformAsInt > knownValueAsInt) {
+                        val difference = valueOfUniformAsInt - knownValueAsInt
+                        val differenceText = "$difference$literalSuffix"
+                        val differenceKnownExpression =
+                            if (type is Type.Integer) {
+                                Expression.IntLiteral(differenceText)
+                            } else {
+                                Expression.FloatLiteral(differenceText)
+                            }
+                        Expression.Binary(
+                            BinaryOperator.MINUS,
+                            uniformScalarWithCastIfNeeded,
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = differenceKnownExpression,
+                                fuzzerSettings = fuzzerSettings,
+                                parsedShaderJob = parsedShaderJob,
+                                type = type,
+                            ),
                         )
-                    )
-                } else {
-                    val difference = knownValueAsInt - valueOfUniformAsInt
-                    val differenceText = "$difference$literalSuffix"
-                    val differenceKnownExpression = if (type is Type.Integer) {
-                        Expression.IntLiteral(differenceText)
                     } else {
-                        Expression.FloatLiteral(differenceText)
+                        val difference = knownValueAsInt - valueOfUniformAsInt
+                        val differenceText = "$difference$literalSuffix"
+                        val differenceKnownExpression =
+                            if (type is Type.Integer) {
+                                Expression.IntLiteral(differenceText)
+                            } else {
+                                Expression.FloatLiteral(differenceText)
+                            }
+                        binaryExpressionRandomOperandOrder(
+                            fuzzerSettings,
+                            BinaryOperator.PLUS,
+                            uniformScalarWithCastIfNeeded,
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = differenceKnownExpression,
+                                fuzzerSettings = fuzzerSettings,
+                                parsedShaderJob = parsedShaderJob,
+                                type = type,
+                            ),
+                        )
                     }
-                    binaryExpressionRandomOperandOrder(
-                        fuzzerSettings,
-                        BinaryOperator.PLUS,
-                        uniformScalarWithCastIfNeeded,
-                        generateKnownValueExpression(
-                            depth = depth + 1,
-                            knownValue = differenceKnownExpression,
-                            fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
-                            type = type,
-                        ),
-                    )
-                }
                 AugmentedExpression.KnownValue(
                     knownValue = knownValue.clone(),
                     expression = expression,
                 )
-            }
+            },
         )
     }
     return choose(fuzzerSettings, choices)
@@ -579,14 +597,16 @@ fun generateKnownValueExpression(
 fun constantWithSameValueEverywhere(
     value: Int,
     type: Type,
-): Expression = when (type) {
+): Expression =
+    when (type) {
         is Type.Array -> TODO("Array constants need to be supported.")
         is Type.Matrix -> TODO("Matrix constants need to be supported.")
-        Type.Bool -> if (value == 0) {
-            Expression.BoolLiteral("false")
-        } else {
-            Expression.BoolLiteral("true")
-        }
+        Type.Bool ->
+            if (value == 0) {
+                Expression.BoolLiteral("false")
+            } else {
+                Expression.BoolLiteral("true")
+            }
         Type.AbstractFloat -> Expression.FloatLiteral("$value.0")
         Type.F16 -> Expression.FloatLiteral("$value.0h")
         Type.F32 -> Expression.FloatLiteral("$value.0f")
@@ -594,18 +614,22 @@ fun constantWithSameValueEverywhere(
         Type.I32 -> Expression.IntLiteral("${value}i")
         Type.U32 -> Expression.IntLiteral("${value}u")
         is Type.Struct -> TODO("Struct constants need to be supported.")
-        is Type.Vector -> when (type.width) {
-            2 -> Expression.Vec2ValueConstructor(
-                args = (0..1).map { constantWithSameValueEverywhere(value, type.elementType) }
-            )
-            3 -> Expression.Vec2ValueConstructor(
-                args = (0..2).map { constantWithSameValueEverywhere(value, type.elementType) }
-            )
-            4 -> Expression.Vec2ValueConstructor(
-                args = (0..3).map { constantWithSameValueEverywhere(value, type.elementType) }
-            )
-            else -> throw RuntimeException("Bad vector width: ${type.width}")
-        }
+        is Type.Vector ->
+            when (type.width) {
+                2 ->
+                    Expression.Vec2ValueConstructor(
+                        args = (0..1).map { constantWithSameValueEverywhere(value, type.elementType) },
+                    )
+                3 ->
+                    Expression.Vec2ValueConstructor(
+                        args = (0..2).map { constantWithSameValueEverywhere(value, type.elementType) },
+                    )
+                4 ->
+                    Expression.Vec2ValueConstructor(
+                        args = (0..3).map { constantWithSameValueEverywhere(value, type.elementType) },
+                    )
+                else -> throw RuntimeException("Bad vector width: ${type.width}")
+            }
         else -> throw UnsupportedOperationException("Constant construction not supported for type $type")
     }
 
@@ -626,7 +650,12 @@ private fun getNumericValueFromConstant(constantExpression: Expression): Int {
     }
 }
 
-private fun binaryExpressionRandomOperandOrder(fuzzerSettings: FuzzerSettings, operator: BinaryOperator, operand1: Expression, operand2: Expression): Expression =
+private fun binaryExpressionRandomOperandOrder(
+    fuzzerSettings: FuzzerSettings,
+    operator: BinaryOperator,
+    operand1: Expression,
+    operand2: Expression,
+): Expression =
     if (fuzzerSettings.randomBool()) {
         Expression.Binary(operator, operand1, operand2)
     } else {
