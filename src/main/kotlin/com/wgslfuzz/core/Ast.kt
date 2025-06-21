@@ -29,7 +29,6 @@ import kotlinx.serialization.Serializable
 // AST nodes depend on a number of enum classes. The enum classes that are *only* used by AST
 // nodes appear here. Enum classes that are also used by types appear in separate files.
 
-@Serializable
 enum class AssignmentOperator {
     EQUAL,
     PLUS_EQUAL,
@@ -44,7 +43,6 @@ enum class AssignmentOperator {
     SHIFT_RIGHT_EQUAL,
 }
 
-@Serializable
 enum class UnaryOperator {
     MINUS,
     LOGICAL_NOT,
@@ -53,7 +51,6 @@ enum class UnaryOperator {
     ADDRESS_OF,
 }
 
-@Serializable
 enum class BinaryOperator {
     SHORT_CIRCUIT_OR,
     SHORT_CIRCUIT_AND,
@@ -75,7 +72,6 @@ enum class BinaryOperator {
     MODULO,
 }
 
-@Serializable
 enum class BuiltinValue {
     VERTEX_INDEX,
     INSTANCE_INDEX,
@@ -94,7 +90,6 @@ enum class BuiltinValue {
     SUBGROUP_SIZE,
 }
 
-@Serializable
 enum class SeverityControl {
     ERROR,
     WARNING,
@@ -102,20 +97,17 @@ enum class SeverityControl {
     OFF,
 }
 
-@Serializable
 enum class DiagnosticRule {
     DERIVATIVE_UNIFORMITY,
     SUBGROUP_UNIFORMITY,
 }
 
-@Serializable
 enum class InterpolateType {
     PERSPECTIVE,
     LINEAR,
     FLAT,
 }
 
-@Serializable
 enum class InterpolateSampling {
     CENTER,
     CENTROID,
@@ -247,7 +239,7 @@ sealed interface GlobalDecl : AstNode {
     @Serializable
     class Constant(
         val name: String,
-        val type: TypeDecl? = null,
+        val typeDecl: TypeDecl? = null,
         val initializer: Expression,
     ) : GlobalDecl
 
@@ -255,7 +247,7 @@ sealed interface GlobalDecl : AstNode {
     class Override(
         val attributes: List<Attribute> = emptyList(),
         val name: String,
-        val type: TypeDecl? = null,
+        val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
     ) : GlobalDecl
 
@@ -265,7 +257,7 @@ sealed interface GlobalDecl : AstNode {
         val name: String,
         val addressSpace: AddressSpace? = null,
         val accessMode: AccessMode? = null,
-        val type: TypeDecl? = null,
+        val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
     ) : GlobalDecl
 
@@ -288,7 +280,7 @@ sealed interface GlobalDecl : AstNode {
     @Serializable
     class TypeAlias(
         val name: String,
-        val type: TypeDecl,
+        val typeDecl: TypeDecl,
     ) : GlobalDecl
 
     @Serializable
@@ -989,7 +981,7 @@ sealed interface Statement : AstNode {
     class Value(
         val isConst: Boolean,
         val name: String,
-        val type: TypeDecl? = null,
+        val typeDecl: TypeDecl? = null,
         val initializer: Expression,
     ) : ForInit
 
@@ -998,7 +990,7 @@ sealed interface Statement : AstNode {
         val name: String,
         val addressSpace: AddressSpace? = null,
         val accessMode: AccessMode? = null,
-        val type: TypeDecl? = null,
+        val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
     ) : ForInit
 }
@@ -1049,5 +1041,123 @@ class ParameterDecl(
 class StructMember(
     val attributes: List<Attribute> = emptyList(),
     val name: String,
-    val type: TypeDecl,
+    val typeDecl: TypeDecl,
 ) : AstNode
+
+// The following interfaces and classes extend the AstNode hierarchy with additional nodes that *augment* the AST to
+// encode transformations that have been applied to a translation unit.
+//
+// The motivation for this is that if such transformations trigger bugs it would be useful to be able to *undo* them in
+// a principled way to home in on a minimal sequence of transformations that suffices to trigger a bug.
+//
+// Because Kotlin requires all classes that implement a sealed interface to reside in the same package as that
+// interface, the interfaces and classes that define new AST nodes for transformations should appear in this file in the
+// "core" package. However, details of how transformations are actually applied should be separated into other packages.
+
+/**
+ * An umbrella for all nodes representing augmentations to an AST.
+ */
+@Serializable
+sealed interface AugmentedAstNode : AstNode
+
+/**
+ * Augmented expressions, which may include (for example) transformations applied to existing expressions, or
+ * expressions that support transformations applied to statements.
+ */
+@Serializable
+sealed interface AugmentedExpression :
+    AugmentedAstNode,
+    Expression {
+    /**
+     * An expression that is guaranteed to evaluate to false, without observable side effects.
+     *
+     * It is up to the client that creates such an expression to ensure that evaluation to false is guaranteed and that
+     * there are no observable side effects. The augmented node merely serves as marker in the AST to indicate that this
+     * could be replaced with a literal "false" expression without changing semantics.
+     */
+    @Serializable
+    class FalseByConstruction(
+        val falseExpression: Expression,
+    ) : AugmentedExpression
+
+    /**
+     * Similar to [FalseByConstruction], but for an expression that is guaranteed to evaluate to true.
+     */
+    @Serializable
+    class TrueByConstruction(
+        val trueExpression: Expression,
+    ) : AugmentedExpression
+
+    @Serializable
+    class KnownValue(
+        val knownValue: Expression,
+        val expression: Expression,
+    ) : AugmentedExpression
+
+    @Serializable
+    sealed interface IdentityOperation : AugmentedExpression {
+        val originalExpression: Expression
+    }
+
+    @Serializable
+    class AddZero(
+        override val originalExpression: Expression,
+        val zeroExpression: KnownValue,
+        val zeroOnLeft: Boolean,
+    ) : IdentityOperation
+
+    @Serializable
+    class MulOne(
+        override val originalExpression: Expression,
+        val oneExpression: KnownValue,
+        val oneOnLeft: Boolean,
+    ) : IdentityOperation
+
+    @Serializable
+    class SubZero(
+        override val originalExpression: Expression,
+        val zeroExpression: KnownValue,
+    ) : IdentityOperation
+
+    @Serializable
+    class DivOne(
+        override val originalExpression: Expression,
+        val oneExpression: KnownValue,
+    ) : IdentityOperation
+}
+
+/**
+ * Augmented statements, such as dead code fragments.
+ */
+@Serializable
+sealed interface AugmentedStatement :
+    AugmentedAstNode,
+    Statement {
+    /**
+     * A statement whose execution is guaranteed to have no observable effect due to the statement being guarded by a
+     * false condition, meaning that it is safe to remove the statement entirely, or manipulate the internals of the
+     * statement (under the false guard).
+     *
+     * It is up to the client that creates such a statement to ensure that the statement guard really does evaluate to
+     * false. The augmented node merely serves as marker in the AST to indicate that this statement could be removed or
+     * manipulated in other ways without changing semantics.
+     */
+    @Serializable
+    class DeadCodeFragment(
+        val statement: Statement,
+    ) : AugmentedStatement {
+        init {
+            when (statement) {
+                is Statement.If -> {
+                    require(statement.condition is AugmentedExpression.FalseByConstruction)
+                }
+                is Statement.While -> {
+                    require(statement.condition is AugmentedExpression.FalseByConstruction)
+                }
+                else -> {
+                    throw UnsupportedOperationException("Only 'if' and 'while' currently supported for dead statement.")
+                }
+            }
+        }
+    }
+}

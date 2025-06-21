@@ -164,7 +164,7 @@ private fun cloneHelper(
                     ),
                 )
             is GlobalDecl.ConstAssert -> GlobalDecl.ConstAssert(expression.clone(replacements))
-            is GlobalDecl.Constant -> GlobalDecl.Constant(name, type?.clone(replacements), initializer.clone(replacements))
+            is GlobalDecl.Constant -> GlobalDecl.Constant(name, typeDecl?.clone(replacements), initializer.clone(replacements))
             is GlobalDecl.Empty -> GlobalDecl.Empty()
             is GlobalDecl.Function ->
                 GlobalDecl.Function(
@@ -179,18 +179,18 @@ private fun cloneHelper(
                 GlobalDecl.Override(
                     attributes.clone(replacements),
                     name,
-                    type?.clone(replacements),
+                    typeDecl?.clone(replacements),
                     initializer?.clone(replacements),
                 )
             is GlobalDecl.Struct -> GlobalDecl.Struct(name, members.clone(replacements))
-            is GlobalDecl.TypeAlias -> GlobalDecl.TypeAlias(name, type.clone(replacements))
+            is GlobalDecl.TypeAlias -> GlobalDecl.TypeAlias(name, typeDecl.clone(replacements))
             is GlobalDecl.Variable ->
                 GlobalDecl.Variable(
                     attributes.clone(replacements),
                     name,
                     addressSpace,
                     accessMode,
-                    type?.clone(replacements),
+                    typeDecl?.clone(replacements),
                     initializer?.clone(replacements),
                 )
             is LhsExpression.AddressOf -> LhsExpression.AddressOf(target.clone(replacements))
@@ -225,13 +225,13 @@ private fun cloneHelper(
             is Statement.Decrement -> Statement.Decrement(target.clone(replacements))
             is Statement.FunctionCall -> Statement.FunctionCall(callee, args.clone(replacements))
             is Statement.Increment -> Statement.Increment(target.clone(replacements))
-            is Statement.Value -> Statement.Value(isConst, name, type?.clone(replacements), initializer.clone(replacements))
+            is Statement.Value -> Statement.Value(isConst, name, typeDecl?.clone(replacements), initializer.clone(replacements))
             is Statement.Variable ->
                 Statement.Variable(
                     name,
                     addressSpace,
                     accessMode,
-                    type?.clone(replacements),
+                    typeDecl?.clone(replacements),
                     initializer?.clone(replacements),
                 )
             is Statement.Loop ->
@@ -256,7 +256,7 @@ private fun cloneHelper(
                         replacements,
                     ),
                 )
-            is StructMember -> StructMember(attributes.clone(replacements), name, type.clone(replacements))
+            is StructMember -> StructMember(attributes.clone(replacements), name, typeDecl.clone(replacements))
             is SwitchClause -> SwitchClause(caseSelectors.map { it?.clone(replacements) }, compoundStatement.clone(replacements))
             is TranslationUnit -> TranslationUnit(directives.clone(replacements), globalDecls.clone(replacements))
             is TypeDecl.Array -> TypeDecl.Array(elementType.clone(replacements), elementCount?.clone(replacements))

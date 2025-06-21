@@ -791,7 +791,7 @@ class AstWriter(
                 },
             )
             out.print(" $name")
-            type?.let {
+            typeDecl?.let {
                 out.print(" : ")
                 emitTypeDecl(it)
             }
@@ -811,7 +811,7 @@ class AstWriter(
             if (!inForLoopHeader) {
                 emitIndent()
             }
-            emitVariableDeclaration(addressSpace, accessMode, name, type, initializer)
+            emitVariableDeclaration(addressSpace, accessMode, name, typeDecl, initializer)
             if (!inForLoopHeader) {
                 out.print(";\n")
             }
@@ -925,7 +925,7 @@ class AstWriter(
     private fun emitGlobalDeclConstant(constant: GlobalDecl.Constant) {
         with(constant) {
             out.print("const $name ")
-            type?.let {
+            typeDecl?.let {
                 out.print(": ")
                 emitTypeDecl(it)
             }
@@ -939,7 +939,7 @@ class AstWriter(
         with(override) {
             emitAttributes(attributes)
             out.print("override $name ")
-            type?.let {
+            typeDecl?.let {
                 out.print(": ")
                 emitTypeDecl(it)
             }
@@ -954,7 +954,7 @@ class AstWriter(
     private fun emitGlobalDeclVariable(variable: GlobalDecl.Variable) {
         with(variable) {
             emitAttributes(attributes)
-            emitVariableDeclaration(addressSpace, accessMode, name, type, initializer)
+            emitVariableDeclaration(addressSpace, accessMode, name, typeDecl, initializer)
             out.print(";\n")
         }
     }
@@ -991,7 +991,7 @@ class AstWriter(
 
     private fun emitGlobalDeclTypeAlias(typeAlias: GlobalDecl.TypeAlias) {
         out.print("alias ${typeAlias.name} = ")
-        emitTypeDecl(typeAlias.type)
+        emitTypeDecl(typeAlias.typeDecl)
         out.print(";\n")
     }
 
@@ -1060,7 +1060,7 @@ class AstWriter(
         emitAttributes(member.attributes)
         emitIndent()
         out.print("${member.name} : ")
-        emitTypeDecl(member.type)
+        emitTypeDecl(member.typeDecl)
         out.print(",\n")
     }
 

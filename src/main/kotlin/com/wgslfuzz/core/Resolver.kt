@@ -205,7 +205,7 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
                     decl.name,
                     nameDependencies,
                     listOf(
-                        decl.type,
+                        decl.typeDecl,
                         decl.initializer,
                     ),
                 )
@@ -223,7 +223,7 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
                 collectUsedModuleScopeNames(
                     decl.name,
                     nameDependencies,
-                    decl.attributes + listOf(decl.type, decl.initializer),
+                    decl.attributes + listOf(decl.typeDecl, decl.initializer),
                 )
             }
             is GlobalDecl.Struct -> {
@@ -232,14 +232,14 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
             }
             is GlobalDecl.TypeAlias -> {
                 nameToDecl[decl.name] = decl
-                collectUsedModuleScopeNames(decl.name, nameDependencies, listOf(decl.type))
+                collectUsedModuleScopeNames(decl.name, nameDependencies, listOf(decl.typeDecl))
             }
             is GlobalDecl.Variable -> {
                 nameToDecl[decl.name] = decl
                 collectUsedModuleScopeNames(
                     decl.name,
                     nameDependencies,
-                    decl.attributes + listOf(decl.type, decl.initializer),
+                    decl.attributes + listOf(decl.typeDecl, decl.initializer),
                 )
             }
         }
@@ -336,15 +336,15 @@ private fun resolveAstNode(
                 node.name,
                 ScopeEntry.TypeAlias(
                     node,
-                    resolveTypeDecl(node.type, resolverState),
+                    resolveTypeDecl(node.typeDecl, resolverState),
                 ),
             )
         }
         is GlobalDecl.Variable -> {
             val type: Type =
                 defaultConcretizationOf(
-                    node.type?.let {
-                        resolveTypeDecl(node.type, resolverState)
+                    node.typeDecl?.let {
+                        resolveTypeDecl(node.typeDecl, resolverState)
                     } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
                 )
             resolverState.currentScope.addEntry(
@@ -358,7 +358,7 @@ private fun resolveAstNode(
                 ScopeEntry.GlobalConstant(
                     astNode = node,
                     type =
-                        node.type?.let {
+                        node.typeDecl?.let {
                             resolveTypeDecl(it, resolverState)
                         } ?: resolverState.resolvedEnvironment.typeOf(node.initializer),
                 ),
@@ -370,7 +370,7 @@ private fun resolveAstNode(
                 ScopeEntry.GlobalOverride(
                     astNode = node,
                     type =
-                        node.type?.let {
+                        node.typeDecl?.let {
                             resolveTypeDecl(it, resolverState)
                         } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
                 ),
@@ -386,7 +386,7 @@ private fun resolveAstNode(
                             name = node.name,
                             members =
                                 node.members.map {
-                                    it.name to resolveTypeDecl(it.type, resolverState)
+                                    it.name to resolveTypeDecl(it.typeDecl, resolverState)
                                 },
                         ),
                 ),
@@ -422,8 +422,8 @@ private fun resolveAstNode(
         }
         is Statement.Value -> {
             var type: Type =
-                node.type?.let {
-                    resolveTypeDecl(node.type, resolverState)
+                node.typeDecl?.let {
+                    resolveTypeDecl(node.typeDecl, resolverState)
                 } ?: resolverState.resolvedEnvironment.typeOf(node.initializer)
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
@@ -435,8 +435,8 @@ private fun resolveAstNode(
         }
         is Statement.Variable -> {
             var type: Type =
-                node.type?.let {
-                    resolveTypeDecl(node.type, resolverState)
+                node.typeDecl?.let {
+                    resolveTypeDecl(node.typeDecl, resolverState)
                 } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)

@@ -16,10 +16,15 @@
 
 package com.wgslfuzz.core
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+
+@Serializable
 class ParsedShaderJob(
     val tu: TranslationUnit,
     val uniformValues: Map<Int, Map<Int, Expression>>,
 ) {
+    @Transient
     val environment: ResolvedEnvironment = resolve(tu)
 }
 
@@ -36,7 +41,7 @@ fun parseShaderJob(shaderJob: ShaderJob): ParsedShaderJob {
         val structType =
             (
                 environment.globalScope
-                    .getEntry((uniformDeclaration.type as TypeDecl.NamedType).name) as ScopeEntry.Struct
+                    .getEntry((uniformDeclaration.typeDecl as TypeDecl.NamedType).name) as ScopeEntry.Struct
             ).type
 
         val (literalExpr, newBufferByteIndex) =
