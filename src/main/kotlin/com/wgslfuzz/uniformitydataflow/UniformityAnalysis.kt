@@ -245,7 +245,7 @@ fun analyseStatement(analysisState: AnalysisState,
             val updatedUniformityRecord: StatementUniformityRecord = inStmt.strengthenIfControl(
                 presentVariables[conditionVar]!!
             )
-            val afterAnalysingThenSide = analyseStatements(
+            val afterAnalysingThenSide: AnalysisState = analyseStatements(
                 analysisState.copy(
                     stmtIn = analysisState.stmtIn + mapOf(
                         thenStatements[0] to updatedUniformityRecord,
@@ -256,25 +256,22 @@ fun analyseStatement(analysisState: AnalysisState,
                 variables,
             )
 
-
-
-            val afterAnalysingElseSide = if (elseStatements == null) {
+            val afterAnalysingElseSide: AnalysisState = if (elseStatements == null) {
                 afterAnalysingThenSide
             } else {
-                val tempy =                     afterAnalysingThenSide.copy(
-                    stmtIn = afterAnalysingThenSide.stmtIn + mapOf(
-                        elseStatements[0] to updatedUniformityRecord,
-                    ),
-                )
                 analyseStatements(
-                    tempy,
+                    afterAnalysingThenSide.copy(
+                        stmtIn = afterAnalysingThenSide.stmtIn + mapOf(
+                            elseStatements[0] to updatedUniformityRecord,
+                        ),
+                    ),
                     elseStatements,
                     parameters,
                     variables,
                 )
             }
-            val endOfThenSideRecord = afterAnalysingElseSide.stmtOut[thenStatements.last()]!!
-            val endOfElseSideRecord = elseStatements?.let {
+            val endOfThenSideRecord: StatementUniformityRecord = afterAnalysingElseSide.stmtOut[thenStatements.last()]!!
+            val endOfElseSideRecord: StatementUniformityRecord = elseStatements?.let {
                 afterAnalysingElseSide.stmtOut[elseStatements.last()]!!
             } ?: inStmt
 
