@@ -55,6 +55,37 @@ sealed interface AugmentedExpression :
     class TrueByConstruction(
         val trueExpression: Expression,
     ) : AugmentedExpression
+
+    class KnownValue(
+        val knownValue: Expression,
+        val expression: Expression,
+    ) : AugmentedExpression
+
+    sealed interface IdentityOperation : AugmentedExpression {
+        val originalExpression: Expression
+    }
+
+    class AddZero(
+        override val originalExpression: Expression,
+        val zeroExpression: KnownValue,
+        val originalExpressionFirst: Boolean,
+    ) : IdentityOperation
+
+    class MulOne(
+        override val originalExpression: Expression,
+        val oneExpression: KnownValue,
+        val originalExpressionFirst: Boolean,
+    ) : IdentityOperation
+
+    class SubZero(
+        override val originalExpression: Expression,
+        val zeroExpression: KnownValue,
+    ) : IdentityOperation
+
+    class DivOne(
+        override val originalExpression: Expression,
+        val oneExpression: KnownValue,
+    ) : IdentityOperation
 }
 
 /**

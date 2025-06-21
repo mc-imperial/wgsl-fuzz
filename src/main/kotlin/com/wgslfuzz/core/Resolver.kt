@@ -568,6 +568,15 @@ private fun resolveExpressionType(
             ).type
         is AugmentedExpression.FalseByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.falseExpression)
         is AugmentedExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
+        is AugmentedExpression.IdentityOperation -> resolverState.resolvedEnvironment.typeOf(expression.originalExpression)
+        is AugmentedExpression.KnownValue -> {
+            val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue)
+            val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression)
+            if (knownValueType != expressionType) {
+                throw RuntimeException("Types for known value expression and its corresponding obfuscated expression do not match.")
+            }
+            expressionType
+        }
     }
 
 private fun resolveLhsExpressionType(

@@ -299,5 +299,10 @@ private fun cloneHelper(
             is TypeDecl.Vec2 -> TypeDecl.Vec2(elementType.clone(replacements))
             is TypeDecl.Vec3 -> TypeDecl.Vec3(elementType.clone(replacements))
             is TypeDecl.Vec4 -> TypeDecl.Vec4(elementType.clone(replacements))
+            is AugmentedExpression.AddZero -> AugmentedExpression.AddZero(originalExpression.clone(replacements), zeroExpression.clone(replacements), originalExpressionFirst)
+            is AugmentedExpression.DivOne -> AugmentedExpression.DivOne(originalExpression.clone(replacements), oneExpression.clone(replacements))
+            is AugmentedExpression.MulOne -> AugmentedExpression.MulOne(originalExpression.clone(replacements), oneExpression.clone(replacements), originalExpressionFirst)
+            is AugmentedExpression.SubZero -> AugmentedExpression.SubZero(originalExpression.clone(replacements), zeroExpression.clone(replacements))
+            is AugmentedExpression.KnownValue -> AugmentedExpression.KnownValue(knownValue.clone(replacements), expression.clone(replacements))
         }
     }

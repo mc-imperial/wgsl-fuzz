@@ -110,6 +110,26 @@ fun <T> traverse(
         is AugmentedExpression.TrueByConstruction -> {
             actionWithState(node.trueExpression)
         }
+        is AugmentedExpression.AddZero -> {
+            actionWithState(node.originalExpression)
+            actionWithState(node.zeroExpression)
+        }
+        is AugmentedExpression.DivOne -> {
+            actionWithState(node.originalExpression)
+            actionWithState(node.oneExpression)
+        }
+        is AugmentedExpression.MulOne -> {
+            actionWithState(node.originalExpression)
+            actionWithState(node.oneExpression)
+        }
+        is AugmentedExpression.SubZero -> {
+            actionWithState(node.originalExpression)
+            actionWithState(node.zeroExpression)
+        }
+        is AugmentedExpression.KnownValue -> {
+            actionWithState(node.knownValue)
+            actionWithState(node.expression)
+        }
         is GlobalDecl.ConstAssert -> {
             actionWithState(node.expression)
         }

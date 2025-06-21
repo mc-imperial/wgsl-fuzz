@@ -424,6 +424,61 @@ class AstWriter(
                 emitExpression(expression.trueExpression)
                 out.print(")")
             }
+            is AugmentedExpression.AddZero -> {
+                if (expression.originalExpressionFirst) {
+                    out.print("(/* add zero on right */ ")
+                    out.print("(")
+                    emitExpression(expression.originalExpression)
+                    out.print(") + ")
+                    emitExpression(expression.zeroExpression)
+                    out.print(")")
+                } else {
+                    out.print("(/* add zero on left */ ")
+                    emitExpression(expression.zeroExpression)
+                    out.print(" + (")
+                    emitExpression(expression.originalExpression)
+                    out.print("))")
+                }
+            }
+            is AugmentedExpression.DivOne -> {
+                out.print("(/* div by one */ ")
+                out.print("(")
+                emitExpression(expression.originalExpression)
+                out.print(") / ")
+                emitExpression(expression.oneExpression)
+                out.print(")")
+            }
+            is AugmentedExpression.MulOne -> {
+                if (expression.originalExpressionFirst) {
+                    out.print("(/* mul by one on right */ ")
+                    out.print("(")
+                    emitExpression(expression.originalExpression)
+                    out.print(") * ")
+                    emitExpression(expression.oneExpression)
+                    out.print(")")
+                } else {
+                    out.print("(/* mul by one on left */ ")
+                    emitExpression(expression.oneExpression)
+                    out.print(" * (")
+                    emitExpression(expression.originalExpression)
+                    out.print("))")
+                }
+            }
+            is AugmentedExpression.SubZero -> {
+                out.print("(/* sub zero */ ")
+                out.print("(")
+                emitExpression(expression.originalExpression)
+                out.print(") - ")
+                emitExpression(expression.zeroExpression)
+                out.print(")")
+            }
+            is AugmentedExpression.KnownValue -> {
+                out.print("(/* known value: ")
+                emitExpression(expression.knownValue)
+                out.print(" */ ")
+                emitExpression(expression.expression)
+                out.print(")")
+            }
         }
     }
 
