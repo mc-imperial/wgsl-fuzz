@@ -1,12 +1,18 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.AstWriter
+import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.ParsedShaderJob
 import com.wgslfuzz.core.Type
+import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
+import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintStream
 
 private typealias IdentityOperationReplacements = MutableMap<Expression, AugmentedExpression.IdentityOperation>
 
@@ -19,6 +25,14 @@ private class AddIdentityOperations(
         node: AstNode,
         identityReplacements: IdentityOperationReplacements,
     ) {
+        if (node is Attribute) {
+            // We do not want to mutate, for example, the argument to the 'location' attribute.
+            return
+        }
+        if (node is TypeDecl) {
+            // We do not want to mutate, for example, a constant array size.
+            return
+        }
         if (node is AugmentedExpression.KnownValue) {
             // In the case of a known value expression, the "known value" part should be left intact, and only the
             // obfuscated expression that evaluates to the known value should be considered for transformation.

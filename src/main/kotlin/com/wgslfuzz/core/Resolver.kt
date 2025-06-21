@@ -1878,6 +1878,16 @@ private fun resolveFunctionHeader(
         resolveAstNode(it, resolverState)
     }
 
+    functionDecl.parameters.forEach { parameter ->
+        parameter.attributes.forEach {
+            resolveAstNode(it, resolverState)
+        }
+    }
+
+    functionDecl.returnAttributes.forEach {
+        resolveAstNode(it, resolverState)
+    }
+
     val functionType =
         FunctionType(
             functionDecl.parameters.map {

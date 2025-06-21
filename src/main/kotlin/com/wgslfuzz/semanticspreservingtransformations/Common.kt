@@ -333,10 +333,8 @@ fun generateArbitraryExpression(
     fuzzerSettings: FuzzerSettings,
     parsedShaderJob: ParsedShaderJob,
 ): Expression {
-    if (type is Type.Bool) {
-        return Expression.BoolLiteral("false")
-    }
-    TODO("Need to support arbitrary expression generation.")
+    // TODO(Support arbitrary expression generation)
+    return constantWithSameValueEverywhere(1, type)
 }
 
 fun generateKnownValueExpression(
@@ -368,7 +366,7 @@ fun generateKnownValueExpression(
         else -> throw RuntimeException("Unsupported type.")
     }
 
-    val choices: List<Pair<Int, () -> AugmentedExpression.KnownValue>> = listOf(
+    val choices: MutableList<Pair<Int, () -> AugmentedExpression.KnownValue>> = mutableListOf(
         fuzzerSettings.knownValueWeights.plainKnownValue(depth) to {
             AugmentedExpression.KnownValue(
                 knownValue = knownValue.clone(),
@@ -449,7 +447,7 @@ fun generateKnownValueExpression(
             )
         },
         fuzzerSettings.knownValueWeights.productOfKnownValues(depth) to {
-            val randomValue = min(1, fuzzerSettings.randomInt(max(1, knownValueAsInt / 2)))
+            val randomValue = max(1, fuzzerSettings.randomInt(max(1, knownValueAsInt / 2)))
             val quotient: Int = knownValueAsInt / randomValue
             val remainder: Int = knownValueAsInt % randomValue
 
@@ -508,68 +506,73 @@ fun generateKnownValueExpression(
                 expression = resultExpression,
             )
         },
-        fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
-            val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(parsedShaderJob, fuzzerSettings)
-            val valueOfUniformAsInt: Int = getNumericValueFromConstant(
-                valueOfUniform
-            )
-            val uniformScalarWithCastIfNeeded = if (type is Type.U32) {
-                Expression.U32ValueConstructor(listOf(uniformScalar))
-            } else if (scalarType is Type.Integer && type is Type.Float) {
-                Expression.F32ValueConstructor(listOf(uniformScalar))
-            } else if (scalarType is Type.Float && type is Type.Integer) {
-                Expression.I32ValueConstructor(listOf(uniformScalar))
-            } else {
-                uniformScalar
-            }
-            val expression = if (valueOfUniformAsInt == knownValueAsInt) {
-                uniformScalarWithCastIfNeeded
-            } else if (valueOfUniformAsInt > knownValueAsInt) {
-                val difference = valueOfUniformAsInt - knownValueAsInt
-                val differenceText = "$difference$literalSuffix"
-                val differenceKnownExpression = if (type is Type.Integer) {
-                    Expression.IntLiteral(differenceText)
-                } else {
-                    Expression.FloatLiteral(differenceText)
-                }
-                Expression.Binary(
-                    BinaryOperator.MINUS,
-                    uniformScalarWithCastIfNeeded,
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = differenceKnownExpression,
-                        fuzzerSettings = fuzzerSettings,
-                        parsedShaderJob = parsedShaderJob,
-                        type = type,
-                    )
-                )
-            } else {
-                val difference = knownValueAsInt - valueOfUniformAsInt
-                val differenceText = "$difference$literalSuffix"
-                val differenceKnownExpression = if (type is Type.Integer) {
-                    Expression.IntLiteral(differenceText)
-                } else {
-                    Expression.FloatLiteral(differenceText)
-                }
-                binaryExpressionRandomOperandOrder(
-                    fuzzerSettings,
-                    BinaryOperator.PLUS,
-                    uniformScalarWithCastIfNeeded,
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = differenceKnownExpression,
-                        fuzzerSettings = fuzzerSettings,
-                        parsedShaderJob = parsedShaderJob,
-                        type = type,
-                    ),
-                )
-            }
-            AugmentedExpression.KnownValue(
-                knownValue = knownValue.clone(),
-                expression = expression,
-            )
-        }
     )
+    if (!type.isAbstract()) {
+        // Deriving a known value from a uniform only works with concrete types.
+        choices.add(
+            fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
+                val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(parsedShaderJob, fuzzerSettings)
+                val valueOfUniformAsInt: Int = getNumericValueFromConstant(
+                    valueOfUniform
+                )
+                val uniformScalarWithCastIfNeeded = if (type is Type.U32) {
+                    Expression.U32ValueConstructor(listOf(uniformScalar))
+                } else if (scalarType is Type.Integer && type is Type.Float) {
+                    Expression.F32ValueConstructor(listOf(uniformScalar))
+                } else if (scalarType is Type.Float && type is Type.Integer) {
+                    Expression.I32ValueConstructor(listOf(uniformScalar))
+                } else {
+                    uniformScalar
+                }
+                val expression = if (valueOfUniformAsInt == knownValueAsInt) {
+                    uniformScalarWithCastIfNeeded
+                } else if (valueOfUniformAsInt > knownValueAsInt) {
+                    val difference = valueOfUniformAsInt - knownValueAsInt
+                    val differenceText = "$difference$literalSuffix"
+                    val differenceKnownExpression = if (type is Type.Integer) {
+                        Expression.IntLiteral(differenceText)
+                    } else {
+                        Expression.FloatLiteral(differenceText)
+                    }
+                    Expression.Binary(
+                        BinaryOperator.MINUS,
+                        uniformScalarWithCastIfNeeded,
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = differenceKnownExpression,
+                            fuzzerSettings = fuzzerSettings,
+                            parsedShaderJob = parsedShaderJob,
+                            type = type,
+                        )
+                    )
+                } else {
+                    val difference = knownValueAsInt - valueOfUniformAsInt
+                    val differenceText = "$difference$literalSuffix"
+                    val differenceKnownExpression = if (type is Type.Integer) {
+                        Expression.IntLiteral(differenceText)
+                    } else {
+                        Expression.FloatLiteral(differenceText)
+                    }
+                    binaryExpressionRandomOperandOrder(
+                        fuzzerSettings,
+                        BinaryOperator.PLUS,
+                        uniformScalarWithCastIfNeeded,
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = differenceKnownExpression,
+                            fuzzerSettings = fuzzerSettings,
+                            parsedShaderJob = parsedShaderJob,
+                            type = type,
+                        ),
+                    )
+                }
+                AugmentedExpression.KnownValue(
+                    knownValue = knownValue.clone(),
+                    expression = expression,
+                )
+            }
+        )
+    }
     return choose(fuzzerSettings, choices)
 }
 
@@ -591,7 +594,18 @@ fun constantWithSameValueEverywhere(
         Type.I32 -> Expression.IntLiteral("${value}i")
         Type.U32 -> Expression.IntLiteral("${value}u")
         is Type.Struct -> TODO("Struct constants need to be supported.")
-        is Type.Vector -> TODO("Vector constants need to be supported.")
+        is Type.Vector -> when (type.width) {
+            2 -> Expression.Vec2ValueConstructor(
+                args = (0..1).map { constantWithSameValueEverywhere(value, type.elementType) }
+            )
+            3 -> Expression.Vec2ValueConstructor(
+                args = (0..2).map { constantWithSameValueEverywhere(value, type.elementType) }
+            )
+            4 -> Expression.Vec2ValueConstructor(
+                args = (0..3).map { constantWithSameValueEverywhere(value, type.elementType) }
+            )
+            else -> throw RuntimeException("Bad vector width: ${type.width}")
+        }
         else -> throw UnsupportedOperationException("Constant construction not supported for type $type")
     }
 
