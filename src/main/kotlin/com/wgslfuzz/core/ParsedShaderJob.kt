@@ -74,7 +74,7 @@ private fun literalExprFromBytes(
 
             return Pair(
                 Expression.StructValueConstructor(
-                    structName = type.name,
+                    constructorName = type.name,
                     args = memberExpressions,
                 ),
                 currentBufferByteIndex,

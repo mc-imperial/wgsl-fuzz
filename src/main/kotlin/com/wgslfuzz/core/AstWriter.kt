@@ -350,7 +350,7 @@ class AstWriter(
                 out.print(")")
             }
             is Expression.ValueConstructor -> {
-                out.print(expression.typeName)
+                out.print(expression.constructorName)
                 when (expression) {
                     is Expression.VectorValueConstructor -> {
                         expression.elementType?.let {

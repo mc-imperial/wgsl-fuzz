@@ -623,19 +623,18 @@ sealed interface Expression : AstNode {
 
     @Serializable
     sealed interface ValueConstructor : Expression {
+        val constructorName: String
         val args: List<Expression>
     }
 
     @Serializable
-    sealed interface ScalarValueConstructor : ValueConstructor {
-        val scalarTypeName: String
-    }
+    sealed interface ScalarValueConstructor : ValueConstructor
 
     @Serializable
     class BoolValueConstructor(
         override val args: List<Expression>,
     ) : ScalarValueConstructor {
-        override val scalarTypeName: String
+        override val constructorName: String
             get() = "bool"
     }
 
@@ -643,7 +642,7 @@ sealed interface Expression : AstNode {
     class I32ValueConstructor(
         override val args: List<Expression>,
     ) : ScalarValueConstructor {
-        override val scalarTypeName: String
+        override val constructorName: String
             get() = "i32"
     }
 
@@ -651,7 +650,7 @@ sealed interface Expression : AstNode {
     class U32ValueConstructor(
         override val args: List<Expression>,
     ) : ScalarValueConstructor {
-        override val scalarTypeName: String
+        override val constructorName: String
             get() = "u32"
     }
 
@@ -659,7 +658,7 @@ sealed interface Expression : AstNode {
     class F16ValueConstructor(
         override val args: List<Expression>,
     ) : ScalarValueConstructor {
-        override val scalarTypeName: String
+        override val constructorName: String
             get() = "f16"
     }
 
@@ -667,13 +666,12 @@ sealed interface Expression : AstNode {
     class F32ValueConstructor(
         override val args: List<Expression>,
     ) : ScalarValueConstructor {
-        override val scalarTypeName: String
+        override val constructorName: String
             get() = "f32"
     }
 
     @Serializable
     sealed interface VectorValueConstructor : ValueConstructor {
-        val vectorTypeName: String
         val elementType: TypeDecl.ScalarTypeDecl?
     }
 
@@ -682,7 +680,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.ScalarTypeDecl? = null,
         override val args: List<Expression>,
     ) : VectorValueConstructor {
-        override val vectorTypeName: String
+        override val constructorName: String
             get() = "vec2"
     }
 
@@ -691,7 +689,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.ScalarTypeDecl? = null,
         override val args: List<Expression>,
     ) : VectorValueConstructor {
-        override val vectorTypeName: String
+        override val constructorName: String
             get() = "vec3"
     }
 
@@ -700,13 +698,12 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.ScalarTypeDecl? = null,
         override val args: List<Expression>,
     ) : VectorValueConstructor {
-        override val vectorTypeName: String
+        override val constructorName: String
             get() = "vec4"
     }
 
     @Serializable
     sealed interface MatrixValueConstructor : ValueConstructor {
-        val matrixTypeName: String
         val elementType: TypeDecl.FloatTypeDecl?
     }
 
@@ -715,7 +712,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat2x2"
     }
 
@@ -724,7 +721,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat2x3"
     }
 
@@ -733,7 +730,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat2x4"
     }
 
@@ -742,7 +739,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat3x2"
     }
 
@@ -751,7 +748,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat3x3"
     }
 
@@ -760,7 +757,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat3x4"
     }
 
@@ -769,7 +766,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat4x2"
     }
 
@@ -778,7 +775,7 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat4x3"
     }
 
@@ -787,19 +784,19 @@ sealed interface Expression : AstNode {
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
     ) : MatrixValueConstructor {
-        override val matrixTypeName: String
+        override val constructorName: String
             get() = "mat4x4"
     }
 
     @Serializable
     class StructValueConstructor(
-        val structName: String,
+        override val constructorName: String,
         override val args: List<Expression>,
     ) : ValueConstructor
 
     @Serializable
     class TypeAliasValueConstructor(
-        val aliasName: String,
+        override val constructorName: String,
         override val args: List<Expression>,
     ) : ValueConstructor
 
@@ -808,7 +805,10 @@ sealed interface Expression : AstNode {
         val elementType: TypeDecl? = null,
         val elementCount: Expression? = null,
         override val args: List<Expression>,
-    ) : ValueConstructor
+    ) : ValueConstructor {
+        override val constructorName: String
+            get() = "array"
+    }
 
     @Serializable
     class MemberLookup(

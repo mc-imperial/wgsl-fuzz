@@ -134,8 +134,8 @@ private fun cloneHelper(
             is Expression.F32ValueConstructor -> Expression.F32ValueConstructor(args.clone(replacements))
             is Expression.I32ValueConstructor -> Expression.I32ValueConstructor(args.clone(replacements))
             is Expression.U32ValueConstructor -> Expression.U32ValueConstructor(args.clone(replacements))
-            is Expression.StructValueConstructor -> Expression.StructValueConstructor(typeName, args.clone(replacements))
-            is Expression.TypeAliasValueConstructor -> Expression.TypeAliasValueConstructor(typeName, args.clone(replacements))
+            is Expression.StructValueConstructor -> Expression.StructValueConstructor(constructorName, args.clone(replacements))
+            is Expression.TypeAliasValueConstructor -> Expression.TypeAliasValueConstructor(constructorName, args.clone(replacements))
             is Expression.Vec2ValueConstructor ->
                 Expression.Vec2ValueConstructor(
                     elementType?.clone(replacements),
