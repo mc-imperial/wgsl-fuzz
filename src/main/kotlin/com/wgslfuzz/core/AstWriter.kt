@@ -425,19 +425,19 @@ class AstWriter(
                 out.print(")")
             }
             is AugmentedExpression.AddZero -> {
-                if (expression.originalExpressionFirst) {
+                if (expression.zeroOnLeft) {
+                    out.print("(/* add zero on left */ ")
+                    emitExpression(expression.zeroExpression)
+                    out.print(" + (")
+                    emitExpression(expression.originalExpression)
+                    out.print("))")
+                } else {
                     out.print("(/* add zero on right */ ")
                     out.print("(")
                     emitExpression(expression.originalExpression)
                     out.print(") + ")
                     emitExpression(expression.zeroExpression)
                     out.print(")")
-                } else {
-                    out.print("(/* add zero on left */ ")
-                    emitExpression(expression.zeroExpression)
-                    out.print(" + (")
-                    emitExpression(expression.originalExpression)
-                    out.print("))")
                 }
             }
             is AugmentedExpression.DivOne -> {
@@ -449,19 +449,19 @@ class AstWriter(
                 out.print(")")
             }
             is AugmentedExpression.MulOne -> {
-                if (expression.originalExpressionFirst) {
+                if (expression.oneOnLeft) {
+                    out.print("(/* mul by one on left */ ")
+                    emitExpression(expression.oneExpression)
+                    out.print(" * (")
+                    emitExpression(expression.originalExpression)
+                    out.print("))")
+                } else {
                     out.print("(/* mul by one on right */ ")
                     out.print("(")
                     emitExpression(expression.originalExpression)
                     out.print(") * ")
                     emitExpression(expression.oneExpression)
                     out.print(")")
-                } else {
-                    out.print("(/* mul by one on left */ ")
-                    emitExpression(expression.oneExpression)
-                    out.print(" * (")
-                    emitExpression(expression.originalExpression)
-                    out.print("))")
                 }
             }
             is AugmentedExpression.SubZero -> {

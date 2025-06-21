@@ -68,13 +68,13 @@ sealed interface AugmentedExpression :
     class AddZero(
         override val originalExpression: Expression,
         val zeroExpression: KnownValue,
-        val originalExpressionFirst: Boolean,
+        val zeroOnLeft: Boolean,
     ) : IdentityOperation
 
     class MulOne(
         override val originalExpression: Expression,
         val oneExpression: KnownValue,
-        val originalExpressionFirst: Boolean,
+        val oneOnLeft: Boolean,
     ) : IdentityOperation
 
     class SubZero(
