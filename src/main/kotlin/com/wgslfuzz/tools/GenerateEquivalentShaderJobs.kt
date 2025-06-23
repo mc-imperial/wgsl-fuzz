@@ -27,7 +27,6 @@ import com.wgslfuzz.core.parseShaderJob
 import com.wgslfuzz.semanticspreservingtransformations.FuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.metamorphicTransformations
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToJsonElement
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintStream
