@@ -332,7 +332,7 @@ fun generateArbitraryExpression(
     fuzzerSettings: FuzzerSettings,
     parsedShaderJob: ParsedShaderJob,
 ): Expression {
-    // TODO(Support arbitrary expression generation)
+    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
     return constantWithSameValueEverywhere(1, type)
 }
 

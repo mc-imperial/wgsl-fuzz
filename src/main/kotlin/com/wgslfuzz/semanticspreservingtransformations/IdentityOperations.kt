@@ -87,10 +87,10 @@ private class AddIdentityOperations(
                 )
             identityReplacements[node] = choose(fuzzerSettings, choices)
         } else {
-            // TODO(vectors)
-            // TODO(matrices)
-            // TODO(simple struct expressions)
-            // TODO(simple array expressions)
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/38): Identity operations on vectors
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/39): Identity operations on vectors
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/40): Identity operations on structs
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/41): Identity operations on arrays
         }
     }
 

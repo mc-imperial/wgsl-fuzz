@@ -967,8 +967,8 @@ private fun resolveTypeOfFunctionCallExpression(
             when (val calleeName = functionCallExpression.callee) {
                 // 1-argument functions with return type same as argument type, allowing for the case where both are
                 // abstract.
-                // TODO go through these and check which ones support abstract types. Those that need concretisation
-                //  should be moved to the next case.
+                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/37) go through these and check which ones support
+                //  abstract types. Those that need concretisation should be moved to the next case.
                 "abs", "acos", "acosh", "asin", "asinh", "atan", "atanh", "ceil", "cos", "cosh", "degrees", "dpdx",
                 "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "exp", "exp2", "floor", "fract", "fwidth",
                 "fwidthCoarse", "fwidthFine", "inverseSqrt", "log", "log2", "normalize", "quantizeToF16", "radians",
@@ -990,8 +990,8 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                 }
                 // 2-argument homogeneous functions with return type same as argument type
-                // TODO go through these and check which ones support abstract types. Those that don't need
-                //  concretisation
+                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/37): go through these and check which ones support
+                //  abstract types. Those that don't need concretisation
                 "atan2", "max", "min", "pow", "reflect", "step" ->
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("$calleeName requires two arguments")
@@ -1632,6 +1632,8 @@ sealed class EvaluatedValue {
     ) : EvaluatedValue()
 }
 
+// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/36): Expression evaluation is in a prototypical state; a number
+//  of known issues are discussed below
 private fun evaluate(
     expression: Expression,
     resolverState: ResolverState,
@@ -1664,8 +1666,9 @@ private fun evaluate(
         }
         is Expression.Identifier -> {
             when (val scopeEntry = resolverState.currentScope.getEntry(expression.name)) {
-                // TODO: Avoid re-evaluating global constants, and/or handle the problem that the resolver state needed
-                //  to evaluate the global constant would really be global scope.
+                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/36): Avoid re-evaluating global constants,
+                //  and/or handle the problem that the resolver state needed to evaluate the global constant would
+                //  really be global scope.
                 is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, resolverState)
                 is ScopeEntry.GlobalOverride -> {
                     scopeEntry.astNode.initializer?.let { evaluate(it, resolverState) }
@@ -1684,12 +1687,11 @@ private fun evaluate(
                 TODO("Evaluation of arithmetic on non-integer values is not supported")
             }
             when (expression.operator) {
+                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/36): These do not take account of signedness.
                 BinaryOperator.TIMES -> {
-                    // TODO: This does not take account of signedness
                     EvaluatedValue.Integer(lhs.value * rhs.value)
                 }
                 BinaryOperator.SHIFT_LEFT -> {
-                    // TODO: This does not take account of signedness
                     EvaluatedValue.Integer(lhs.value.shl(rhs.value))
                 }
                 else -> TODO("${expression.operator}")
