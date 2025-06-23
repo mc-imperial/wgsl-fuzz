@@ -21,6 +21,7 @@ val logbackVersion: String = "1.5.18"
 
 plugins {
     kotlin("jvm") version "2.1.21"
+    kotlin("plugin.serialization") version "2.1.21"
     java
     antlr
 }
@@ -39,6 +40,8 @@ repositories {
 dependencies {
     antlr("org.antlr:antlr4:$antlrVersion")
     testImplementation(kotlin("test"))
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
 
     implementation("io.ktor:ktor-network-tls-certificates-jvm:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktorVersion")

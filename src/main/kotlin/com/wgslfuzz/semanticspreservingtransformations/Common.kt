@@ -124,7 +124,7 @@ fun randomUniformScalarWithValue(
             .sorted()
     val binding = fuzzerSettings.randomElement(bindings)
     val uniformDeclaration = parsedShaderJob.tu.getUniformDeclaration(group, binding)
-    val typename: String = (uniformDeclaration.type as TypeDecl.NamedType).name
+    val typename: String = (uniformDeclaration.typeDecl as TypeDecl.NamedType).name
 
     var currentType: Type = (parsedShaderJob.environment.globalScope.getEntry(typename) as ScopeEntry.Struct).type
     var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)

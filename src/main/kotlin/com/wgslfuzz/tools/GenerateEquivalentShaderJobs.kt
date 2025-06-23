@@ -26,6 +26,7 @@ import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.parseShaderJob
 import com.wgslfuzz.semanticspreservingtransformations.FuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.metamorphicTransformations
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintStream
@@ -62,6 +63,8 @@ fun main(args: Array<String>) {
                     fuzzerSettings,
                 )
         } while (fuzzerSettings.randomBool())
+
         AstWriter(PrintStream(FileOutputStream(File("variant$i.wgsl")))).emit(transformedShaderJob.tu)
+        File("variant$i.json").writeText(Json.encodeToString(transformedShaderJob))
     }
 }

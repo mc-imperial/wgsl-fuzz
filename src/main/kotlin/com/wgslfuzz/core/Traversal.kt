@@ -134,7 +134,7 @@ fun <T> traverse(
             actionWithState(node.expression)
         }
         is GlobalDecl.Constant -> {
-            node.type?.let(actionWithState)
+            node.typeDecl?.let(actionWithState)
             actionWithState(node.initializer)
         }
         is GlobalDecl.Function -> {
@@ -146,18 +146,18 @@ fun <T> traverse(
         }
         is GlobalDecl.Override -> {
             node.attributes.forEach(actionWithState)
-            node.type?.let(actionWithState)
+            node.typeDecl?.let(actionWithState)
             node.initializer?.let(actionWithState)
         }
         is GlobalDecl.Struct -> {
             node.members.forEach(actionWithState)
         }
         is GlobalDecl.TypeAlias -> {
-            actionWithState(node.type)
+            actionWithState(node.typeDecl)
         }
         is GlobalDecl.Variable -> {
             node.attributes.forEach(actionWithState)
-            node.type?.let(actionWithState)
+            node.typeDecl?.let(actionWithState)
             node.initializer?.let(actionWithState)
         }
         is LhsExpression.AddressOf -> {
@@ -213,11 +213,11 @@ fun <T> traverse(
             actionWithState(node.target)
         }
         is Statement.Value -> {
-            node.type?.let(actionWithState)
+            node.typeDecl?.let(actionWithState)
             node.initializer.let(actionWithState)
         }
         is Statement.Variable -> {
-            node.type?.let(actionWithState)
+            node.typeDecl?.let(actionWithState)
             node.initializer?.let(actionWithState)
         }
         is Statement.Loop -> {
@@ -245,7 +245,7 @@ fun <T> traverse(
         }
         is StructMember -> {
             node.attributes.forEach(actionWithState)
-            actionWithState(node.type)
+            actionWithState(node.typeDecl)
         }
         is SwitchClause -> {
             node.caseSelectors.forEach {

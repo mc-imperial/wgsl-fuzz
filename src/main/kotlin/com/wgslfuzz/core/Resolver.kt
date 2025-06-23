@@ -158,7 +158,7 @@ private fun collectUsedModuleScopeNames(node: AstNode): Set<String> {
         traverse(::collectAction, node, collectedNames)
         when (node) {
             is Expression.Identifier -> collectedNames.add(node.name)
-            is Expression.StructValueConstructor -> collectedNames.add(node.typeName)
+            is Expression.StructValueConstructor -> collectedNames.add(node.constructorName)
             is TypeDecl.NamedType -> {
                 traverse(::collectAction, node, collectedNames)
                 collectedNames.add(node.name)
@@ -205,7 +205,7 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
                     decl.name,
                     nameDependencies,
                     listOf(
-                        decl.type,
+                        decl.typeDecl,
                         decl.initializer,
                     ),
                 )
@@ -223,7 +223,7 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
                 collectUsedModuleScopeNames(
                     decl.name,
                     nameDependencies,
-                    decl.attributes + listOf(decl.type, decl.initializer),
+                    decl.attributes + listOf(decl.typeDecl, decl.initializer),
                 )
             }
             is GlobalDecl.Struct -> {
@@ -232,14 +232,14 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
             }
             is GlobalDecl.TypeAlias -> {
                 nameToDecl[decl.name] = decl
-                collectUsedModuleScopeNames(decl.name, nameDependencies, listOf(decl.type))
+                collectUsedModuleScopeNames(decl.name, nameDependencies, listOf(decl.typeDecl))
             }
             is GlobalDecl.Variable -> {
                 nameToDecl[decl.name] = decl
                 collectUsedModuleScopeNames(
                     decl.name,
                     nameDependencies,
-                    decl.attributes + listOf(decl.type, decl.initializer),
+                    decl.attributes + listOf(decl.typeDecl, decl.initializer),
                 )
             }
         }
@@ -336,15 +336,15 @@ private fun resolveAstNode(
                 node.name,
                 ScopeEntry.TypeAlias(
                     node,
-                    resolveTypeDecl(node.type, resolverState),
+                    resolveTypeDecl(node.typeDecl, resolverState),
                 ),
             )
         }
         is GlobalDecl.Variable -> {
             val type: Type =
                 defaultConcretizationOf(
-                    node.type?.let {
-                        resolveTypeDecl(node.type, resolverState)
+                    node.typeDecl?.let {
+                        resolveTypeDecl(node.typeDecl, resolverState)
                     } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
                 )
             resolverState.currentScope.addEntry(
@@ -358,7 +358,7 @@ private fun resolveAstNode(
                 ScopeEntry.GlobalConstant(
                     astNode = node,
                     type =
-                        node.type?.let {
+                        node.typeDecl?.let {
                             resolveTypeDecl(it, resolverState)
                         } ?: resolverState.resolvedEnvironment.typeOf(node.initializer),
                 ),
@@ -370,7 +370,7 @@ private fun resolveAstNode(
                 ScopeEntry.GlobalOverride(
                     astNode = node,
                     type =
-                        node.type?.let {
+                        node.typeDecl?.let {
                             resolveTypeDecl(it, resolverState)
                         } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
                 ),
@@ -386,7 +386,7 @@ private fun resolveAstNode(
                             name = node.name,
                             members =
                                 node.members.map {
-                                    it.name to resolveTypeDecl(it.type, resolverState)
+                                    it.name to resolveTypeDecl(it.typeDecl, resolverState)
                                 },
                         ),
                 ),
@@ -422,8 +422,8 @@ private fun resolveAstNode(
         }
         is Statement.Value -> {
             var type: Type =
-                node.type?.let {
-                    resolveTypeDecl(node.type, resolverState)
+                node.typeDecl?.let {
+                    resolveTypeDecl(node.typeDecl, resolverState)
                 } ?: resolverState.resolvedEnvironment.typeOf(node.initializer)
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
@@ -435,8 +435,8 @@ private fun resolveAstNode(
         }
         is Statement.Variable -> {
             var type: Type =
-                node.type?.let {
-                    resolveTypeDecl(node.type, resolverState)
+                node.typeDecl?.let {
+                    resolveTypeDecl(node.typeDecl, resolverState)
                 } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
@@ -554,16 +554,16 @@ private fun resolveExpressionType(
         is Expression.MatrixValueConstructor -> resolveTypeOfMatrixValueConstructor(expression, resolverState)
         is Expression.ArrayValueConstructor -> resolveTypeOfArrayValueConstructor(expression, resolverState)
         is Expression.StructValueConstructor ->
-            when (val scopeEntry = resolverState.currentScope.getEntry(expression.typeName)) {
+            when (val scopeEntry = resolverState.currentScope.getEntry(expression.constructorName)) {
                 is ScopeEntry.Struct -> scopeEntry.type
                 else -> throw IllegalArgumentException(
-                    "Attempt to construct a struct with constructor ${expression.typeName}, which is not a struct type",
+                    "Attempt to construct a struct with constructor ${expression.constructorName}, which is not a struct type",
                 )
             }
         is Expression.TypeAliasValueConstructor ->
             (
                 resolverState.currentScope.getEntry(
-                    expression.typeName,
+                    expression.constructorName,
                 ) as ScopeEntry.TypeAlias
             ).type
         is AugmentedExpression.FalseByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.falseExpression)
@@ -856,9 +856,9 @@ private fun resolveTypeOfVectorValueConstructor(
     resolverState: ResolverState,
 ): Type.Vector {
     val elementType: Type.Scalar =
-        if (expression.elementType != null) {
-            resolveTypeDecl(expression.elementType, resolverState) as Type.Scalar
-        } else if (expression.args.isEmpty()) {
+        expression.elementType?.let {
+            resolveTypeDecl(it, resolverState) as Type.Scalar
+        } ?: if (expression.args.isEmpty()) {
             Type.AbstractInteger
         } else {
             var candidateElementType: Type.Scalar? = null
@@ -895,9 +895,9 @@ private fun resolveTypeOfMatrixValueConstructor(
     resolverState: ResolverState,
 ): Type.Matrix {
     val elementType: Type.Float =
-        if (expression.elementType != null) {
-            resolveTypeDecl(expression.elementType, resolverState) as Type.Float
-        } else {
+        expression.elementType?.let {
+            resolveTypeDecl(it, resolverState) as Type.Float
+        } ?: run {
             var candidateElementType: Type.Scalar? = null
             for (arg in expression.args) {
                 var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg)

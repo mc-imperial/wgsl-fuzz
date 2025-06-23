@@ -208,14 +208,14 @@ private class AstBuilder(
         if (ctx.CONST() != null) {
             return GlobalDecl.Constant(
                 name = ctx.ident_with_optional_type().IDENT().text,
-                type = ctx.ident_with_optional_type().type_decl()?.let(::visitType_decl),
+                typeDecl = ctx.ident_with_optional_type().type_decl()?.let(::visitType_decl),
                 initializer = visitExpression(ctx.expression()),
             )
         }
         return GlobalDecl.Override(
             attributes = gatherAttributes(ctx.attribute()),
             name = ctx.ident_with_optional_type().IDENT().text,
-            type = ctx.ident_with_optional_type().type_decl()?.let(::visitType_decl),
+            typeDecl = ctx.ident_with_optional_type().type_decl()?.let(::visitType_decl),
             initializer = ctx.expression()?.let(::visitExpression),
         )
     }
@@ -240,7 +240,7 @@ private class AstBuilder(
                     ?.access_mode
                     ?.text
                     ?.let(::handleAccessMode),
-            type =
+            typeDecl =
                 ctx
                     .ident_with_optional_type()
                     .type_decl()
@@ -447,7 +447,7 @@ private class AstBuilder(
                     ?.access_mode
                     ?.text
                     ?.let(::handleAccessMode),
-            type =
+            typeDecl =
                 ctx
                     .ident_with_optional_type()
                     .type_decl()
@@ -459,7 +459,7 @@ private class AstBuilder(
         Statement.Value(
             isConst = ctx.CONST() != null,
             name = ctx.ident_with_optional_type().IDENT().text,
-            type =
+            typeDecl =
                 ctx
                     .ident_with_optional_type()
                     .type_decl()
@@ -577,7 +577,7 @@ private class AstBuilder(
                                 attributes =
                                     gatherAttributes(it.attribute()),
                                 name = it.IDENT().text,
-                                type = visitType_decl(it.type_decl()),
+                                typeDecl = visitType_decl(it.type_decl()),
                             )
                         },
             )
@@ -587,7 +587,7 @@ private class AstBuilder(
     override fun visitType_alias_decl(ctx: WGSLParser.Type_alias_declContext): GlobalDecl.TypeAlias =
         GlobalDecl.TypeAlias(
             name = ctx.IDENT().text,
-            type = visitType_decl(ctx.type_decl()),
+            typeDecl = visitType_decl(ctx.type_decl()),
         )
 
     override fun visitType_decl_without_ident(ctx: WGSLParser.Type_decl_without_identContext): TypeDecl {
