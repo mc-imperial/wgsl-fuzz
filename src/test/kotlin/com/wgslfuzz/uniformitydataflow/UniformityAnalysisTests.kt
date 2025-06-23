@@ -1,3 +1,19 @@
+/*
+ * Copyright 2025 The wgsl-fuzz Project Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.wgslfuzz.uniformitydataflow
 
 import com.wgslfuzz.core.GlobalDecl
@@ -7,17 +23,16 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import kotlin.test.fail
 
 class UniformityAnalysisTests {
-
     @Test
     fun simpleProgram() {
-        val program = """
+        val program =
+            """
             fn f() {
                 ;
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -26,11 +41,12 @@ class UniformityAnalysisTests {
 
     @Test
     fun unconditionalBarrier() {
-        val program = """
+        val program =
+            """
             fn f() {
                 workgroupBarrier();
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -39,7 +55,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun conditionalBarrier() {
-        val program = """
+        val program =
+            """
             fn f(a: u32) {
                 var x: u32;
                 x = a;
@@ -49,7 +66,7 @@ class UniformityAnalysisTests {
                   ;
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -58,7 +75,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierFollowingConditionalReturn() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, b: u32) {
                 var x: u32;
                 var y: u32;
@@ -69,7 +87,7 @@ class UniformityAnalysisTests {
                 }
                 workgroupBarrier();
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertEquals(setOf("a", "b"), state.returnedValueUniformity)
@@ -78,7 +96,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun unreachableBarrier() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, b: u32) {
                 var x: u32;
                 var y: u32;
@@ -95,7 +114,7 @@ class UniformityAnalysisTests {
                   ;
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf("a", "b"), state.returnedValueUniformity)
@@ -104,7 +123,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierAfterLoop() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, b: u32) {
                 var x: u32;
                 var y: u32;
@@ -121,7 +141,7 @@ class UniformityAnalysisTests {
                 }
                 workgroupBarrier();
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -130,7 +150,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun conditionalBarrierAfterLoop() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, b: u32) {
                 var x: u32;
                 var y: u32;
@@ -152,7 +173,7 @@ class UniformityAnalysisTests {
                   workgroupBarrier();
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -161,7 +182,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierAfterLoopWithReturn() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, b: u32) {
                 var x: u32;
                 var y: u32;
@@ -185,7 +207,7 @@ class UniformityAnalysisTests {
                 }
                 workgroupBarrier();
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertEquals(setOf("a", "b"), state.returnedValueUniformity)
@@ -194,7 +216,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierAfterBreakFreeLoopWithReturn() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, b: u32) {
                 var x: u32;
                 var y: u32;
@@ -213,7 +236,7 @@ class UniformityAnalysisTests {
                 }
                 workgroupBarrier();
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf("a", "b"), state.returnedValueUniformity)
@@ -222,7 +245,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierAfterLoopWithUnconditionalReturn() {
-        val program = """
+        val program =
+            """
             fn f() {
                 var x: u32;
                 x = 1;
@@ -231,7 +255,7 @@ class UniformityAnalysisTests {
                 }
                 workgroupBarrier();
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -240,14 +264,15 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierInLoopAfterUnconditionalBreak() {
-        val program = """
+        val program =
+            """
             fn f() {
                 loop {
                    break;
                    workgroupBarrier();
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -256,7 +281,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierInLoopAfterUnconditionalBreaks() {
-        val program = """
+        val program =
+            """
             fn f() {
                 var x: u32;
                 x = 1;
@@ -269,7 +295,7 @@ class UniformityAnalysisTests {
                    workgroupBarrier();
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -278,14 +304,15 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierInLoopAfterUnconditionalContinue() {
-        val program = """
+        val program =
+            """
             fn f() {
                 loop {
                    continue;
                    workgroupBarrier();
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -294,7 +321,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierInLoopAfterUnconditionalContinues() {
-        val program = """
+        val program =
+            """
             fn f() {
                 var x: u32;
                 x = 1;
@@ -307,7 +335,7 @@ class UniformityAnalysisTests {
                    workgroupBarrier();
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -316,7 +344,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun barrierInLoopAfterUnconditionalBreakContinuePair() {
-        val program = """
+        val program =
+            """
             fn f() {
                 var x: u32;
                 x = 1;
@@ -329,7 +358,7 @@ class UniformityAnalysisTests {
                    workgroupBarrier();
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -338,7 +367,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun misc1() {
-        val program = """
+        val program =
+            """
             fn f(tid: u32) {
                 var x: u32;
                 x = 0;
@@ -349,7 +379,7 @@ class UniformityAnalysisTests {
                 }
                 return x;
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf("tid"), state.returnedValueUniformity)
@@ -358,7 +388,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun misc2() {
-        val program = """
+        val program =
+            """
             fn f(tid: u32) {
               var c: u32;
               var x: u32;
@@ -372,7 +403,7 @@ class UniformityAnalysisTests {
               }
               return x;
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf("tid"), state.returnedValueUniformity)
@@ -381,7 +412,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun misc3() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, tid: u32) {
               var c: u32;
               var x: u32;
@@ -397,7 +429,7 @@ class UniformityAnalysisTests {
               x = tid;
               return x;
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf("tid"), state.returnedValueUniformity)
@@ -406,7 +438,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun misc4() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, tid: u32) {
               var x: u32;
               loop {
@@ -415,7 +448,7 @@ class UniformityAnalysisTests {
               x = tid;
               return x;
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -424,7 +457,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun misc5() {
-        val program = """
+        val program =
+            """
             fn f(a: u32, tid: u32) {
               var x: u32;
               loop {
@@ -433,7 +467,7 @@ class UniformityAnalysisTests {
               x = tid;
               return x;
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -442,7 +476,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun misc6() {
-        val program = """
+        val program =
+            """
             fn main(tid: u32) {
               var z1: u32;
               var z2: u32;
@@ -461,7 +496,7 @@ class UniformityAnalysisTests {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -470,7 +505,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun manyIterationsToConverge() {
-        val program = """
+        val program =
+            """
             fn main(tid: u32) {
               var z1: u32;
               var z2: u32;
@@ -505,7 +541,7 @@ class UniformityAnalysisTests {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -514,7 +550,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop1() {
-        val program = """
+        val program =
+            """
             fn main(lid: u32) {
               var x = 0;
               var _lid: u32;
@@ -531,7 +568,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -540,7 +577,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop1NoBreak() {
-        val program = """
+        val program =
+            """
             fn main(lid: u32) {
               var x = 0;
               var _lid: u32;
@@ -554,7 +592,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -563,7 +601,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop2() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               var x = 0;
@@ -580,7 +619,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -589,7 +628,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop3() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               var myLid;
@@ -605,7 +645,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -614,7 +654,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop4() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               var myLid;
@@ -637,7 +678,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -646,7 +687,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop5() {
-        val program = """
+        val program =
+            """
             fn main(@builtin(local_invocation_index) lid: u32) {
               var x = 0;
               var myLid;
@@ -656,7 +698,7 @@ class UniformityAnalysisTests {
                 x = myLid;
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -665,7 +707,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop6() {
-        val program = """
+        val program =
+            """
             fn main(@builtin(local_invocation_index) lid: u32) {
               var x = 0;
               var y = 0;
@@ -680,7 +723,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -689,7 +732,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop7() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               var x = 0;
@@ -706,7 +750,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -715,7 +759,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun loop8() {
-        val program = """
+        val program =
+            """
             fn main(@builtin(local_invocation_index) lid: u32) {
               var x = 0;
               var myLid;
@@ -729,7 +774,7 @@ class UniformityAnalysisTests {
             
               if x { workgroupBarrier(); }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -738,7 +783,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun nestedLoop1() {
-        val program = """
+        val program =
+            """
             fn main(lid: u32) {
               var x: u32;
               var y: u32;
@@ -759,7 +805,7 @@ class UniformityAnalysisTests {
                 workgroupBarrier();
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -768,7 +814,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun nestedLoop2() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               var myLid;
@@ -781,7 +828,7 @@ class UniformityAnalysisTests {
               }
               workgroupBarrier();
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf("lid"), state.returnedValueUniformity)
@@ -790,7 +837,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun nestedLoop3() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               var myLid;
@@ -805,7 +853,7 @@ class UniformityAnalysisTests {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertEquals(setOf("lid"), state.returnedValueUniformity)
@@ -814,7 +862,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun nestedLoop4() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               var myLid;
@@ -840,7 +889,7 @@ class UniformityAnalysisTests {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
@@ -849,7 +898,8 @@ class UniformityAnalysisTests {
 
     @Test
     fun stealthyContinue() {
-        val program = """
+        val program =
+            """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid : u32) {
               var count: u32 = 0;
@@ -867,7 +917,7 @@ class UniformityAnalysisTests {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
