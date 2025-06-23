@@ -26,4 +26,5 @@ val metamorphicTransformations: List<MetamorphicTransformation> =
         ::addDeadBreaks,
         ::addDeadContinues,
         ::addDeadReturns,
+        ::addIdentityOperations,
     )
