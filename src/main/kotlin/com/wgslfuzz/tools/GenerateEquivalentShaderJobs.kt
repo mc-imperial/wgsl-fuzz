@@ -24,6 +24,7 @@ import com.wgslfuzz.core.ParsedShaderJob
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.parseShaderJob
+import com.wgslfuzz.semanticspreservingtransformations.DefaultFuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.FuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.metamorphicTransformations
 import kotlinx.serialization.json.Json
@@ -32,20 +33,12 @@ import java.io.FileOutputStream
 import java.io.PrintStream
 import java.util.Random
 
-private class DefaultFuzzerSettings : FuzzerSettings {
-    private val generator = Random()
-
-    override fun randomInt(limit: Int): Int = generator.nextInt(limit)
-
-    override fun randomBool(): Boolean = generator.nextBoolean()
-}
-
 fun main(args: Array<String>) {
     val jsonString = File(args[0]).readText()
     val shaderJob = jacksonObjectMapper().readValue<ShaderJob>(jsonString)
     val parsedShaderJob = parseShaderJob(shaderJob)
 
-    val fuzzerSettings: FuzzerSettings = DefaultFuzzerSettings()
+    val fuzzerSettings: FuzzerSettings = DefaultFuzzerSettings(Random())
 
     for (i in 1..10) {
         var transformedShaderJob: ParsedShaderJob = parsedShaderJob

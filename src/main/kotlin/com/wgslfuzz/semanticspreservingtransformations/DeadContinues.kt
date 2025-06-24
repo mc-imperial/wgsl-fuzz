@@ -112,7 +112,7 @@ private class InjectDeadContinues(
         traverse(::selectInjectionPoints, parsedShaderJob.tu, injections)
         return ParsedShaderJob(
             tu = parsedShaderJob.tu.clone { injectDeadContinues(it, injections) },
-            uniformValues = parsedShaderJob.uniformValues,
+            pipelineState = parsedShaderJob.pipelineState,
         )
     }
 }

@@ -26,6 +26,7 @@ import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.getUniformDeclaration
+import java.util.Random
 import kotlin.math.max
 
 interface FuzzerSettings {
@@ -95,6 +96,14 @@ interface FuzzerSettings {
     fun applyIdentityOperation(): Boolean = randomInt(100) < 50
 }
 
+class DefaultFuzzerSettings(
+    private val generator: Random,
+) : FuzzerSettings {
+    override fun randomInt(limit: Int): Int = generator.nextInt(limit)
+
+    override fun randomBool(): Boolean = generator.nextBoolean()
+}
+
 fun <T> choose(
     fuzzerSettings: FuzzerSettings,
     choices: List<Pair<Int, () -> T>>,
@@ -113,13 +122,14 @@ fun randomUniformScalarWithValue(
     fuzzerSettings: FuzzerSettings,
 ): Triple<Expression, Expression, Type> {
     val groups =
-        parsedShaderJob.uniformValues.keys
+        parsedShaderJob.pipelineState
+            .getUniformGroups()
             .toList()
             .sorted()
     val group = fuzzerSettings.randomElement(groups)
     val bindings =
-        parsedShaderJob.uniformValues[group]!!
-            .keys
+        parsedShaderJob.pipelineState
+            .getUniformBindingsForGroup(group)
             .toList()
             .sorted()
     val binding = fuzzerSettings.randomElement(bindings)
@@ -128,7 +138,7 @@ fun randomUniformScalarWithValue(
 
     var currentType: Type = (parsedShaderJob.environment.globalScope.getEntry(typename) as ScopeEntry.Struct).type
     var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)
-    var currentValueExpr: Expression = parsedShaderJob.uniformValues[group]!![binding]!!
+    var currentValueExpr: Expression = parsedShaderJob.pipelineState.getUniformValue(group, binding)
 
     while (true) {
         when (currentType) {

@@ -20,10 +20,32 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
 @Serializable
+class PipelineState(
+    private val uniformValues: Map<Int, Map<Int, Expression>>,
+) {
+    fun getUniformGroups(): Set<Int> = uniformValues.keys
+
+    fun getUniformBindingsForGroup(group: Int): Set<Int> = uniformValues[group]!!.keys
+
+    fun getUniformValue(
+        group: Int,
+        binding: Int,
+    ): Expression = uniformValues[group]!![binding]!!.clone()
+}
+
+@Serializable
 class ParsedShaderJob(
     val tu: TranslationUnit,
-    val uniformValues: Map<Int, Map<Int, Expression>>,
+    val pipelineState: PipelineState,
 ) {
+    init {
+        val seen = mutableSetOf<AstNode>()
+        for (node in nodesPreOrder(tu)) {
+            assert(node !in seen)
+            seen.add(node)
+        }
+    }
+
     @Transient
     val environment: ResolvedEnvironment = resolve(tu)
 }
@@ -53,7 +75,7 @@ fun parseShaderJob(shaderJob: ShaderJob): ParsedShaderJob {
         assert(newBufferByteIndex == bufferBytes.size)
         uniformValues.getOrPut(group, { mutableMapOf() })[binding] = literalExpr
     }
-    return ParsedShaderJob(tu, uniformValues)
+    return ParsedShaderJob(tu, PipelineState(uniformValues))
 }
 
 private fun literalExprFromBytes(
