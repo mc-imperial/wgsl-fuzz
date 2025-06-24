@@ -133,7 +133,7 @@ private class AddIdentityOperations(
         traverse(::selectIdentityOperationReplacements, parsedShaderJob.tu, identityReplacements)
         return ParsedShaderJob(
             tu = parsedShaderJob.tu.clone { identityReplacements[it] },
-            uniformValues = parsedShaderJob.uniformValues,
+            pipelineState = parsedShaderJob.pipelineState,
         )
     }
 }

@@ -106,7 +106,7 @@ private class InjectDeadDiscards(
         traverse(::selectInjectionPoints, parsedShaderJob.tu, injections)
         return ParsedShaderJob(
             tu = parsedShaderJob.tu.clone { injectDeadDiscards(it, injections) },
-            uniformValues = parsedShaderJob.uniformValues,
+            pipelineState = parsedShaderJob.pipelineState,
         )
     }
 }

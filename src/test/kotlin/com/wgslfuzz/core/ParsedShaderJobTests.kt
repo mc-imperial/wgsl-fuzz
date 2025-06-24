@@ -58,7 +58,7 @@ class ParsedShaderJobTests {
         val mapper = jacksonObjectMapper()
         val shaderJob: ShaderJob = mapper.readValue<ShaderJob>(shaderJobText)
         val parsedShaderJob = parseShaderJob(shaderJob)
-        val structValue = parsedShaderJob.uniformValues[0]!![0] as Expression.StructValueConstructor
+        val structValue = parsedShaderJob.pipelineState.getUniformValue(0, 0) as Expression.StructValueConstructor
         val aExpr = structValue.args[0] as Expression.IntLiteral
         assertEquals("1", aExpr.text)
         val bExpr = structValue.args[1] as Expression.Vec2ValueConstructor
