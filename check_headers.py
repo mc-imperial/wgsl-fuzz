@@ -57,6 +57,7 @@ def exclude_filename(f: str):
         f.endswith(".jar") or
         f.endswith(".png") or
         f.endswith(".json") or
+        f.endswith(".uniforms") or
         f in [
             ".gitignore",
             ".gitattributes",
