@@ -16,9 +16,9 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import com.wgslfuzz.core.ParsedShaderJob
+import com.wgslfuzz.core.ShaderJob
 
-typealias MetamorphicTransformation = (parsedShaderJob: ParsedShaderJob, fuzzerSettings: FuzzerSettings) -> ParsedShaderJob
+typealias MetamorphicTransformation = (shaderJob: ShaderJob, fuzzerSettings: FuzzerSettings) -> ShaderJob
 
 val metamorphicTransformations: List<MetamorphicTransformation> =
     listOf(

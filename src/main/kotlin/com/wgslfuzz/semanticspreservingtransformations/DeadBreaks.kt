@@ -19,7 +19,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
-import com.wgslfuzz.core.ParsedShaderJob
+import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
@@ -28,7 +28,7 @@ import java.util.LinkedList
 private typealias DeadBreakInjections = MutableMap<Statement.Compound, Set<Int>>
 
 private class InjectDeadBreaks(
-    private val parsedShaderJob: ParsedShaderJob,
+    private val shaderJob: ShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
     // Records all enclosing loops (of all kinds), switch statements and continuing statements during traversal.
@@ -67,7 +67,7 @@ private class InjectDeadBreaks(
         AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, parsedShaderJob),
+                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob),
                 thenBranch =
                     Statement.Compound(
                         listOf(Statement.Break()),
@@ -109,21 +109,21 @@ private class InjectDeadBreaks(
         }
     }
 
-    fun apply(): ParsedShaderJob {
+    fun apply(): ShaderJob {
         val injections: DeadBreakInjections = mutableMapOf()
-        traverse(::selectInjectionPoints, parsedShaderJob.tu, injections)
-        return ParsedShaderJob(
-            tu = parsedShaderJob.tu.clone { injectDeadBreaks(it, injections) },
-            pipelineState = parsedShaderJob.pipelineState,
+        traverse(::selectInjectionPoints, shaderJob.tu, injections)
+        return ShaderJob(
+            tu = shaderJob.tu.clone { injectDeadBreaks(it, injections) },
+            pipelineState = shaderJob.pipelineState,
         )
     }
 }
 
 fun addDeadBreaks(
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
     fuzzerSettings: FuzzerSettings,
-): ParsedShaderJob =
+): ShaderJob =
     InjectDeadBreaks(
-        parsedShaderJob,
+        shaderJob,
         fuzzerSettings,
     ).apply()

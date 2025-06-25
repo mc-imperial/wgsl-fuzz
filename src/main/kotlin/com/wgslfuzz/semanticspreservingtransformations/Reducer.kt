@@ -22,27 +22,27 @@ import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LhsExpression
-import com.wgslfuzz.core.ParsedShaderJob
+import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
 import kotlin.math.min
 
-typealias InterestingnessTest = (candidate: ParsedShaderJob) -> Boolean
+typealias InterestingnessTest = (candidate: ShaderJob) -> Boolean
 
 abstract class ReductionPass<ReductionOpportunityT> {
-    abstract fun findOpportunities(originalShaderJob: ParsedShaderJob): List<ReductionOpportunityT>
+    abstract fun findOpportunities(originalShaderJob: ShaderJob): List<ReductionOpportunityT>
 
     abstract fun removeOpportunities(
-        originalShaderJob: ParsedShaderJob,
+        originalShaderJob: ShaderJob,
         opportunities: List<ReductionOpportunityT>,
-    ): ParsedShaderJob
+    ): ShaderJob
 
     fun run(
-        originalShaderJob: ParsedShaderJob,
+        originalShaderJob: ShaderJob,
         interestingnessTest: InterestingnessTest,
-    ): Pair<ParsedShaderJob, Boolean> {
+    ): Pair<ShaderJob, Boolean> {
         var fragments = findOpportunities(originalShaderJob)
         if (fragments.isEmpty()) {
             return Pair(originalShaderJob, false)
@@ -69,7 +69,7 @@ abstract class ReductionPass<ReductionOpportunityT> {
     }
 }
 
-fun ParsedShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ParsedShaderJob, Boolean> {
+fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, Boolean> {
     val passes: List<ReductionPass<*>> =
         listOf(
             ReduceDeadCodeFragments(),
@@ -99,7 +99,7 @@ private class CandidateDeadCodeFragment(
 )
 
 private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>() {
-    override fun findOpportunities(originalShaderJob: ParsedShaderJob): List<CandidateDeadCodeFragment> {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<CandidateDeadCodeFragment> {
         fun finder(
             node: AstNode,
             fragments: MutableList<CandidateDeadCodeFragment>,
@@ -125,11 +125,11 @@ private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>
     }
 
     override fun removeOpportunities(
-        originalShaderJob: ParsedShaderJob,
+        originalShaderJob: ShaderJob,
         opportunities: List<CandidateDeadCodeFragment>,
-    ): ParsedShaderJob {
+    ): ShaderJob {
         val fragmentsByCompound: Map<Statement.Compound, List<CandidateDeadCodeFragment>> = opportunities.groupBy { it.enclosingCompound }
-        return ParsedShaderJob(
+        return ShaderJob(
             originalShaderJob.tu.clone { node ->
                 fragmentsByCompound[node]?.let { relevantFragments ->
                     // To have been a key in the map, node must be a Compound.
@@ -151,13 +151,13 @@ private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>
 }
 
 private class UndoIdentityOperations : ReductionPass<AugmentedExpression.IdentityOperation>() {
-    override fun findOpportunities(originalShaderJob: ParsedShaderJob): List<AugmentedExpression.IdentityOperation> =
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.IdentityOperation> =
         nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.IdentityOperation>()
 
     override fun removeOpportunities(
-        originalShaderJob: ParsedShaderJob,
+        originalShaderJob: ShaderJob,
         opportunities: List<AugmentedExpression.IdentityOperation>,
-    ): ParsedShaderJob {
+    ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
 
         fun undoIdentityOperations(node: AstNode): AstNode? {
@@ -166,7 +166,7 @@ private class UndoIdentityOperations : ReductionPass<AugmentedExpression.Identit
             }
             return node.originalExpression.clone(::undoIdentityOperations)
         }
-        return ParsedShaderJob(
+        return ShaderJob(
             originalShaderJob.tu.clone(::undoIdentityOperations),
             originalShaderJob.pipelineState,
         )
@@ -174,13 +174,13 @@ private class UndoIdentityOperations : ReductionPass<AugmentedExpression.Identit
 }
 
 private class ReplaceKnownValues : ReductionPass<AugmentedExpression.KnownValue>() {
-    override fun findOpportunities(originalShaderJob: ParsedShaderJob): List<AugmentedExpression.KnownValue> =
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.KnownValue> =
         nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.KnownValue>()
 
     override fun removeOpportunities(
-        originalShaderJob: ParsedShaderJob,
+        originalShaderJob: ShaderJob,
         opportunities: List<AugmentedExpression.KnownValue>,
-    ): ParsedShaderJob {
+    ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
 
         fun replaceKnownValue(node: AstNode): AstNode? {
@@ -189,7 +189,7 @@ private class ReplaceKnownValues : ReductionPass<AugmentedExpression.KnownValue>
             }
             return node.knownValue.clone(::replaceKnownValue)
         }
-        return ParsedShaderJob(
+        return ShaderJob(
             originalShaderJob.tu.clone(::replaceKnownValue),
             originalShaderJob.pipelineState,
         )

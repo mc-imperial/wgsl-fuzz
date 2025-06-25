@@ -27,6 +27,7 @@ private const val DEFAULT_INDENT = 4
 class AstWriter(
     private val out: PrintStream = System.out,
     private val indentValue: Int = DEFAULT_INDENT,
+    private val emitCommentary: Boolean = false,
 ) {
     private var currentIndentLevel = 0
 
@@ -415,24 +416,36 @@ class AstWriter(
                 out.print(".${expression.memberName}")
             }
             is AugmentedExpression.FalseByConstruction -> {
-                out.print("(/* false by construction: */ ")
+                out.print("(")
+                if (emitCommentary) {
+                    out.print("/* false by construction: */ ")
+                }
                 emitExpression(expression.falseExpression)
                 out.print(")")
             }
             is AugmentedExpression.TrueByConstruction -> {
-                out.print("(/* true by construction: */ ")
+                out.print("(")
+                if (emitCommentary) {
+                    out.print("/* true by construction: */ ")
+                }
                 emitExpression(expression.trueExpression)
                 out.print(")")
             }
             is AugmentedExpression.AddZero -> {
                 if (expression.zeroOnLeft) {
-                    out.print("(/* add zero on left */ ")
+                    out.print("(")
+                    if (emitCommentary) {
+                        out.print("/* add zero on left */ ")
+                    }
                     emitExpression(expression.zeroExpression)
                     out.print(" + (")
                     emitExpression(expression.originalExpression)
                     out.print("))")
                 } else {
-                    out.print("(/* add zero on right */ ")
+                    out.print("(")
+                    if (emitCommentary) {
+                        out.print("/* add zero on right */ ")
+                    }
                     out.print("(")
                     emitExpression(expression.originalExpression)
                     out.print(") + ")
@@ -441,7 +454,10 @@ class AstWriter(
                 }
             }
             is AugmentedExpression.DivOne -> {
-                out.print("(/* div by one */ ")
+                out.print("(")
+                if (emitCommentary) {
+                    out.print("/* div by one */ ")
+                }
                 out.print("(")
                 emitExpression(expression.originalExpression)
                 out.print(") / ")
@@ -450,13 +466,19 @@ class AstWriter(
             }
             is AugmentedExpression.MulOne -> {
                 if (expression.oneOnLeft) {
-                    out.print("(/* mul by one on left */ ")
+                    out.print("(")
+                    if (emitCommentary) {
+                        out.print("/* mul by one on left */ ")
+                    }
                     emitExpression(expression.oneExpression)
                     out.print(" * (")
                     emitExpression(expression.originalExpression)
                     out.print("))")
                 } else {
-                    out.print("(/* mul by one on right */ ")
+                    out.print("(")
+                    if (emitCommentary) {
+                        out.print("/* mul by one on right */ ")
+                    }
                     out.print("(")
                     emitExpression(expression.originalExpression)
                     out.print(") * ")
@@ -465,7 +487,10 @@ class AstWriter(
                 }
             }
             is AugmentedExpression.SubZero -> {
-                out.print("(/* sub zero */ ")
+                out.print("(")
+                if (emitCommentary) {
+                    out.print("/* sub zero */ ")
+                }
                 out.print("(")
                 emitExpression(expression.originalExpression)
                 out.print(") - ")
@@ -473,9 +498,12 @@ class AstWriter(
                 out.print(")")
             }
             is AugmentedExpression.KnownValue -> {
-                out.print("(/* known value: ")
-                emitExpression(expression.knownValue)
-                out.print(" */ ")
+                out.print("(")
+                if (emitCommentary) {
+                    out.print("/* known value: ")
+                    emitExpression(expression.knownValue)
+                    out.print(" */ ")
+                }
                 emitExpression(expression.expression)
                 out.print(")")
             }

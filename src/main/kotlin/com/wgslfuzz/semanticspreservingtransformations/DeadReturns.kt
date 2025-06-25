@@ -20,8 +20,8 @@ import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.GlobalDecl
-import com.wgslfuzz.core.ParsedShaderJob
 import com.wgslfuzz.core.ScopeEntry
+import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
@@ -30,7 +30,7 @@ import com.wgslfuzz.core.traverse
 private typealias DeadReturnInjections = MutableMap<Statement.Compound, Set<Int>>
 
 private class InjectDeadReturns(
-    private val parsedShaderJob: ParsedShaderJob,
+    private val shaderJob: ShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
     private var enclosingFunctionReturnType: Type? = null
@@ -42,7 +42,7 @@ private class InjectDeadReturns(
         if (node is GlobalDecl.Function) {
             assert(enclosingFunctionReturnType == null)
             enclosingFunctionReturnType =
-                (parsedShaderJob.environment.globalScope.getEntry(node.name) as ScopeEntry.Function).type.returnType
+                (shaderJob.environment.globalScope.getEntry(node.name) as ScopeEntry.Function).type.returnType
             val result =
                 GlobalDecl.Function(
                     attributes = node.attributes,
@@ -83,7 +83,7 @@ private class InjectDeadReturns(
         AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, parsedShaderJob),
+                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob),
                 thenBranch =
                     Statement.Compound(
                         listOf(
@@ -94,7 +94,7 @@ private class InjectDeadReturns(
                                         type = it,
                                         sideEffectsAllowed = true,
                                         fuzzerSettings = fuzzerSettings,
-                                        parsedShaderJob = parsedShaderJob,
+                                        shaderJob = shaderJob,
                                     )
                                 },
                             ),
@@ -121,21 +121,21 @@ private class InjectDeadReturns(
         }
     }
 
-    fun apply(): ParsedShaderJob {
+    fun apply(): ShaderJob {
         val injections: DeadReturnInjections = mutableMapOf()
-        traverse(::selectInjectionPoints, parsedShaderJob.tu, injections)
-        return ParsedShaderJob(
-            tu = parsedShaderJob.tu.clone { injectDeadReturns(it, injections) },
-            pipelineState = parsedShaderJob.pipelineState,
+        traverse(::selectInjectionPoints, shaderJob.tu, injections)
+        return ShaderJob(
+            tu = shaderJob.tu.clone { injectDeadReturns(it, injections) },
+            pipelineState = shaderJob.pipelineState,
         )
     }
 }
 
 fun addDeadReturns(
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
     fuzzerSettings: FuzzerSettings,
-): ParsedShaderJob =
+): ShaderJob =
     InjectDeadReturns(
-        parsedShaderJob,
+        shaderJob,
         fuzzerSettings,
     ).apply()
