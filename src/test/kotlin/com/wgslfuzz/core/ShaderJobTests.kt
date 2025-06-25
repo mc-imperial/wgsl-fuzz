@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class ShaderJobTests {
-    private val shaderText =
+    private val exampleShaderText =
         """
         struct S {
            a: i32,       // 1
@@ -49,7 +49,7 @@ class ShaderJobTests {
         }
         """.trimIndent()
 
-    private val uniformBuffers =
+    private val exampleUniformBuffers =
         """
         [
             {
@@ -79,11 +79,13 @@ class ShaderJobTests {
 
     @Test
     fun testSimpleUniformValues() {
+        val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(exampleUniformBuffers)
         val shaderJob =
             createShaderJob(
-                shaderText,
-                Json.decodeFromString(uniformBuffers),
+                exampleShaderText,
+                uniformBuffers,
             )
+        assertEquals(uniformBuffers, shaderJob.getByteLevelContentsForUniformBuffers())
         val structValue = shaderJob.pipelineState.getUniformValue(0, 0) as Expression.StructValueConstructor
         val aExpr = structValue.args[0] as Expression.IntLiteral
         assertEquals("1", aExpr.text)
