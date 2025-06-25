@@ -20,7 +20,7 @@ import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.ParsedShaderJob
+import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
@@ -29,7 +29,7 @@ import com.wgslfuzz.core.traverse
 private typealias IdentityOperationReplacements = MutableMap<Expression, AugmentedExpression.IdentityOperation>
 
 private class AddIdentityOperations(
-    private val parsedShaderJob: ParsedShaderJob,
+    private val shaderJob: ShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
     private fun selectIdentityOperationReplacements(
@@ -56,7 +56,7 @@ private class AddIdentityOperations(
             // expressions to mutate.
             return
         }
-        val type = parsedShaderJob.environment.typeOf(node)
+        val type = shaderJob.environment.typeOf(node)
         if (type is Type.Integer || type is Type.Float) {
             val choices: List<Pair<Int, () -> AugmentedExpression.IdentityOperation>> =
                 listOf(
@@ -116,7 +116,7 @@ private class AddIdentityOperations(
             knownValue = constantWithSameValueEverywhere(1, type),
             type = type,
             fuzzerSettings = fuzzerSettings,
-            parsedShaderJob = parsedShaderJob,
+            shaderJob = shaderJob,
         )
 
     private fun generateZero(type: Type) =
@@ -125,24 +125,24 @@ private class AddIdentityOperations(
             knownValue = constantWithSameValueEverywhere(0, type),
             type = type,
             fuzzerSettings = fuzzerSettings,
-            parsedShaderJob = parsedShaderJob,
+            shaderJob = shaderJob,
         )
 
-    fun apply(): ParsedShaderJob {
+    fun apply(): ShaderJob {
         val identityReplacements: IdentityOperationReplacements = mutableMapOf()
-        traverse(::selectIdentityOperationReplacements, parsedShaderJob.tu, identityReplacements)
-        return ParsedShaderJob(
-            tu = parsedShaderJob.tu.clone { identityReplacements[it] },
-            pipelineState = parsedShaderJob.pipelineState,
+        traverse(::selectIdentityOperationReplacements, shaderJob.tu, identityReplacements)
+        return ShaderJob(
+            tu = shaderJob.tu.clone { identityReplacements[it] },
+            pipelineState = shaderJob.pipelineState,
         )
     }
 }
 
 fun addIdentityOperations(
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
     fuzzerSettings: FuzzerSettings,
-): ParsedShaderJob =
+): ShaderJob =
     AddIdentityOperations(
-        parsedShaderJob,
+        shaderJob,
         fuzzerSettings,
     ).apply()

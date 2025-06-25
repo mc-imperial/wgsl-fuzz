@@ -19,7 +19,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
-import com.wgslfuzz.core.ParsedShaderJob
+import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
@@ -28,7 +28,7 @@ import java.util.LinkedList
 private typealias DeadContinueInjections = MutableMap<Statement.Compound, Set<Int>>
 
 private class InjectDeadContinues(
-    private val parsedShaderJob: ParsedShaderJob,
+    private val shaderJob: ShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
     // Records all enclosing loops (of all kinds) and continuing statements during traversal.
@@ -67,7 +67,7 @@ private class InjectDeadContinues(
         AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, parsedShaderJob),
+                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob),
                 thenBranch =
                     Statement.Compound(
                         listOf(Statement.Continue()),
@@ -107,21 +107,21 @@ private class InjectDeadContinues(
         }
     }
 
-    fun apply(): ParsedShaderJob {
+    fun apply(): ShaderJob {
         val injections: DeadContinueInjections = mutableMapOf()
-        traverse(::selectInjectionPoints, parsedShaderJob.tu, injections)
-        return ParsedShaderJob(
-            tu = parsedShaderJob.tu.clone { injectDeadContinues(it, injections) },
-            pipelineState = parsedShaderJob.pipelineState,
+        traverse(::selectInjectionPoints, shaderJob.tu, injections)
+        return ShaderJob(
+            tu = shaderJob.tu.clone { injectDeadContinues(it, injections) },
+            pipelineState = shaderJob.pipelineState,
         )
     }
 }
 
 fun addDeadContinues(
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
     fuzzerSettings: FuzzerSettings,
-): ParsedShaderJob =
+): ShaderJob =
     InjectDeadContinues(
-        parsedShaderJob,
+        shaderJob,
         fuzzerSettings,
     ).apply()

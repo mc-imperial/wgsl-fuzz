@@ -16,10 +16,7 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import com.wgslfuzz.core.ShaderJob
-import com.wgslfuzz.core.parseShaderJob
+import com.wgslfuzz.core.createShaderJob
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -32,41 +29,61 @@ import java.util.Random
 class TransformReduceTests {
     @Test
     fun testAddDeadReturns() {
-        testTransformationAndReduction(42, "bubblesort_flag.json", ::addDeadReturns)
+        testTransformationAndReduction(
+            42,
+            "bubblesort_flag",
+            ::addDeadReturns,
+        )
     }
 
     @Test
     fun testAddDeadBreaks() {
-        testTransformationAndReduction(43, "bubblesort_flag.json", ::addDeadBreaks)
+        testTransformationAndReduction(
+            43,
+            "bubblesort_flag",
+            ::addDeadBreaks,
+        )
     }
 
     @Test
     fun testAddDeadContinues() {
-        testTransformationAndReduction(44, "bubblesort_flag.json", ::addDeadContinues)
+        testTransformationAndReduction(
+            44,
+            "bubblesort_flag",
+            ::addDeadContinues,
+        )
     }
 
     @Test
     fun testAddIdentityOperations() {
-        testTransformationAndReduction(45, "bubblesort_flag.json", ::addIdentityOperations)
+        testTransformationAndReduction(
+            45,
+            "bubblesort_flag",
+            ::addIdentityOperations,
+        )
     }
 
     @Test
     fun testMultipleTransformations() {
-        testTransformationAndReduction(45, "bubblesort_flag.json") { shaderJob, fuzzerSettings ->
+        testTransformationAndReduction(
+            45,
+            "bubblesort_flag",
+        ) { shaderJob, fuzzerSettings ->
             addIdentityOperations(addDeadReturns(addIdentityOperations(shaderJob, fuzzerSettings), fuzzerSettings), fuzzerSettings)
         }
     }
 
     private fun testTransformationAndReduction(
         pnrgSeed: Long,
-        shaderJobFilename: String,
+        filenameNoExtension: String,
         transformation: MetamorphicTransformation,
     ) {
         val generator = Random(pnrgSeed)
         val shaderJob =
-            parseShaderJob(
-                jacksonObjectMapper().readValue<ShaderJob>(
-                    File("samples", shaderJobFilename).readText(),
+            createShaderJob(
+                File("samples", "$filenameNoExtension.wgsl").readText(),
+                Json.decodeFromString(
+                    File("samples", "$filenameNoExtension.uniforms").readText(),
                 ),
             )
         val shaderJobAsJson = Json.encodeToJsonElement(shaderJob)

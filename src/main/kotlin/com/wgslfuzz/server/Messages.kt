@@ -16,7 +16,7 @@
 
 package com.wgslfuzz.server
 
-import com.wgslfuzz.core.ShaderJob
+import com.wgslfuzz.core.UniformBufferInfoByteLevel
 
 // An encoding of an image - typically a PNG in practice
 data class ImageData(
@@ -74,6 +74,11 @@ data class MessageRenderJobResult(
 // Message from server to client indicating that there is no current job
 data class MessageNoJob(
     val type: String = "NoJob",
+)
+
+data class ShaderJob(
+    val shaderText: String,
+    val uniformBuffers: List<UniformBufferInfoByteLevel>,
 )
 
 // Message from server to client specifying a render job with a number of repetitions

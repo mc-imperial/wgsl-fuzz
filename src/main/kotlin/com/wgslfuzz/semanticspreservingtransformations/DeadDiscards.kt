@@ -22,7 +22,7 @@ import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.GlobalDecl
-import com.wgslfuzz.core.ParsedShaderJob
+import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
@@ -30,11 +30,11 @@ import com.wgslfuzz.core.traverse
 private typealias DeadDiscardInjections = MutableMap<Statement.Compound, Set<Int>>
 
 private class InjectDeadDiscards(
-    private val parsedShaderJob: ParsedShaderJob,
+    private val shaderJob: ShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
     private val functionToShaderStage: Map<String, Set<ShaderStage>> =
-        runFunctionToShaderStageAnalysis(parsedShaderJob.tu, parsedShaderJob.environment)
+        runFunctionToShaderStageAnalysis(shaderJob.tu, shaderJob.environment)
 
     private fun injectDeadDiscards(
         node: AstNode?,
@@ -67,7 +67,7 @@ private class InjectDeadDiscards(
         AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, parsedShaderJob),
+                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob),
                 thenBranch =
                     Statement.Compound(
                         listOf(Statement.Discard()),
@@ -101,21 +101,21 @@ private class InjectDeadDiscards(
         }
     }
 
-    fun apply(): ParsedShaderJob {
+    fun apply(): ShaderJob {
         val injections: DeadDiscardInjections = mutableMapOf()
-        traverse(::selectInjectionPoints, parsedShaderJob.tu, injections)
-        return ParsedShaderJob(
-            tu = parsedShaderJob.tu.clone { injectDeadDiscards(it, injections) },
-            pipelineState = parsedShaderJob.pipelineState,
+        traverse(::selectInjectionPoints, shaderJob.tu, injections)
+        return ShaderJob(
+            tu = shaderJob.tu.clone { injectDeadDiscards(it, injections) },
+            pipelineState = shaderJob.pipelineState,
         )
     }
 }
 
 fun addDeadDiscards(
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
     fuzzerSettings: FuzzerSettings,
-): ParsedShaderJob =
+): ShaderJob =
     InjectDeadDiscards(
-        parsedShaderJob,
+        shaderJob,
         fuzzerSettings,
     ).apply()

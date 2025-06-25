@@ -19,8 +19,8 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.ParsedShaderJob
 import com.wgslfuzz.core.ScopeEntry
+import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.UnaryOperator
@@ -118,27 +118,27 @@ fun <T> choose(
 }
 
 fun randomUniformScalarWithValue(
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
     fuzzerSettings: FuzzerSettings,
 ): Triple<Expression, Expression, Type> {
     val groups =
-        parsedShaderJob.pipelineState
+        shaderJob.pipelineState
             .getUniformGroups()
             .toList()
             .sorted()
     val group = fuzzerSettings.randomElement(groups)
     val bindings =
-        parsedShaderJob.pipelineState
+        shaderJob.pipelineState
             .getUniformBindingsForGroup(group)
             .toList()
             .sorted()
     val binding = fuzzerSettings.randomElement(bindings)
-    val uniformDeclaration = parsedShaderJob.tu.getUniformDeclaration(group, binding)
+    val uniformDeclaration = shaderJob.tu.getUniformDeclaration(group, binding)
     val typename: String = (uniformDeclaration.typeDecl as TypeDecl.NamedType).name
 
-    var currentType: Type = (parsedShaderJob.environment.globalScope.getEntry(typename) as ScopeEntry.Struct).type
+    var currentType: Type = (shaderJob.environment.globalScope.getEntry(typename) as ScopeEntry.Struct).type
     var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)
-    var currentValueExpr: Expression = parsedShaderJob.pipelineState.getUniformValue(group, binding)
+    var currentValueExpr: Expression = shaderJob.pipelineState.getUniformValue(group, binding)
 
     while (true) {
         when (currentType) {
@@ -166,7 +166,7 @@ fun randomUniformScalarWithValue(
 private fun generateFalseByConstructionExpression(
     depth: Int,
     fuzzerSettings: FuzzerSettings,
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
 ): AugmentedExpression.FalseByConstruction {
     if (depth >= fuzzerSettings.maxDepth) {
         return AugmentedExpression.FalseByConstruction(
@@ -186,13 +186,13 @@ private fun generateFalseByConstructionExpression(
                 AugmentedExpression.FalseByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
+                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
                         generateArbitraryExpression(
                             depth = depth + 1,
                             type = Type.Bool,
                             sideEffectsAllowed = true,
                             fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
+                            shaderJob = shaderJob,
                         ),
                     ),
                 )
@@ -207,9 +207,9 @@ private fun generateFalseByConstructionExpression(
                             type = Type.Bool,
                             sideEffectsAllowed = false, // No side effects as this will be executable
                             fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
+                            shaderJob = shaderJob,
                         ),
-                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
+                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
                     ),
                 )
             },
@@ -218,12 +218,12 @@ private fun generateFalseByConstructionExpression(
                 AugmentedExpression.FalseByConstruction(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
-                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
+                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
                     ),
                 )
             },
             fuzzerSettings.falseByConstructionWeights.opaqueFalseFromUniformValues(depth) to {
-                val (uniformScalarExpr, literalExpr) = randomUniformScalarWithValue(parsedShaderJob, fuzzerSettings)
+                val (uniformScalarExpr, literalExpr) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
                 // Choose a random suitable operator.
                 // No need for custom weights for this choice.
                 val operators = listOf(BinaryOperator.NOT_EQUAL, BinaryOperator.LESS_THAN, BinaryOperator.GREATER_THAN)
@@ -244,7 +244,7 @@ private fun generateFalseByConstructionExpression(
 private fun generateTrueByConstructionExpression(
     depth: Int,
     fuzzerSettings: FuzzerSettings,
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
 ): AugmentedExpression.TrueByConstruction {
     if (depth >= fuzzerSettings.maxDepth) {
         return AugmentedExpression.TrueByConstruction(
@@ -264,13 +264,13 @@ private fun generateTrueByConstructionExpression(
                 AugmentedExpression.TrueByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
+                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
                         generateArbitraryExpression(
                             depth = depth + 1,
                             type = Type.Bool,
                             sideEffectsAllowed = true,
                             fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
+                            shaderJob = shaderJob,
                         ),
                     ),
                 )
@@ -285,9 +285,9 @@ private fun generateTrueByConstructionExpression(
                             type = Type.Bool,
                             sideEffectsAllowed = false, // No side effects as this will be executable
                             fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
+                            shaderJob = shaderJob,
                         ),
-                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
+                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
                     ),
                 )
             },
@@ -296,12 +296,12 @@ private fun generateTrueByConstructionExpression(
                 AugmentedExpression.TrueByConstruction(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
-                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, parsedShaderJob),
+                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
                     ),
                 )
             },
             fuzzerSettings.trueByConstructionWeights.opaqueTrueFromUniformValues(depth) to {
-                val (uniformScalarExpr, literalExpr) = randomUniformScalarWithValue(parsedShaderJob, fuzzerSettings)
+                val (uniformScalarExpr, literalExpr) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
                 // Choose randomly on which side of the expression the uniform access should appear.
                 // No need for a custom weight for this choice.
                 val (lhs, rhs) =
@@ -327,20 +327,20 @@ private fun generateTrueByConstructionExpression(
 
 fun generateFalseByConstructionExpression(
     fuzzerSettings: FuzzerSettings,
-    parsedShaderJob: ParsedShaderJob,
-): AugmentedExpression.FalseByConstruction = generateFalseByConstructionExpression(0, fuzzerSettings, parsedShaderJob)
+    shaderJob: ShaderJob,
+): AugmentedExpression.FalseByConstruction = generateFalseByConstructionExpression(0, fuzzerSettings, shaderJob)
 
 fun generateTrueByConstructionExpression(
     fuzzerSettings: FuzzerSettings,
-    parsedShaderJob: ParsedShaderJob,
-): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, parsedShaderJob)
+    shaderJob: ShaderJob,
+): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, shaderJob)
 
 fun generateArbitraryExpression(
     depth: Int,
     type: Type,
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
 ): Expression {
     // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
     return constantWithSameValueEverywhere(1, type)
@@ -351,7 +351,7 @@ fun generateKnownValueExpression(
     knownValue: Expression,
     type: Type,
     fuzzerSettings: FuzzerSettings,
-    parsedShaderJob: ParsedShaderJob,
+    shaderJob: ShaderJob,
 ): AugmentedExpression.KnownValue {
     if (depth >= fuzzerSettings.maxDepth) {
         return AugmentedExpression.KnownValue(
@@ -413,14 +413,14 @@ fun generateKnownValueExpression(
                                 knownValue = randomValueKnownExpression,
                                 type = type,
                                 fuzzerSettings = fuzzerSettings,
-                                parsedShaderJob = parsedShaderJob,
+                                shaderJob = shaderJob,
                             ),
                             generateKnownValueExpression(
                                 depth = depth + 1,
                                 knownValue = differenceKnownExpression,
                                 type = type,
                                 fuzzerSettings = fuzzerSettings,
-                                parsedShaderJob = parsedShaderJob,
+                                shaderJob = shaderJob,
                             ),
                         ),
                 )
@@ -452,14 +452,14 @@ fun generateKnownValueExpression(
                                 knownValue = sumKnownExpression,
                                 type = type,
                                 fuzzerSettings = fuzzerSettings,
-                                parsedShaderJob = parsedShaderJob,
+                                shaderJob = shaderJob,
                             ),
                             generateKnownValueExpression(
                                 depth = depth + 1,
                                 knownValue = randomValueKnownExpression,
                                 type = type,
                                 fuzzerSettings = fuzzerSettings,
-                                parsedShaderJob = parsedShaderJob,
+                                shaderJob = shaderJob,
                             ),
                         ),
                 )
@@ -499,14 +499,14 @@ fun generateKnownValueExpression(
                             knownValue = randomValueKnownExpression,
                             type = type,
                             fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
+                            shaderJob = shaderJob,
                         ),
                         generateKnownValueExpression(
                             depth = depth + 1,
                             knownValue = quotientKnownExpression,
                             type = type,
                             fuzzerSettings = fuzzerSettings,
-                            parsedShaderJob = parsedShaderJob,
+                            shaderJob = shaderJob,
                         ),
                     )
                 if (remainder != 0 || fuzzerSettings.randomBool()) {
@@ -520,7 +520,7 @@ fun generateKnownValueExpression(
                                 knownValue = remainderKnownExpression,
                                 type = type,
                                 fuzzerSettings = fuzzerSettings,
-                                parsedShaderJob = parsedShaderJob,
+                                shaderJob = shaderJob,
                             ),
                         )
                 }
@@ -534,7 +534,7 @@ fun generateKnownValueExpression(
         // Deriving a known value from a uniform only works with concrete types.
         choices.add(
             fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
-                val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(parsedShaderJob, fuzzerSettings)
+                val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
                 val valueOfUniformAsInt: Int =
                     getNumericValueFromConstant(
                         valueOfUniform,
@@ -568,7 +568,7 @@ fun generateKnownValueExpression(
                                 depth = depth + 1,
                                 knownValue = differenceKnownExpression,
                                 fuzzerSettings = fuzzerSettings,
-                                parsedShaderJob = parsedShaderJob,
+                                shaderJob = shaderJob,
                                 type = type,
                             ),
                         )
@@ -589,7 +589,7 @@ fun generateKnownValueExpression(
                                 depth = depth + 1,
                                 knownValue = differenceKnownExpression,
                                 fuzzerSettings = fuzzerSettings,
-                                parsedShaderJob = parsedShaderJob,
+                                shaderJob = shaderJob,
                                 type = type,
                             ),
                         )
