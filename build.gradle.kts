@@ -86,3 +86,14 @@ sourceSets {
 tasks.named("compileTestKotlin") {
     dependsOn("generateTestGrammarSource")
 }
+
+tasks.register<JavaExec>("runServer") {
+    mainClass.set("com.wgslfuzz.server.ServerKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("runGenerator") {
+    mainClass.set("com.wgslfuzz.tools.GenerateEquivalentShaderJobsKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+

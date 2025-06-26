@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-const serverBase = "http://localhost:8080";
+const serverBase = `${window.location.protocol}//${window.location.host}`;
 
 window.addEventListener("DOMContentLoaded", () => {
   startSessionWithServer().catch(err => log(`Fatal error: ${err.message}`));
