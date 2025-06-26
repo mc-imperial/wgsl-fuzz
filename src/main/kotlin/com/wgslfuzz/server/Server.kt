@@ -19,6 +19,7 @@ package com.wgslfuzz.server
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.wgslfuzz.core.UniformBufferInfoByteLevel
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.jackson.jackson
@@ -47,11 +48,19 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.io.path.createDirectory
+import kotlin.io.path.createFile
+import kotlin.io.path.isDirectory
+import kotlin.system.exitProcess
 
-object Config {
+private object Config {
     val adminUsername: String = getenv("WGSL_FUZZ_ADMIN_USERNAME")
     val adminPassword: String = getenv("WGSL_FUZZ_ADMIN_PASSWORD")
 
@@ -65,16 +74,28 @@ object Config {
         """.trimIndent()
 }
 
-class ClientSessionInfo {
+private class ClientSessionInfo {
     val mutex: Mutex = Mutex()
     val pendingJobFiles: MutableList<String> = mutableListOf()
     var currentlyIssuedJobFile: String? = null
 }
 
-val clientSessions: MutableMap<String, ClientSessionInfo> = ConcurrentHashMap()
-val logger = LoggerFactory.getLogger("com.wgslfuzz")
+private val clientSessions: MutableMap<String, ClientSessionInfo> = ConcurrentHashMap()
+private val logger: Logger = LoggerFactory.getLogger("com.wgslfuzz")
+private val pathToShaderJobs: Path = Paths.get("work", "shader_jobs")
+private val pathToClientDirectories: Path = Paths.get("work", "clients")
 
 fun main() {
+    if (!pathToShaderJobs.isDirectory()) {
+        logger.error("Shader jobs directory $pathToShaderJobs must exist")
+        exitProcess(1)
+    }
+
+    if (!pathToClientDirectories.isDirectory()) {
+        logger.error("Clients directory $pathToClientDirectories must exist")
+        exitProcess(1)
+    }
+
     embeddedServer(
         Netty,
         applicationEnvironment {
@@ -94,7 +115,7 @@ private fun ApplicationEngine.Configuration.envConfig() {
     }
 }
 
-fun Application.module() {
+private fun Application.module() {
     install(Authentication) {
         basic("admin-auth") {
             realm = "Admin Area"
@@ -143,6 +164,10 @@ fun Application.module() {
 
         post("/register") {
             val name = call.receiveText()
+            val clientDir = pathToClientDirectories.resolve(name)
+            if (!clientDir.isDirectory()) {
+                clientDir.createDirectory()
+            }
             if (clientSessions.containsKey(name)) {
                 call.respondText("Client $name already registered")
                 return@post
@@ -155,7 +180,11 @@ fun Application.module() {
             val name = call.receiveText()
             val clientSession = clientSessions[name]
             if (clientSession == null) {
-                call.respondText("Client $name not found")
+                call.respond(
+                    MessageUnknownClient(
+                        clientName = name,
+                    ),
+                )
                 return@post
             }
             clientSession.mutex.withLock {
@@ -164,8 +193,18 @@ fun Application.module() {
                 } else {
                     check(clientSession.currentlyIssuedJobFile == null)
                     clientSession.currentlyIssuedJobFile = clientSession.pendingJobFiles.removeFirst()
-                    val jsonString = File("work", clientSession.currentlyIssuedJobFile!!).readText()
-                    val job = jacksonObjectMapper().readValue<ShaderJob>(jsonString)
+                    val shaderFile = clientSession.currentlyIssuedJobFile!!
+                    assert(shaderFile.endsWith(".wgsl"))
+                    val uniformsFile = shaderFile.removeSuffix(".wgsl") + ".uniforms"
+                    val shaderText = pathToShaderJobs.resolve(shaderFile).toFile().readText()
+                    val job =
+                        ShaderJob(
+                            shaderText = shaderText,
+                            uniformBuffers =
+                                jacksonObjectMapper().readValue<List<UniformBufferInfoByteLevel>>(
+                                    pathToShaderJobs.resolve(uniformsFile).toFile().readText(),
+                                ),
+                        )
                     call.respond(
                         MessageRenderJob(
                             job = job,
@@ -183,15 +222,46 @@ fun Application.module() {
                 call.respondText("Client ${result.clientName} not found")
                 return@post
             }
-            check(clientSession.currentlyIssuedJobFile != null)
-            // TODO: process result (e.g. persist it)
-            clientSession.currentlyIssuedJobFile = null
-            call.respondText("Job result received.")
+            clientSession.mutex.withLock {
+                check(clientSession.currentlyIssuedJobFile != null)
+                val jobFilename = File(clientSession.currentlyIssuedJobFile!!).name
+                check(jobFilename.endsWith(".wgsl"))
+                val jobFilenameNoSuffix = jobFilename.removeSuffix(".wgsl")
+                val clientDir =
+                    pathToClientDirectories
+                        .resolve(result.clientName)
+                val outputFile =
+                    clientDir.resolve("$jobFilenameNoSuffix.result")
+                jacksonObjectMapper().writeValue(outputFile.toFile(), result.renderJobResult)
+                check(result.renderJobResult.renderImageResults.isNotEmpty())
+                val firstRunResult = result.renderJobResult.renderImageResults.first()
+                var isDeterministic = true
+                for (subsequentRunResult in result.renderJobResult.renderImageResults.drop(1)) {
+                    if (firstRunResult != subsequentRunResult) {
+                        isDeterministic = false
+                        break
+                    }
+                }
+                if (isDeterministic) {
+                    firstRunResult.frame?.let {
+                        writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.png").toFile())
+                    }
+                } else {
+                    clientDir.resolve("$jobFilenameNoSuffix.nondet").createFile()
+                    result.renderJobResult.renderImageResults.forEachIndexed { index, renderImageResult ->
+                        renderImageResult.frame?.let {
+                            writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.$index.png").toFile())
+                        }
+                    }
+                }
+                clientSession.currentlyIssuedJobFile = null
+                call.respondText("Job result received.")
+            }
         }
     }
 }
 
-suspend fun handleConsoleCommand(
+private suspend fun handleConsoleCommand(
     call: ApplicationCall,
     command: List<String>,
 ) {
@@ -211,8 +281,8 @@ suspend fun handleConsoleCommand(
                 return
             }
             val clientName = command[1]
-            val client = clientSessions[clientName]
-            if (client == null) {
+            val clientSession = clientSessions[clientName]
+            if (clientSession == null) {
                 call.respondText("Client $clientName not found")
                 return
             }
@@ -220,16 +290,32 @@ suspend fun handleConsoleCommand(
             val jobPatterns = command.drop(2)
             val matchedJobs =
                 jobPatterns.flatMap { pattern ->
-                    val regex = pattern.replace("*", ".*").plus("\\.json").toRegex()
-                    File("work").listFiles()?.filter { it.isFile && it.name.matches(regex) }?.map { it.name } ?: emptyList()
+                    val regex = pattern.replace("*", ".*").plus("\\.wgsl").toRegex()
+                    pathToShaderJobs
+                        .toFile()
+                        .listFiles()
+                        ?.filter { it.isFile && it.name.matches(regex) }
+                        ?.map { it.name } ?: emptyList()
                 }
 
-            client.mutex.withLock {
-                client.pendingJobFiles += matchedJobs
+            clientSession.mutex.withLock {
+                clientSession.pendingJobFiles += matchedJobs
             }
 
             call.respondText("Jobs issued to client $clientName:\n  ${matchedJobs.joinToString("\n  ")}")
         }
         else -> call.respondText("Unknown command: ${command[0]}")
     }
+}
+
+private fun writeImageToFile(
+    imageData: ImageData,
+    outputFile: File,
+) {
+    if (imageData.type != "image/png" || imageData.encoding != "base64") {
+        throw IllegalArgumentException("Unsupported image type or encoding")
+    }
+
+    val decodedBytes = Base64.getDecoder().decode(imageData.data)
+    outputFile.writeBytes(decodedBytes)
 }

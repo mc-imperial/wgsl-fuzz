@@ -42,6 +42,7 @@ dependencies {
     testImplementation(kotlin("test"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.6")
 
     implementation("io.ktor:ktor-network-tls-certificates-jvm:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktorVersion")
@@ -86,3 +87,14 @@ sourceSets {
 tasks.named("compileTestKotlin") {
     dependsOn("generateTestGrammarSource")
 }
+
+tasks.register<JavaExec>("runServer") {
+    mainClass.set("com.wgslfuzz.server.ServerKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("runGenerator") {
+    mainClass.set("com.wgslfuzz.tools.GenerateEquivalentShaderJobsKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
