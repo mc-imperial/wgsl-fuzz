@@ -25,20 +25,92 @@ import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.semanticspreservingtransformations.DefaultFuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.FuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.metamorphicTransformations
+import kotlinx.cli.ArgParser
+import kotlinx.cli.ArgType
+import kotlinx.cli.default
+import kotlinx.cli.required
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintStream
 import java.util.Random
+import kotlin.math.ceil
+import kotlin.math.log10
+import kotlin.math.max
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
-    val shaderText = File(args[0]).readText()
-    val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(File(args[1]).readText())
+    val parser = ArgParser("wgsl-fuzz generator")
+
+    val originalShader by parser
+        .option(
+            ArgType.String,
+            fullName = "originalShader",
+            description = "Path to the original shader file",
+        ).required()
+
+    val numVariants by parser
+        .option(
+            ArgType.Int,
+            fullName = "numVariants",
+            description = "Number of shader variants to generate",
+        ).default(10)
+
+    val outputDir by parser
+        .option(
+            ArgType.String,
+            fullName = "outputDir",
+            description = "Directory to write output files",
+        ).required()
+
+    val seed by parser.option(
+        ArgType.Int,
+        fullName = "seed",
+        description = "Optional PRNG seed",
+    )
+
+    parser.parse(args)
+
+    println("Original shader file: $originalShader")
+    println("Number of variants: $numVariants")
+    println("Output directory: $outputDir")
+    println("Seed: ${seed ?: "not provided"}")
+
+    if (!originalShader.endsWith(".wgsl")) {
+        System.err.println("Original shader file $originalShader must have extension .wgsl")
+        exitProcess(1)
+    }
+
+    if (!File(originalShader).exists()) {
+        System.err.println("Original shader file $originalShader does not exist")
+        exitProcess(1)
+    }
+
+    val uniforms = originalShader.removeSuffix(".wgsl") + ".uniforms"
+    if (!File(uniforms).exists()) {
+        System.err.println("Uniforms file $originalShader does not exist")
+        exitProcess(1)
+    }
+
+    if (!File(outputDir).isDirectory()) {
+        System.err.println("Output directory $outputDir must be a directory")
+        exitProcess(1)
+    }
+
+    val shaderText = File(originalShader).readText()
+    val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(File(uniforms).readText())
     val shaderJob = createShaderJob(shaderText, uniformBuffers)
 
-    val fuzzerSettings: FuzzerSettings = DefaultFuzzerSettings(Random())
+    val generator =
+        seed?.let {
+            Random(it.toLong())
+        } ?: Random()
 
-    for (i in 1..10) {
+    val fuzzerSettings: FuzzerSettings = DefaultFuzzerSettings(generator)
+
+    val digitsInOutputFilenames = max(2, ceil(log10(numVariants.toDouble())).toInt())
+
+    for (i in 0..<numVariants) {
         var transformedShaderJob: ShaderJob =
             shaderJob
         do {
@@ -58,8 +130,12 @@ fun main(args: Array<String>) {
                 )
         } while (fuzzerSettings.randomBool())
 
-        AstWriter(PrintStream(FileOutputStream(File("variant$i.wgsl")))).emit(transformedShaderJob.tu)
-        File("variant$i.uniforms").writeText(Json.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
-        File("variant$i.json").writeText(Json.encodeToString(transformedShaderJob))
+        val paddedNumber = i.toString().padStart(digitsInOutputFilenames, '0')
+        AstWriter(PrintStream(FileOutputStream(File(outputDir, "variant$paddedNumber.wgsl")))).emit(transformedShaderJob.tu)
+        File(
+            outputDir,
+            "variant$paddedNumber.uniforms",
+        ).writeText(Json.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
+        File(outputDir, "variant$paddedNumber.json").writeText(Json.encodeToString(transformedShaderJob))
     }
 }

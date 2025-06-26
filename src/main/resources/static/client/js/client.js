@@ -62,6 +62,12 @@ async function startSessionWithServer() {
       log(`Message type: ${jobJson.type}`);
 
       switch (jobJson.type) {
+        case "UnknownClient":
+          // This client is not known to the server.
+          log(`You may need to restart the client to register with the server`);
+          pollTimeoutMillis = Math.min(pollTimeoutMax, pollTimeoutMillis * 2);
+          break;
+
         case "NoJob":
           // There was no job, so double the poll timeout, up to the maximum.
           pollTimeoutMillis = Math.min(pollTimeoutMax, pollTimeoutMillis * 2);

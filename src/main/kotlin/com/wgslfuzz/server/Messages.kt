@@ -76,6 +76,12 @@ data class MessageNoJob(
     val type: String = "NoJob",
 )
 
+// Message from server to client indicating that the client requesting a job is not known
+data class MessageUnknownClient(
+    val type: String = "UnknownClient",
+    val clientName: String,
+)
+
 data class ShaderJob(
     val shaderText: String,
     val uniformBuffers: List<UniformBufferInfoByteLevel>,

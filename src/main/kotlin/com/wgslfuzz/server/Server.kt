@@ -19,6 +19,7 @@ package com.wgslfuzz.server
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.wgslfuzz.core.UniformBufferInfoByteLevel
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.jackson.jackson
@@ -155,7 +156,11 @@ fun Application.module() {
             val name = call.receiveText()
             val clientSession = clientSessions[name]
             if (clientSession == null) {
-                call.respondText("Client $name not found")
+                call.respond(
+                    MessageUnknownClient(
+                        clientName = name,
+                    ),
+                )
                 return@post
             }
             clientSession.mutex.withLock {
@@ -164,8 +169,18 @@ fun Application.module() {
                 } else {
                     check(clientSession.currentlyIssuedJobFile == null)
                     clientSession.currentlyIssuedJobFile = clientSession.pendingJobFiles.removeFirst()
-                    val jsonString = File("work", clientSession.currentlyIssuedJobFile!!).readText()
-                    val job = jacksonObjectMapper().readValue<ShaderJob>(jsonString)
+                    val shaderFile = clientSession.currentlyIssuedJobFile!!
+                    assert(shaderFile.endsWith(".wgsl"))
+                    val uniformsFile = shaderFile.removeSuffix(".wgsl") + ".uniforms"
+                    val shaderText = File("work", shaderFile).readText()
+                    val job =
+                        ShaderJob(
+                            shaderText = shaderText,
+                            uniformBuffers =
+                                jacksonObjectMapper().readValue<List<UniformBufferInfoByteLevel>>(
+                                    File("work", uniformsFile).readText(),
+                                ),
+                        )
                     call.respond(
                         MessageRenderJob(
                             job = job,
@@ -220,7 +235,7 @@ suspend fun handleConsoleCommand(
             val jobPatterns = command.drop(2)
             val matchedJobs =
                 jobPatterns.flatMap { pattern ->
-                    val regex = pattern.replace("*", ".*").plus("\\.json").toRegex()
+                    val regex = pattern.replace("*", ".*").plus("\\.wgsl").toRegex()
                     File("work").listFiles()?.filter { it.isFile && it.name.matches(regex) }?.map { it.name } ?: emptyList()
                 }
 
