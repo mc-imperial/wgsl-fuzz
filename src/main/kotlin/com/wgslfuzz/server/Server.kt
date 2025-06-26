@@ -220,10 +220,18 @@ private fun Application.module() {
                 call.respondText("Client ${result.clientName} not found")
                 return@post
             }
-            check(clientSession.currentlyIssuedJobFile != null)
-            // TODO: process result (e.g. persist it)
-            clientSession.currentlyIssuedJobFile = null
-            call.respondText("Job result received.")
+            clientSession.mutex.withLock {
+                check(clientSession.currentlyIssuedJobFile != null)
+                val jobFilename = File(clientSession.currentlyIssuedJobFile!!).name
+                check(jobFilename.endsWith(".wgsl"))
+                val outputFile =
+                    pathToClientDirectories
+                        .resolve(result.clientName)
+                        .resolve(jobFilename.removeSuffix(".wgsl") + ".result")
+                jacksonObjectMapper().writeValue(outputFile.toFile(), result.renderJobResult)
+                clientSession.currentlyIssuedJobFile = null
+                call.respondText("Job result received.")
+            }
         }
     }
 }
@@ -248,8 +256,8 @@ private suspend fun handleConsoleCommand(
                 return
             }
             val clientName = command[1]
-            val client = clientSessions[clientName]
-            if (client == null) {
+            val clientSession = clientSessions[clientName]
+            if (clientSession == null) {
                 call.respondText("Client $clientName not found")
                 return
             }
@@ -265,8 +273,8 @@ private suspend fun handleConsoleCommand(
                         ?.map { it.name } ?: emptyList()
                 }
 
-            client.mutex.withLock {
-                client.pendingJobFiles += matchedJobs
+            clientSession.mutex.withLock {
+                clientSession.pendingJobFiles += matchedJobs
             }
 
             call.respondText("Jobs issued to client $clientName:\n  ${matchedJobs.joinToString("\n  ")}")
