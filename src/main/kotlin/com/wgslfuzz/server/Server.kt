@@ -32,8 +32,8 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.basic
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.applicationEnvironment
-import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.engine.sslConnector
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
@@ -51,8 +51,10 @@ import kotlinx.coroutines.sync.withLock
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.io.FileInputStream
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.security.KeyStore
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.createDirectory
@@ -63,6 +65,7 @@ import kotlin.system.exitProcess
 private object Config {
     val adminUsername: String = getenv("WGSL_FUZZ_ADMIN_USERNAME")
     val adminPassword: String = getenv("WGSL_FUZZ_ADMIN_PASSWORD")
+    val keyStorePassword: String = getenv("WGSL_KEYSTORE_PASSWORD")
 
     private fun getenv(key: String): String = System.getenv(key) ?: error("Environment variable $key not set.")
 
@@ -109,9 +112,19 @@ fun main() {
 }
 
 private fun ApplicationEngine.Configuration.envConfig() {
-    connector {
+    sslConnector(
+        keyStore =
+            KeyStore.getInstance("JKS").apply {
+                FileInputStream("keystore.jks").use {
+                    load(it, Config.keyStorePassword.toCharArray())
+                }
+            },
+        keyAlias = "alias",
+        keyStorePassword = { Config.keyStorePassword.toCharArray() },
+        privateKeyPassword = { Config.keyStorePassword.toCharArray() },
+    ) {
         host = "0.0.0.0"
-        port = 8080
+        port = 443
     }
 }
 
