@@ -1,0 +1,3 @@
+*.wgsl
+*.uniforms
+*.json

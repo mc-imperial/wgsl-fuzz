@@ -48,11 +48,17 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.io.path.createDirectory
+import kotlin.io.path.isDirectory
+import kotlin.system.exitProcess
 
-object Config {
+private object Config {
     val adminUsername: String = getenv("WGSL_FUZZ_ADMIN_USERNAME")
     val adminPassword: String = getenv("WGSL_FUZZ_ADMIN_PASSWORD")
 
@@ -66,16 +72,28 @@ object Config {
         """.trimIndent()
 }
 
-class ClientSessionInfo {
+private class ClientSessionInfo {
     val mutex: Mutex = Mutex()
     val pendingJobFiles: MutableList<String> = mutableListOf()
     var currentlyIssuedJobFile: String? = null
 }
 
-val clientSessions: MutableMap<String, ClientSessionInfo> = ConcurrentHashMap()
-val logger = LoggerFactory.getLogger("com.wgslfuzz")
+private val clientSessions: MutableMap<String, ClientSessionInfo> = ConcurrentHashMap()
+private val logger: Logger = LoggerFactory.getLogger("com.wgslfuzz")
+private val pathToShaderJobs: Path = Paths.get("work", "shader_jobs")
+private val pathToClientDirectories: Path = Paths.get("work", "clients")
 
 fun main() {
+    if (!pathToShaderJobs.isDirectory()) {
+        logger.error("Shader jobs directory $pathToShaderJobs must exist")
+        exitProcess(1)
+    }
+
+    if (!pathToClientDirectories.isDirectory()) {
+        logger.error("Clients directory $pathToClientDirectories must exist")
+        exitProcess(1)
+    }
+
     embeddedServer(
         Netty,
         applicationEnvironment {
@@ -95,7 +113,7 @@ private fun ApplicationEngine.Configuration.envConfig() {
     }
 }
 
-fun Application.module() {
+private fun Application.module() {
     install(Authentication) {
         basic("admin-auth") {
             realm = "Admin Area"
@@ -144,6 +162,10 @@ fun Application.module() {
 
         post("/register") {
             val name = call.receiveText()
+            val clientDir = pathToClientDirectories.resolve(name)
+            if (!clientDir.isDirectory()) {
+                clientDir.createDirectory()
+            }
             if (clientSessions.containsKey(name)) {
                 call.respondText("Client $name already registered")
                 return@post
@@ -172,13 +194,13 @@ fun Application.module() {
                     val shaderFile = clientSession.currentlyIssuedJobFile!!
                     assert(shaderFile.endsWith(".wgsl"))
                     val uniformsFile = shaderFile.removeSuffix(".wgsl") + ".uniforms"
-                    val shaderText = File("work", shaderFile).readText()
+                    val shaderText = pathToShaderJobs.resolve(shaderFile).toFile().readText()
                     val job =
                         ShaderJob(
                             shaderText = shaderText,
                             uniformBuffers =
                                 jacksonObjectMapper().readValue<List<UniformBufferInfoByteLevel>>(
-                                    File("work", uniformsFile).readText(),
+                                    pathToShaderJobs.resolve(uniformsFile).toFile().readText(),
                                 ),
                         )
                     call.respond(
@@ -206,7 +228,7 @@ fun Application.module() {
     }
 }
 
-suspend fun handleConsoleCommand(
+private suspend fun handleConsoleCommand(
     call: ApplicationCall,
     command: List<String>,
 ) {
@@ -236,7 +258,11 @@ suspend fun handleConsoleCommand(
             val matchedJobs =
                 jobPatterns.flatMap { pattern ->
                     val regex = pattern.replace("*", ".*").plus("\\.wgsl").toRegex()
-                    File("work").listFiles()?.filter { it.isFile && it.name.matches(regex) }?.map { it.name } ?: emptyList()
+                    pathToShaderJobs
+                        .toFile()
+                        .listFiles()
+                        ?.filter { it.isFile && it.name.matches(regex) }
+                        ?.map { it.name } ?: emptyList()
                 }
 
             client.mutex.withLock {
