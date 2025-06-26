@@ -53,8 +53,10 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.createDirectory
+import kotlin.io.path.createFile
 import kotlin.io.path.isDirectory
 import kotlin.system.exitProcess
 
@@ -224,11 +226,34 @@ private fun Application.module() {
                 check(clientSession.currentlyIssuedJobFile != null)
                 val jobFilename = File(clientSession.currentlyIssuedJobFile!!).name
                 check(jobFilename.endsWith(".wgsl"))
-                val outputFile =
+                val jobFilenameNoSuffix = jobFilename.removeSuffix(".wgsl")
+                val clientDir =
                     pathToClientDirectories
                         .resolve(result.clientName)
-                        .resolve(jobFilename.removeSuffix(".wgsl") + ".result")
+                val outputFile =
+                    clientDir.resolve("$jobFilenameNoSuffix.result")
                 jacksonObjectMapper().writeValue(outputFile.toFile(), result.renderJobResult)
+                check(result.renderJobResult.renderImageResults.isNotEmpty())
+                val firstRunResult = result.renderJobResult.renderImageResults.first()
+                var isDeterministic = true
+                for (subsequentRunResult in result.renderJobResult.renderImageResults.drop(1)) {
+                    if (firstRunResult != subsequentRunResult) {
+                        isDeterministic = false
+                        break
+                    }
+                }
+                if (isDeterministic) {
+                    firstRunResult.frame?.let {
+                        writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.png").toFile())
+                    }
+                } else {
+                    clientDir.resolve("$jobFilenameNoSuffix.nondet").createFile()
+                    result.renderJobResult.renderImageResults.forEachIndexed { index, renderImageResult ->
+                        renderImageResult.frame?.let {
+                            writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.$index.png").toFile())
+                        }
+                    }
+                }
                 clientSession.currentlyIssuedJobFile = null
                 call.respondText("Job result received.")
             }
@@ -281,4 +306,16 @@ private suspend fun handleConsoleCommand(
         }
         else -> call.respondText("Unknown command: ${command[0]}")
     }
+}
+
+private fun writeImageToFile(
+    imageData: ImageData,
+    outputFile: File,
+) {
+    if (imageData.type != "image/png" || imageData.encoding != "base64") {
+        throw IllegalArgumentException("Unsupported image type or encoding")
+    }
+
+    val decodedBytes = Base64.getDecoder().decode(imageData.data)
+    outputFile.writeBytes(decodedBytes)
 }
