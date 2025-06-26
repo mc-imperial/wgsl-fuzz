@@ -52,12 +52,25 @@ async function startSessionWithServer() {
   while (true) {
     // Ask the server for a job.
     try {
+      log(`At start of try`);
       const res = await fetch(`${serverBase}/job`, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: name,
       });
-      const jobJson = await res.json();
+	const contentType = res.headers.get("Content-Type") || "";
+	var jobJson;
+	if (contentType.includes("application/json")) {
+	    jobJson = await res.json();
+	    log(`Got JSON as expected:\n${JSON.stringify(jobJson, null, 2)}`);
+	} else if (contentType.includes("text/")) {
+	    text = await res.text();
+	    log(`Text was not expected: ${text}`);
+	} else {
+	    blob = await res.blob();
+	    log(`Random blob was not expected: type=${blob.type}, size=${blob.size} bytes`);
+	}
+	
 
       log(`Message type: ${jobJson.type}`);
 

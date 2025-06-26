@@ -162,7 +162,9 @@ private fun Application.module() {
 
         authenticate("admin-auth") {
             post("/console") {
-                val command = call.receiveText().split(" ").filter { it.isNotBlank() }
+                val receivedText = call.receiveText()
+                logger.info("Console command: $receivedText")
+                val command = receivedText.split(" ").filter { it.isNotBlank() }
                 if (command.isEmpty()) {
                     call.respondText("Empty command")
                     return@post
