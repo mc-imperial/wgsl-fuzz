@@ -20,4 +20,3 @@ As root or via sudo:
 ```
 setcap 'cap_net_bind_service=+ep' $(readlink -f $(which java))
 ```
-

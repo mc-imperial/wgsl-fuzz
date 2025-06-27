@@ -16,16 +16,20 @@
 
 package com.wgslfuzz.server
 
-import com.wgslfuzz.core.UniformBufferInfoByteLevel
+// Messages from client to server
 
-// An encoding of an image - typically a PNG in practice
+/**
+ * An encoding of an image - typically a PNG in practice
+ */
 data class ImageData(
     val type: String,
     val encoding: String,
     val data: String,
 )
 
-// Records information obtained by a client by requesting information from a WebGPU adapter
+/**
+ * Records information obtained by a client by requesting information from a WebGPU adapter
+ */
 data class AdapterInfo(
     val vendor: String,
     val architecture: String,
@@ -33,7 +37,9 @@ data class AdapterInfo(
     val description: String,
 )
 
-// Records information associated with a warning or error message obtained during WebGPU compilation
+/**
+ * Records information associated with a warning or error message obtained during WebGPU compilation
+ */
 data class GPUCompilationMessage(
     val message: String,
     val type: String,
@@ -43,9 +49,9 @@ data class GPUCompilationMessage(
     val length: Int,
 )
 
-// The result obtained on attempting to render an image.
-// All being well, the error fields will all be null, the compilation messages will at worst contain warnings, and an
-// image will be present.
+/**
+ * The result obtained on attempting to render an image. All being well, the error fields will all be null, the compilation messages will at worst contain warnings, and an image will be present.
+ */
 data class RenderImageResult(
     val compilationMessages: List<GPUCompilationMessage>,
     val createShaderModuleValidationError: String?,
@@ -57,39 +63,21 @@ data class RenderImageResult(
     val frame: ImageData?,
 )
 
-// A render job leads to information obtained from the adapter, plus a number of results. This is because rendering is
-// attempted multiple times to check for nondeterminism.
+/**
+ * A render job leads to information obtained from the adapter, plus a number of results. This is because rendering is attempted multiple times to check for nondeterminism.
+ */
 data class RenderJobResult(
     val adapterInfo: AdapterInfo,
     val renderImageResults: List<RenderImageResult>,
 )
 
-// A message from client to server encapsulating the result of a render job.
+/**
+ * A message from client to server encapsulating the result of a render job.
+ */
 data class MessageRenderJobResult(
     val type: String = "RenderJobResult",
+    // The WGSL file name. The client must ensure that this matches the name that was provided in the job it was sent.
+    val jobName: String,
     val clientName: String,
     val renderJobResult: RenderJobResult,
-)
-
-// Message from server to client indicating that there is no current job
-data class MessageNoJob(
-    val type: String = "NoJob",
-)
-
-// Message from server to client indicating that the client requesting a job is not known
-data class MessageUnknownClient(
-    val type: String = "UnknownClient",
-    val clientName: String,
-)
-
-data class ShaderJob(
-    val shaderText: String,
-    val uniformBuffers: List<UniformBufferInfoByteLevel>,
-)
-
-// Message from server to client specifying a render job with a number of repetitions
-data class MessageRenderJob(
-    val type: String = "RenderJob",
-    val job: ShaderJob,
-    val repetitions: Int,
 )

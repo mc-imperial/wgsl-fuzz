@@ -46,8 +46,6 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -57,8 +55,10 @@ import java.nio.file.Paths
 import java.security.KeyStore
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.io.path.createDirectory
 import kotlin.io.path.createFile
+import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 import kotlin.system.exitProcess
 
@@ -77,13 +77,12 @@ private object Config {
         """.trimIndent()
 }
 
-private class ClientSessionInfo {
-    val mutex: Mutex = Mutex()
-    val pendingJobFiles: MutableList<String> = mutableListOf()
-    var currentlyIssuedJobFile: String? = null
+private class ClientSession {
+    val pendingJobs: ConcurrentLinkedQueue<String> = ConcurrentLinkedQueue()
 }
 
-private val clientSessions: MutableMap<String, ClientSessionInfo> = ConcurrentHashMap()
+private val clientSessions: ConcurrentHashMap<String, ClientSession> = ConcurrentHashMap()
+
 private val logger: Logger = LoggerFactory.getLogger("com.wgslfuzz")
 private val pathToShaderJobs: Path = Paths.get("work", "shader_jobs")
 private val pathToClientDirectories: Path = Paths.get("work", "clients")
@@ -177,103 +176,96 @@ private fun Application.module() {
             call.respondFile(File("src/main/resources/static/admin/console.html"))
         }
 
-        post("/register") {
-            val name = call.receiveText()
-            val clientDir = pathToClientDirectories.resolve(name)
-            if (!clientDir.isDirectory()) {
-                clientDir.createDirectory()
-            }
-            if (clientSessions.containsKey(name)) {
-                call.respondText("Client $name already registered")
-                return@post
-            }
-            clientSessions[name] = ClientSessionInfo()
-            call.respondText("Registered client $name")
-        }
-
         post("/job") {
-            val name = call.receiveText()
-            val clientSession = clientSessions[name]
-            if (clientSession == null) {
-                call.respond(
-                    MessageUnknownClient(
-                        clientName = name,
-                    ),
-                )
-                return@post
-            }
-            clientSession.mutex.withLock {
-                if (clientSession.pendingJobFiles.isEmpty()) {
-                    call.respond(MessageNoJob())
-                } else {
-                    check(clientSession.currentlyIssuedJobFile == null)
-                    clientSession.currentlyIssuedJobFile = clientSession.pendingJobFiles.removeFirst()
-                    val shaderFile = clientSession.currentlyIssuedJobFile!!
-                    assert(shaderFile.endsWith(".wgsl"))
-                    val uniformsFile = shaderFile.removeSuffix(".wgsl") + ".uniforms"
-                    val shaderText = pathToShaderJobs.resolve(shaderFile).toFile().readText()
-                    val job =
-                        ShaderJob(
-                            shaderText = shaderText,
-                            uniformBuffers =
-                                jacksonObjectMapper().readValue<List<UniformBufferInfoByteLevel>>(
-                                    pathToShaderJobs.resolve(uniformsFile).toFile().readText(),
-                                ),
-                        )
-                    call.respond(
-                        MessageRenderJob(
-                            job = job,
-                            repetitions = 3,
-                        ),
-                    )
-                }
-            }
+            handleJob(call)
         }
 
         post("/renderjobresult") {
-            val result = call.receive<MessageRenderJobResult>()
-            val clientSession = clientSessions[result.clientName]
-            if (clientSession == null) {
-                call.respondText("Client ${result.clientName} not found")
-                return@post
+            handleRenderJobResult(call)
+        }
+    }
+}
+
+private fun getOrRegisterClient(clientName: String): ClientSession {
+    val clientDir = pathToClientDirectories.resolve(clientName)
+    if (!clientDir.isDirectory()) {
+        clientDir.createDirectory()
+    }
+    clientSessions.putIfAbsent(clientName, ClientSession())
+    return clientSessions[clientName]!!
+}
+
+private suspend fun handleJob(call: ApplicationCall) {
+    val clientName = call.receiveText()
+    getOrRegisterClient(clientName).pendingJobs.poll()?.let { jobFile ->
+        assert(jobFile.endsWith(".wgsl"))
+        call.respond(
+            MessageRenderJob(
+                jobName = jobFile,
+                job =
+                    ShaderJob(
+                        shaderText = pathToShaderJobs.resolve(jobFile).toFile().readText(),
+                        uniformBuffers =
+                            jacksonObjectMapper().readValue<List<UniformBufferInfoByteLevel>>(
+                                pathToShaderJobs.resolve("${jobFile.removeSuffix(".wgsl")}.uniforms").toFile().readText(),
+                            ),
+                    ),
+                repetitions = 3,
+            ),
+        )
+    } ?: call.respond(MessageNoJob())
+}
+
+private suspend fun handleRenderJobResult(call: ApplicationCall) {
+    val result = call.receive<MessageRenderJobResult>()
+    // Even though the client session object is not referenced, making sure the client is registered ensures that a client results directory exists.
+    getOrRegisterClient(result.clientName)
+    if (!result.jobName.endsWith(".wgsl")) {
+        call.respond(
+            MessageBadlyFormedRenderJobResult(
+                info = "Job name ${result.jobName} does not end with .wgsl",
+            ),
+        )
+        return
+    }
+    val jobFilenameNoSuffix = result.jobName.removeSuffix(".wgsl")
+    val clientDir =
+        pathToClientDirectories
+            .resolve(result.clientName)
+    val resultFile =
+        clientDir.resolve("$jobFilenameNoSuffix.result").toFile()
+    if (resultFile.exists()) {
+        call.respond(
+            MessageRenderJobResultAlreadyExists(),
+        )
+        return
+    }
+    jacksonObjectMapper().writeValue(resultFile, result.renderJobResult)
+    if (result.renderJobResult.renderImageResults.isNotEmpty()) {
+        val firstRunResult = result.renderJobResult.renderImageResults.first()
+        var isDeterministic = true
+        for (subsequentRunResult in result.renderJobResult.renderImageResults.drop(1)) {
+            if (firstRunResult != subsequentRunResult) {
+                isDeterministic = false
+                break
             }
-            clientSession.mutex.withLock {
-                check(clientSession.currentlyIssuedJobFile != null)
-                val jobFilename = File(clientSession.currentlyIssuedJobFile!!).name
-                check(jobFilename.endsWith(".wgsl"))
-                val jobFilenameNoSuffix = jobFilename.removeSuffix(".wgsl")
-                val clientDir =
-                    pathToClientDirectories
-                        .resolve(result.clientName)
-                val outputFile =
-                    clientDir.resolve("$jobFilenameNoSuffix.result")
-                jacksonObjectMapper().writeValue(outputFile.toFile(), result.renderJobResult)
-                check(result.renderJobResult.renderImageResults.isNotEmpty())
-                val firstRunResult = result.renderJobResult.renderImageResults.first()
-                var isDeterministic = true
-                for (subsequentRunResult in result.renderJobResult.renderImageResults.drop(1)) {
-                    if (firstRunResult != subsequentRunResult) {
-                        isDeterministic = false
-                        break
-                    }
+        }
+        if (isDeterministic) {
+            firstRunResult.frame?.let {
+                writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.png").toFile())
+            }
+        } else {
+            clientDir.resolve("$jobFilenameNoSuffix.nondet").createFile()
+            result.renderJobResult.renderImageResults.forEachIndexed { index, renderImageResult ->
+                renderImageResult.frame?.let {
+                    writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.$index.png").toFile())
                 }
-                if (isDeterministic) {
-                    firstRunResult.frame?.let {
-                        writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.png").toFile())
-                    }
-                } else {
-                    clientDir.resolve("$jobFilenameNoSuffix.nondet").createFile()
-                    result.renderJobResult.renderImageResults.forEachIndexed { index, renderImageResult ->
-                        renderImageResult.frame?.let {
-                            writeImageToFile(it, clientDir.resolve("$jobFilenameNoSuffix.$index.png").toFile())
-                        }
-                    }
-                }
-                clientSession.currentlyIssuedJobFile = null
-                call.respondText("Job result received.")
             }
         }
     }
+    call.respond(
+        MessageRenderJobResultStored(),
+    )
 }
 
 private suspend fun handleConsoleCommand(
@@ -304,20 +296,32 @@ private suspend fun handleConsoleCommand(
 
             val jobPatterns = command.drop(2)
             val matchedJobs =
-                jobPatterns.flatMap { pattern ->
-                    val regex = pattern.replace("*", ".*").plus("\\.wgsl").toRegex()
-                    pathToShaderJobs
-                        .toFile()
-                        .listFiles()
-                        ?.filter { it.isFile && it.name.matches(regex) }
-                        ?.map { it.name } ?: emptyList()
-                }
-
-            clientSession.mutex.withLock {
-                clientSession.pendingJobFiles += matchedJobs
-            }
-
-            call.respondText("Jobs issued to client $clientName:\n  ${matchedJobs.joinToString("\n  ")}")
+                jobPatterns
+                    .flatMap { pattern ->
+                        val regex = pattern.replace("*", ".*").plus("\\.wgsl").toRegex()
+                        pathToShaderJobs
+                            .toFile()
+                            .listFiles()
+                            ?.filter { it.isFile && it.name.matches(regex) }
+                            ?.map { it.name } ?: emptyList()
+                    }.toSet()
+            val jobsWithExistingResult: Set<String> =
+                matchedJobs
+                    .filter {
+                        pathToClientDirectories.resolve(clientName).resolve(it.removeSuffix(".wgsl") + ".result").exists()
+                    }.toSet()
+            val jobsWithoutExistingResult: Set<String> =
+                matchedJobs
+                    .filter {
+                        it !in jobsWithExistingResult
+                    }.toSet()
+            clientSession.pendingJobs.addAll(jobsWithoutExistingResult.sorted())
+            call.respondText(
+                "Jobs issued to client $clientName:\n  " +
+                    jobsWithoutExistingResult.sorted().joinToString("\n  ") +
+                    "\nJobs skipped due to existing results:\n  " +
+                    jobsWithExistingResult.sorted().joinToString("\n  "),
+            )
         }
         else -> call.respondText("Unknown command: ${command[0]}")
     }
