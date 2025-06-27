@@ -40,6 +40,8 @@ def exclude_dirpath(f: str):
         f in [
             path(os.curdir, "build"),
             path(os.curdir, "temp"),
+            path(os.curdir, "work", "shader_jobs"),
+            path(os.curdir, "work", "clients"),
         ])
 
 
@@ -68,6 +70,7 @@ def exclude_filename(f: str):
             "gradlew",
             "gradlew.bat",
             "gradle-wrapper.properties",
+            "keystore.jks",
         ])
 
 

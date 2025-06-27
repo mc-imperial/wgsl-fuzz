@@ -29,19 +29,6 @@ async function startSessionWithServer() {
     return;
   }
 
-  try {
-    const res = await fetch(`${serverBase}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: name,
-    });
-    const text = await res.text();
-    log(`Register: ${text}`);
-  } catch (err) {
-    log(`Register request failed: ${err.message}`);
-    return;
-  }
-
   // The current amount of time for which the client will wait between poll requests.
   // This will double each time there is no response until a limit is hit.
   const pollTimeoutMin = 1;
@@ -52,22 +39,22 @@ async function startSessionWithServer() {
   while (true) {
     // Ask the server for a job.
     try {
-      const res = await fetch(`${serverBase}/job`, {
+      const response = await fetch(`${serverBase}/job`, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: name,
       });
-      const jobJson = await res.json();
 
-      log(`Message type: ${jobJson.type}`);
+      const responseContentType = response.headers.get("Content-Type") || "";
+      if (!responseContentType.includes("application/json")) {
+        log(`A non-JSON response was received from the server; something is wrong - ending session.`);
+        return;
+      }
 
-      switch (jobJson.type) {
-        case "UnknownClient":
-          // This client is not known to the server.
-          log(`You may need to restart the client to register with the server`);
-          pollTimeoutMillis = Math.min(pollTimeoutMax, pollTimeoutMillis * 2);
-          break;
+      const responseJson = await response.json();
+      log(`Message type: ${responseJson.type}`);
 
+      switch (responseJson.type) {
         case "NoJob":
           // There was no job, so double the poll timeout, up to the maximum.
           pollTimeoutMillis = Math.min(pollTimeoutMax, pollTimeoutMillis * 2);
@@ -77,22 +64,23 @@ async function startSessionWithServer() {
           // The server was responsive, so reset the poll timeout to its minimum as there may be more jobs
           // after this one.
           pollTimeoutMillis = pollTimeoutMin;
-          const renderJobResult = await executeJob(jobJson.job, jobJson.repetitions);
+          const renderJobResult = await executeJob(responseJson.job, responseJson.repetitions);
 
           const ack = await fetch(`${serverBase}/renderjobresult`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               type: "RenderJobResult",
+              jobName: responseJson.jobName,
               clientName: name,
               renderJobResult: renderJobResult,
             }),
           });
-          log(await ack.text());
+          log(JSON.stringify(await ack.json()));
           break;
 
         default:
-          log(`Unknown message type received: ${jobJson.type}`);
+          log(`Unknown message received: ${JSON.stringify(jobJson)}`);
           pollTimeoutMillis = Math.min(pollTimeoutMax, pollTimeoutMillis * 2);
           break;
       }
