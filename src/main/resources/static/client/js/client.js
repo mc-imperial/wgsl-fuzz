@@ -71,8 +71,8 @@ async function startSessionWithServer() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               type: "RenderJobResult",
-              jobName: responseJson.jobName,
               clientName: name,
+              jobId: responseJson.jobId,
               renderJobResult: renderJobResult,
             }),
           });
