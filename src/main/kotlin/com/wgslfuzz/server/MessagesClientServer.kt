@@ -76,8 +76,8 @@ data class RenderJobResult(
  */
 data class MessageRenderJobResult(
     val type: String = "RenderJobResult",
-    // The WGSL file name. The client must ensure that this matches the name that was provided in the job it was sent.
-    val jobName: String,
+    // The job ID. The client must ensure that this matches the ID that was provided in the job it was sent.
     val clientName: String,
+    val jobId: Int,
     val renderJobResult: RenderJobResult,
 )

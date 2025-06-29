@@ -46,6 +46,8 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.CompletableJob
+import kotlinx.coroutines.Job
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -56,6 +58,7 @@ import java.security.KeyStore
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectory
 import kotlin.io.path.createFile
 import kotlin.io.path.exists
@@ -77,8 +80,31 @@ private object Config {
         """.trimIndent()
 }
 
+private class ClientJob(
+    val id: Int,
+    val jobFile: String,
+    val completion: CompletableJob,
+)
+
 private class ClientSession {
-    val pendingJobs: ConcurrentLinkedQueue<String> = ConcurrentLinkedQueue()
+    private val pendingJobs: ConcurrentLinkedQueue<ClientJob> = ConcurrentLinkedQueue()
+    private val issuedJobs: ConcurrentHashMap<Int, ClientJob> = ConcurrentHashMap()
+    private val nextJobId: AtomicInteger = AtomicInteger()
+
+    fun enqueueJob(
+        jobFile: String,
+        completion: CompletableJob,
+    ) {
+        pendingJobs.add(ClientJob(nextJobId.getAndIncrement(), jobFile, completion))
+    }
+
+    fun issueJob(): Pair<Int, String>? =
+        pendingJobs.poll()?.let {
+            issuedJobs[it.id] = it
+            Pair(it.id, it.jobFile)
+        }
+
+    fun removeIssuedJob(id: Int): ClientJob? = issuedJobs.remove(id)
 }
 
 private val clientSessions: ConcurrentHashMap<String, ClientSession> = ConcurrentHashMap()
@@ -197,11 +223,11 @@ private fun getOrRegisterClient(clientName: String): ClientSession {
 
 private suspend fun handleJob(call: ApplicationCall) {
     val clientName = call.receiveText()
-    getOrRegisterClient(clientName).pendingJobs.poll()?.let { jobFile ->
+    getOrRegisterClient(clientName).issueJob()?.let { (jobId, jobFile) ->
         assert(jobFile.endsWith(".wgsl"))
         call.respond(
             MessageRenderJob(
-                jobName = jobFile,
+                jobId = jobId,
                 job =
                     ShaderJob(
                         shaderText = pathToShaderJobs.resolve(jobFile).toFile().readText(),
@@ -218,17 +244,17 @@ private suspend fun handleJob(call: ApplicationCall) {
 
 private suspend fun handleRenderJobResult(call: ApplicationCall) {
     val result = call.receive<MessageRenderJobResult>()
-    // Even though the client session object is not referenced, making sure the client is registered ensures that a client results directory exists.
-    getOrRegisterClient(result.clientName)
-    if (!result.jobName.endsWith(".wgsl")) {
+    val clientSession = getOrRegisterClient(result.clientName)
+    val clientJob = clientSession.removeIssuedJob(result.jobId)
+    if (clientJob == null) {
         call.respond(
-            MessageBadlyFormedRenderJobResult(
-                info = "Job name ${result.jobName} does not end with .wgsl",
+            MessageResultForUnknownJob(
+                info = "Result received for job with unexpected ID ${result.jobId}",
             ),
         )
         return
     }
-    val jobFilenameNoSuffix = result.jobName.removeSuffix(".wgsl")
+    val jobFilenameNoSuffix = clientJob.jobFile.removeSuffix(".wgsl")
     val clientDir =
         pathToClientDirectories
             .resolve(result.clientName)
@@ -263,6 +289,7 @@ private suspend fun handleRenderJobResult(call: ApplicationCall) {
             }
         }
     }
+    clientJob.completion.complete()
     call.respond(
         MessageRenderJobResultStored(),
     )
@@ -315,7 +342,9 @@ private suspend fun handleConsoleCommand(
                     .filter {
                         it !in jobsWithExistingResult
                     }.toSet()
-            clientSession.pendingJobs.addAll(jobsWithoutExistingResult.sorted())
+            for (jobFile in jobsWithoutExistingResult.sorted()) {
+                clientSession.enqueueJob(jobFile, Job())
+            }
             call.respondText(
                 "Jobs issued to client $clientName:\n  " +
                     jobsWithoutExistingResult.sorted().joinToString("\n  ") +

@@ -38,13 +38,13 @@ data class ShaderJob(
  */
 data class MessageRenderJob(
     val type: String = "RenderJob",
-    // The WGSL file name. Providing this allows a client to identify which job it is sending a result for when it responds.
-    val jobName: String,
+    // The ID of the job. Providing this allows a client to identify which job it is sending a result for when it responds.
+    val jobId: Int,
     val job: ShaderJob,
     val repetitions: Int,
 )
 
-data class MessageBadlyFormedRenderJobResult(
+data class MessageResultForUnknownJob(
     val type: String = "BadlyFormedRenderJobResult",
     val info: String,
 )
