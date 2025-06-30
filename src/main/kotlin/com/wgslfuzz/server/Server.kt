@@ -17,8 +17,6 @@
 package com.wgslfuzz.server
 
 import com.fasterxml.jackson.databind.SerializationFeature
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
 import io.ktor.serialization.jackson.jackson
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -34,7 +32,6 @@ import io.ktor.server.engine.sslConnector
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
@@ -136,13 +133,6 @@ private fun Application.module() {
                 }
             }
         }
-    }
-
-    install(CORS) {
-        anyHost() // TODO: this is for dev only - don't use in production!
-        allowMethod(HttpMethod.Get)
-        allowMethod(HttpMethod.Post)
-        allowHeader(HttpHeaders.ContentType)
     }
 
     install(ContentNegotiation) {
