@@ -19,7 +19,7 @@ limitations under the License.
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>wgsl-fuzz Client</title>
+  <title>wgsl-fuzz Worker</title>
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -52,13 +52,13 @@ limitations under the License.
 </head>
 <body>
   <main>
-    <h1>wgsl-fuzz Client</h1>
+    <h1>wgsl-fuzz Worker</h1>
     <canvas id="thecanvas" width="256" height="256" aria-label="WebGPU rendering canvas"></canvas>
     <pre id="output" aria-live="polite"></pre>
   </main>
 
   <script src="js/logger.js" defer></script>
-  <script src="js/client.js" defer></script>  
+  <script src="js/worker.js" defer></script>  
 </body>
 </html>
 
