@@ -29,7 +29,7 @@ async function startSessionWithServer() {
     return;
   }
 
-  // The current amount of time for which the client will wait between poll requests.
+  // The current amount of time for which the worker will wait between poll requests.
   // This will double each time there is no response until a limit is hit.
   const pollTimeoutMin = 1;
   var pollTimeoutMillis = pollTimeoutMin;
@@ -39,7 +39,7 @@ async function startSessionWithServer() {
   while (true) {
     // Ask the server for a job.
     try {
-      const response = await fetch(`${serverBase}/job`, {
+      const response = await fetch(`${serverBase}/worker-request-job`, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: name,
@@ -64,15 +64,15 @@ async function startSessionWithServer() {
           // The server was responsive, so reset the poll timeout to its minimum as there may be more jobs
           // after this one.
           pollTimeoutMillis = pollTimeoutMin;
-          const renderJobResult = await executeJob(responseJson.job, responseJson.repetitions);
+          const renderJobResult = await executeJob(responseJson.content.job, responseJson.content.repetitions);
 
-          const ack = await fetch(`${serverBase}/renderjobresult`, {
+          const ack = await fetch(`${serverBase}/worker-job-result`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               type: "RenderJobResult",
-              clientName: name,
-              jobId: responseJson.jobId,
+              workerName: name,
+              jobId: responseJson.content.jobId,
               renderJobResult: renderJobResult,
             }),
           });

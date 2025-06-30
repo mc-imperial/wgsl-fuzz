@@ -63,6 +63,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
+    implementation("com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion")
     implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
 
 }
@@ -103,3 +104,7 @@ tasks.register<JavaExec>("runGenerator") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("runJobViaServer") {
+    mainClass.set("com.wgslfuzz.tools.RunJobViaServerKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}

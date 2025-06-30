@@ -38,13 +38,9 @@ import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondFile
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.time.withTimeoutOrNull
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -61,13 +57,6 @@ private object Config {
     val keyStorePassword: String = getenv("WGSL_KEYSTORE_PASSWORD")
 
     private fun getenv(key: String): String = System.getenv(key) ?: error("Environment variable $key not set.")
-
-    val consoleCommands: String =
-        """
-        help        Display this help message
-        workers     Get a list of the ids of all connected workers
-        job         Issue a job to a worker (usage: job <worker> <pattern>...)
-        """.trimIndent()
 }
 
 private class WorkerSession {
@@ -88,7 +77,7 @@ private class WorkerSession {
                     repetitions = repetitions,
                 ),
                 completion,
-            )
+            ),
         )
     }
 
@@ -168,32 +157,17 @@ private fun Application.module() {
         }
 
         authenticate("admin-auth") {
-            post("/console") {
-                val receivedText = call.receiveText()
-                logger.info("Console command: $receivedText")
-                val command = receivedText.split(" ").filter { it.isNotBlank() }
-                if (command.isEmpty()) {
-                    call.respondText("Empty command")
-                    return@post
-                }
-                handleConsoleCommand(call, command)
-            }
-
-            post("/issue-job") {
-                handleIssueJob(call)
+            post("/client-submit-job") {
+                handleClientSubmitJob(call)
             }
         }
 
-        get("/admin/console-ui") {
-            call.respondFile(File("src/main/resources/static/admin/console.html"))
+        post("/worker-request-job") {
+            handleWorkerRequestJob(call)
         }
 
-        post("/job") {
-            handleJob(call)
-        }
-
-        post("/renderjobresult") {
-            handleRenderJobResult(call)
+        post("/worker-job-result") {
+            handleWorkerJobResult(call)
         }
     }
 }
@@ -203,25 +177,7 @@ private fun getOrRegisterWorker(workerName: String): WorkerSession {
     return workerSessions[workerName]!!
 }
 
-private suspend fun handleConsoleCommand(
-    call: ApplicationCall,
-    command: List<String>,
-) {
-    when (command[0]) {
-        "help" -> call.respondText(Config.consoleCommands)
-        "workers" -> {
-            val workers =
-                workerSessions.keys
-                    .sorted()
-                    .joinToString("\n")
-                    .ifEmpty { "No worker sessions" }
-            call.respondText(workers)
-        }
-        else -> call.respondText("Unknown command: ${command[0]}")
-    }
-}
-
-private suspend fun handleRenderJobResult(call: ApplicationCall) {
+private suspend fun handleWorkerJobResult(call: ApplicationCall) {
     val result = call.receive<WorkerToServer.MessageRenderJobResult>()
     val workerSession = getOrRegisterWorker(result.workerName)
     val completion: CompletableDeferred<RenderJobResult>? = workerSession.removeIssuedJob(result.jobId)
@@ -239,15 +195,17 @@ private suspend fun handleRenderJobResult(call: ApplicationCall) {
     )
 }
 
-private suspend fun handleJob(call: ApplicationCall) {
-    getOrRegisterWorker(call.receiveText()).issueJob()?.let { call.respond(
-        ServerToWorker.MessageRenderJob(
-            content = it,
+private suspend fun handleWorkerRequestJob(call: ApplicationCall) {
+    getOrRegisterWorker(call.receiveText()).issueJob()?.let {
+        call.respond(
+            ServerToWorker.MessageRenderJob(
+                content = it,
+            ),
         )
-    ) } ?: call.respond(ServerToWorker.MessageNoJob())
+    } ?: call.respond(ServerToWorker.MessageNoJob())
 }
 
-private suspend fun handleIssueJob(call: ApplicationCall) {
+private suspend fun handleClientSubmitJob(call: ApplicationCall) {
     val job = call.receive<ClientToServer.MessageIssueJob>()
     val workerSession = workerSessions[job.workerName]
     if (workerSession == null) {
@@ -262,7 +220,11 @@ private suspend fun handleIssueJob(call: ApplicationCall) {
     )
     withTimeoutOrNull(job.timeoutMillis) {
         completion.await()
-    }?.let {
-        call.respond(it)
+    }?.let { renderJobResult: RenderJobResult ->
+        call.respond(
+            ServerToClient.MessageRenderJobResult(
+                content = renderJobResult,
+            ),
+        )
     } ?: call.respond(ServerToClient.MessageTimeout())
 }

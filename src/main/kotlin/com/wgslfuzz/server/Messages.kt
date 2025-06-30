@@ -1,5 +1,7 @@
 package com.wgslfuzz.server
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.wgslfuzz.core.UniformBufferInfoByteLevel
 
 /**
@@ -77,36 +79,53 @@ sealed interface ClientToServer {
         val shaderJob: ShaderJob,
         val repetitions: Int,
         val timeoutMillis: Long,
-    )
+    ) : ClientToServer
 }
 
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.EXISTING_PROPERTY,
+    property = "type",
+    visible = true,
+)
+@JsonSubTypes(
+    JsonSubTypes.Type(value = ServerToClient.MessageUnknownWorker::class, name = "UnknownWorker"),
+    JsonSubTypes.Type(value = ServerToClient.MessageTimeout::class, name = "Timeout"),
+    JsonSubTypes.Type(value = ServerToClient.MessageRenderJobResult::class, name = "RenderJobResult"),
+)
 sealed interface ServerToClient {
     data class MessageUnknownWorker(
         val type: String = "UnknownWorker",
-    )
+    ) : ServerToClient
+
     data class MessageTimeout(
         val type: String = "Timeout",
-    )
+    ) : ServerToClient
+
+    data class MessageRenderJobResult(
+        val type: String = "RenderJobResult",
+        val content: RenderJobResult,
+    ) : ServerToClient
 }
 
 sealed interface ServerToWorker {
     data class MessageNoJob(
         val type: String = "NoJob",
-    )
+    ) : ServerToWorker
 
     data class MessageRenderJob(
         val type: String = "RenderJob",
         val content: RenderJobInfo,
-    )
+    ) : ServerToWorker
 
     data class MessageResultForUnknownJob(
         val type: String = "ResultForUnknownJob",
         val info: String,
-    )
+    ) : ServerToWorker
 
     data class MessageRenderJobResultReceived(
         val type: String = "RenderJobResultReceived",
-    )
+    ) : ServerToWorker
 }
 
 sealed interface WorkerToServer {
@@ -116,5 +135,5 @@ sealed interface WorkerToServer {
         val workerName: String,
         val jobId: Int,
         val renderJobResult: RenderJobResult,
-    )
+    ) : WorkerToServer
 }
