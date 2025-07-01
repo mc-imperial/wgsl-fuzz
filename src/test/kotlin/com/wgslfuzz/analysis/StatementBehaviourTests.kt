@@ -1,15 +1,9 @@
 package com.wgslfuzz.analysis
 
-import com.wgslfuzz.core.AstWriter
-import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LoggingParseErrorListener
 import com.wgslfuzz.core.Statement
-import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.parseFromString
-import com.wgslfuzz.core.resolve
 import org.junit.jupiter.api.Test
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
 import kotlin.test.assertEquals
 
 class StatementBehaviourTests {
