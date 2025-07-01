@@ -51,7 +51,7 @@ import java.util.concurrent.atomic.AtomicInteger
 private object Config {
     val adminUsername: String = getenv("WGSL_FUZZ_ADMIN_USERNAME")
     val adminPassword: String = getenv("WGSL_FUZZ_ADMIN_PASSWORD")
-    val keyStorePassword: String = getenv("WGSL_KEYSTORE_PASSWORD")
+    val keyStorePassword: String = getenv("WGSL_FUZZ_KEYSTORE_PASSWORD")
 
     private fun getenv(key: String): String = System.getenv(key) ?: error("Environment variable $key not set.")
 }
