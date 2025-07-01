@@ -166,7 +166,9 @@ private fun statementBehaviour(
                     statement.continuingStatement
                         ?.let {
                             val continuingBehaviour = statementBehaviour(it.statements, behaviourMap, functionMap)
-                            if (continuingBehaviour.contains(StatementBehaviour.CONTINUE) || continuingBehaviour.contains(StatementBehaviour.RETURN)) {
+                            if (continuingBehaviour.contains(StatementBehaviour.CONTINUE) ||
+                                continuingBehaviour.contains(StatementBehaviour.RETURN)
+                            ) {
                                 throw IllegalArgumentException(
                                     "continue and return statements cannot appear inside a continuing construct unless inside and a loop.",
                                 )
