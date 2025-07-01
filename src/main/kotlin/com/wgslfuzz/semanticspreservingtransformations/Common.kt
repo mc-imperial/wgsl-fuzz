@@ -366,7 +366,9 @@ fun generateKnownValueExpression(
         getNumericValueFromConstant(
             knownValue,
         )
-
+    if (knownValueAsInt !in 0..16777216) {
+        throw UnsupportedOperationException("Known values are currently only supported within a limited range.")
+    }
     val literalSuffix =
         when (type) {
             is Type.I32 -> "i"
@@ -386,8 +388,10 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.sumOfKnownValues(depth) to {
-                val randomValue = fuzzerSettings.randomInt(1 shl 24)
+                val randomValue = fuzzerSettings.randomInt(knownValueAsInt + 1)
+                assert(randomValue <= knownValueAsInt)
                 val difference: Int = knownValueAsInt - randomValue
+                assert (difference in 0..knownValueAsInt)
                 val randomValueText = "$randomValue$literalSuffix"
                 val differenceText = "$difference$literalSuffix"
                 val randomValueKnownExpression =
@@ -426,8 +430,9 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.differenceOfKnownValues(depth) to {
-                val randomValue = fuzzerSettings.randomInt(Math.max(1, (1 shl 24) - knownValueAsInt))
+                val randomValue = fuzzerSettings.randomInt(16777216 - knownValueAsInt + 1)
                 val sum: Int = knownValueAsInt + randomValue
+                assert (sum in 0..16777216)
                 val randomValueText = "$randomValue$literalSuffix"
                 val sumText = "$sum$literalSuffix"
                 val randomValueKnownExpression =
@@ -631,11 +636,11 @@ fun constantWithSameValueEverywhere(
                         args = (0..1).map { constantWithSameValueEverywhere(value, type.elementType) },
                     )
                 3 ->
-                    Expression.Vec2ValueConstructor(
+                    Expression.Vec3ValueConstructor(
                         args = (0..2).map { constantWithSameValueEverywhere(value, type.elementType) },
                     )
                 4 ->
-                    Expression.Vec2ValueConstructor(
+                    Expression.Vec4ValueConstructor(
                         args = (0..3).map { constantWithSameValueEverywhere(value, type.elementType) },
                     )
                 else -> throw RuntimeException("Bad vector width: ${type.width}")

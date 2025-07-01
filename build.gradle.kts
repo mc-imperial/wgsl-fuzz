@@ -98,3 +98,8 @@ tasks.register<JavaExec>("runJobsViaServer") {
     mainClass.set("com.wgslfuzz.tools.RunJobsViaServerKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("reduceJobViaServer") {
+    mainClass.set("com.wgslfuzz.tools.ReduceJobViaServerKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}

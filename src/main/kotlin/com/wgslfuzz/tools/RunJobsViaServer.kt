@@ -42,6 +42,7 @@ import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
 import kotlinx.cli.required
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -51,7 +52,7 @@ import javax.net.ssl.X509TrustManager
 import kotlin.io.path.createFile
 import kotlin.system.exitProcess
 
-suspend fun main(args: Array<String>) {
+fun main(args: Array<String>) {
     val username =
         System.getenv("WGSL_FUZZ_ADMIN_USERNAME")
             ?: error("Environment variable WGSL_FUZZ_ADMIN_USERNAME not set")
@@ -59,7 +60,7 @@ suspend fun main(args: Array<String>) {
         System.getenv("WGSL_FUZZ_ADMIN_PASSWORD")
             ?: error("Environment variable WGSL_FUZZ_ADMIN_PASSWORD not set")
 
-    val parser = ArgParser("Tool for running a shader job via a server")
+    val parser = ArgParser("Tool for running shaders job via a server")
 
     val serverUrl by parser
         .option(
@@ -170,7 +171,7 @@ suspend fun main(args: Array<String>) {
     }
 }
 
-private suspend fun runJobViaServer(
+fun runJobViaServer(
     job: File,
     httpClient: HttpClient,
     serverUrl: String,
@@ -194,15 +195,16 @@ private suspend fun runJobViaServer(
             repetitions = repetitions,
             timeoutMillis = timeoutMillis.toLong(),
         )
-    val response =
-        httpClient.post("$serverUrl/client-submit-job") {
+    val jobResponse: ServerToClient = runBlocking {
+        val response = httpClient.post("$serverUrl/client-submit-job") {
             contentType(ContentType.Application.Json)
             setBody(messageIssueJob)
             timeout {
                 requestTimeoutMillis = timeoutMillis.toLong()
             }
         }
-    val jobResponse: ServerToClient = response.body()
+        response.body()
+    }
     jacksonObjectMapper().writeValue(outputDirPath.resolve("$jobFilenameNoSuffix.result").toFile(), jobResponse)
     if (jobResponse is ServerToClient.MessageRenderJobResult) {
         val renderJobResult = jobResponse.content
@@ -231,7 +233,7 @@ private suspend fun runJobViaServer(
     }
 }
 
-private fun createClient(
+fun createClient(
     developerMode: Boolean,
     username: String,
     password: String

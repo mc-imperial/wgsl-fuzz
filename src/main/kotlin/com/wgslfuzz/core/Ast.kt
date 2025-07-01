@@ -1092,7 +1092,16 @@ sealed interface AugmentedExpression :
     class KnownValue(
         val knownValue: Expression,
         val expression: Expression,
-    ) : AugmentedExpression
+    ) : AugmentedExpression {
+        init {
+            if (knownValue is Expression.FloatLiteral) {
+                val doubleValue = knownValue.text.removeSuffix("f").toDouble()
+                if (doubleValue !in -16777216.0..16777216.0) {
+                    throw UnsupportedOperationException("A floating-point known value must be representable as an integer; found value $doubleValue.")
+                }
+            }
+        }
+    }
 
     @Serializable
     sealed interface IdentityOperation : AugmentedExpression {
@@ -1102,27 +1111,27 @@ sealed interface AugmentedExpression :
     @Serializable
     class AddZero(
         override val originalExpression: Expression,
-        val zeroExpression: KnownValue,
+        val zeroExpression: Expression,
         val zeroOnLeft: Boolean,
     ) : IdentityOperation
 
     @Serializable
     class MulOne(
         override val originalExpression: Expression,
-        val oneExpression: KnownValue,
+        val oneExpression: Expression,
         val oneOnLeft: Boolean,
     ) : IdentityOperation
 
     @Serializable
     class SubZero(
         override val originalExpression: Expression,
-        val zeroExpression: KnownValue,
+        val zeroExpression: Expression,
     ) : IdentityOperation
 
     @Serializable
     class DivOne(
         override val originalExpression: Expression,
-        val oneExpression: KnownValue,
+        val oneExpression: Expression,
     ) : IdentityOperation
 }
 

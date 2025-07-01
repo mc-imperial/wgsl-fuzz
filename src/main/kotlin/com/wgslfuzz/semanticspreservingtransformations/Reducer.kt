@@ -27,6 +27,7 @@ import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
+import kotlin.math.max
 import kotlin.math.min
 
 typealias InterestingnessTest = (candidate: ShaderJob) -> Boolean
@@ -53,12 +54,16 @@ abstract class ReductionPass<ReductionOpportunityT> {
         while (granularity > 0) {
             var offset = fragments.size - granularity
             while (offset + granularity > 0) {
-                val candidateReducedShaderJob = removeOpportunities(bestSoFar, fragments.slice(offset..<offset + granularity))
+                println("Fragments: ${fragments.size}")
+                println("Offset: $offset")
+                println("Granularity: $granularity")
+                val candidateReducedShaderJob = removeOpportunities(bestSoFar, fragments.slice(max(0, offset)..<min(fragments.size, offset + granularity)))
                 if (interestingnessTest(candidateReducedShaderJob)) {
                     bestSoFar = candidateReducedShaderJob
                     progressMade = true
                     fragments = findOpportunities(bestSoFar)
                     granularity = min(granularity, fragments.size)
+                    offset = min(offset, fragments.size - granularity)
                 } else {
                     offset -= granularity
                 }
