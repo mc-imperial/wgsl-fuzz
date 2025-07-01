@@ -38,7 +38,7 @@ class StatementBehaviourTests {
             """.trimIndent()
         val tu = parseFromString(input, LoggingParseErrorListener())
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.RETURN)
+        val expectedBehaviour = setOf(StatementBehaviour.RETURN)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.If) {
@@ -61,7 +61,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.RETURN, Behaviour.NEXT)
+        val expectedBehaviour = setOf(StatementBehaviour.RETURN, StatementBehaviour.NEXT)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.If) {
@@ -84,7 +84,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.RETURN)
+        val expectedBehaviour = setOf(StatementBehaviour.RETURN)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.Loop) {
@@ -107,7 +107,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.NEXT)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.Loop) {
@@ -134,7 +134,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.NEXT, Behaviour.RETURN)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT, StatementBehaviour.RETURN)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.Loop) {
@@ -158,7 +158,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.NEXT)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.Loop) {
@@ -182,7 +182,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.RETURN)
+        val expectedBehaviour = setOf(StatementBehaviour.RETURN)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.Loop) {
@@ -206,7 +206,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.NEXT)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.For) {
@@ -230,7 +230,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.NEXT, Behaviour.RETURN)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT, StatementBehaviour.RETURN)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.For) {
@@ -254,7 +254,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.NEXT)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.For) {
@@ -279,7 +279,7 @@ class StatementBehaviourTests {
         val tu = parseFromString(input, LoggingParseErrorListener())
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(Behaviour.NEXT, Behaviour.RETURN)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT, StatementBehaviour.RETURN)
 
         behaviourMap.keys.forEach { key ->
             if (key is Statement.For) {

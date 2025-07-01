@@ -26,17 +26,17 @@ import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.traverse
 
-enum class Behaviour {
+enum class StatementBehaviour {
     NEXT,
     BREAK,
     CONTINUE,
     RETURN,
 }
 
-fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<Behaviour>> {
+fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<StatementBehaviour>> {
     fun traversalAction(
         node: AstNode,
-        behaviourMap: Pair<MutableMap<Statement, Set<Behaviour>>, MutableMap<String, Set<Behaviour>>>,
+        behaviourMap: Pair<MutableMap<Statement, Set<StatementBehaviour>>, MutableMap<String, Set<StatementBehaviour>>>,
     ) {
         when (node) {
             is GlobalDecl.Function -> functionBehaviour(node, behaviourMap.first, behaviourMap.second)
@@ -44,7 +44,7 @@ fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<Behav
         }
     }
 
-    val result = mutableMapOf<Statement, Set<Behaviour>>()
+    val result = mutableMapOf<Statement, Set<StatementBehaviour>>()
     traverse(::traversalAction, tu, Pair(result, mutableMapOf()))
     return result
 }
@@ -53,16 +53,16 @@ fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<Behav
 // https://www.w3.org/TR/WGSL/#behaviors-rules
 private fun functionBehaviour(
     function: GlobalDecl.Function,
-    behaviourMap: MutableMap<Statement, Set<Behaviour>>,
-    functionMap: MutableMap<String, Set<Behaviour>>,
-): Set<Behaviour> {
+    behaviourMap: MutableMap<Statement, Set<StatementBehaviour>>,
+    functionMap: MutableMap<String, Set<StatementBehaviour>>,
+): Set<StatementBehaviour> {
     val bodyBehaviour = statementBehaviour(function.body, behaviourMap, functionMap)
-    if (function.returnType != null && bodyBehaviour != setOf(Behaviour.RETURN)) {
+    if (function.returnType != null && bodyBehaviour != setOf(StatementBehaviour.RETURN)) {
         throw IllegalArgumentException("A function with a return type must return in all branches")
     }
 
-    if (bodyBehaviour.contains(Behaviour.RETURN)) {
-        return bodyBehaviour.minus(Behaviour.RETURN).plus(Behaviour.NEXT)
+    if (bodyBehaviour.contains(StatementBehaviour.RETURN)) {
+        return bodyBehaviour.minus(StatementBehaviour.RETURN).plus(StatementBehaviour.NEXT)
     }
 
     return bodyBehaviour
@@ -70,16 +70,16 @@ private fun functionBehaviour(
 
 private fun statementsBehaviour(
     statements: List<Statement>,
-    behaviourMap: MutableMap<Statement, Set<Behaviour>>,
-    functionMap: MutableMap<String, Set<Behaviour>>,
-): Set<Behaviour> {
-    var result: Set<Behaviour> = setOf(Behaviour.NEXT)
+    behaviourMap: MutableMap<Statement, Set<StatementBehaviour>>,
+    functionMap: MutableMap<String, Set<StatementBehaviour>>,
+): Set<StatementBehaviour> {
+    var result: Set<StatementBehaviour> = setOf(StatementBehaviour.NEXT)
     for (statement in statements) {
         val headBehaviour = statementBehaviour(statement, behaviourMap, functionMap)
         // While the current statement is reachable, continue to update the behaviour of the statement list.
         // The statement is still analysed if it is unreachable to add its behaviour to the behaviour map
-        if (result.contains(Behaviour.NEXT)) {
-            result = result.minus(Behaviour.NEXT).plus(headBehaviour)
+        if (result.contains(StatementBehaviour.NEXT)) {
+            result = result.minus(StatementBehaviour.NEXT).plus(headBehaviour)
         }
     }
 
@@ -128,30 +128,30 @@ private fun desugarWhile(whileStatement: Statement.While): Statement.Loop {
 
 private fun statementBehaviour(
     statement: Statement,
-    behaviourMap: MutableMap<Statement, Set<Behaviour>>,
-    functionMap: MutableMap<String, Set<Behaviour>>,
-): Set<Behaviour> {
-    val behaviour: Set<Behaviour> =
+    behaviourMap: MutableMap<Statement, Set<StatementBehaviour>>,
+    functionMap: MutableMap<String, Set<StatementBehaviour>>,
+): Set<StatementBehaviour> {
+    val behaviour: Set<StatementBehaviour> =
         when (statement) {
-            is Statement.Empty -> setOf(Behaviour.NEXT)
-            is Statement.Value -> setOf(Behaviour.NEXT)
-            is Statement.Variable -> setOf(Behaviour.NEXT)
-            is Statement.Assignment -> setOf(Behaviour.NEXT)
-            is Statement.Discard -> setOf(Behaviour.NEXT)
-            is Statement.ConstAssert -> setOf(Behaviour.NEXT)
-            is Statement.Decrement -> setOf(Behaviour.NEXT)
-            is Statement.Increment -> setOf(Behaviour.NEXT)
+            is Statement.Empty -> setOf(StatementBehaviour.NEXT)
+            is Statement.Value -> setOf(StatementBehaviour.NEXT)
+            is Statement.Variable -> setOf(StatementBehaviour.NEXT)
+            is Statement.Assignment -> setOf(StatementBehaviour.NEXT)
+            is Statement.Discard -> setOf(StatementBehaviour.NEXT)
+            is Statement.ConstAssert -> setOf(StatementBehaviour.NEXT)
+            is Statement.Decrement -> setOf(StatementBehaviour.NEXT)
+            is Statement.Increment -> setOf(StatementBehaviour.NEXT)
 
-            is Statement.Break -> setOf(Behaviour.BREAK)
-            is Statement.Continue -> setOf(Behaviour.CONTINUE)
-            is Statement.Return -> setOf(Behaviour.RETURN)
+            is Statement.Break -> setOf(StatementBehaviour.BREAK)
+            is Statement.Continue -> setOf(StatementBehaviour.CONTINUE)
+            is Statement.Return -> setOf(StatementBehaviour.RETURN)
 
             is Statement.Compound -> statementsBehaviour(statement.statements, behaviourMap, functionMap)
 
             is Statement.If -> {
                 val ifBehaviour = statementBehaviour(statement.thenBranch, behaviourMap, functionMap)
                 val elseBehaviour =
-                    statement.elseBranch?.let { statementBehaviour(it, behaviourMap, functionMap) } ?: setOf(Behaviour.NEXT)
+                    statement.elseBranch?.let { statementBehaviour(it, behaviourMap, functionMap) } ?: setOf(StatementBehaviour.NEXT)
 
                 ifBehaviour union elseBehaviour
             }
@@ -166,7 +166,7 @@ private fun statementBehaviour(
                     statement.continuingStatement
                         ?.let {
                             val continuingBehaviour = statementBehaviour(it.statements, behaviourMap, functionMap)
-                            if (continuingBehaviour.contains(Behaviour.CONTINUE) || continuingBehaviour.contains(Behaviour.RETURN)) {
+                            if (continuingBehaviour.contains(StatementBehaviour.CONTINUE) || continuingBehaviour.contains(StatementBehaviour.RETURN)) {
                                 throw IllegalArgumentException(
                                     "continue and return statements cannot appear inside a continuing construct unless inside and a loop.",
                                 )
@@ -176,10 +176,10 @@ private fun statementBehaviour(
                         ?.let { bodyBehaviour union it }
                         ?: bodyBehaviour // Combine the body and continuing body behaviours or fall back to body
 
-                if (loopBehaviour.contains(Behaviour.BREAK)) {
-                    loopBehaviour.plus(Behaviour.NEXT).subtract(setOf(Behaviour.BREAK, Behaviour.CONTINUE))
+                if (loopBehaviour.contains(StatementBehaviour.BREAK)) {
+                    loopBehaviour.plus(StatementBehaviour.NEXT).subtract(setOf(StatementBehaviour.BREAK, StatementBehaviour.CONTINUE))
                 } else {
-                    loopBehaviour.subtract(setOf(Behaviour.NEXT, Behaviour.CONTINUE))
+                    loopBehaviour.subtract(setOf(StatementBehaviour.NEXT, StatementBehaviour.CONTINUE))
                 }
             }
 
@@ -194,8 +194,8 @@ private fun statementBehaviour(
                                 functionMap,
                             )
                         }.reduce { a, b -> a union b }
-                if (clauseBehaviour.contains(Behaviour.BREAK)) {
-                    clauseBehaviour.plus(Behaviour.NEXT).minus(Behaviour.BREAK)
+                if (clauseBehaviour.contains(StatementBehaviour.BREAK)) {
+                    clauseBehaviour.plus(StatementBehaviour.NEXT).minus(StatementBehaviour.BREAK)
                 } else {
                     clauseBehaviour
                 }
@@ -207,7 +207,7 @@ private fun statementBehaviour(
                 functionMap[statement.callee]!!
 
             // NON-STANDARD: the code here is statically unreachable so has behaviour next.
-            is AugmentedStatement.DeadCodeFragment -> setOf(Behaviour.NEXT)
+            is AugmentedStatement.DeadCodeFragment -> setOf(StatementBehaviour.NEXT)
         }
 
     behaviourMap.put(statement, behaviour)
