@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.wgslfuzz.uniformitydataflow
+package com.wgslfuzz.uniformityanalysis
 
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl

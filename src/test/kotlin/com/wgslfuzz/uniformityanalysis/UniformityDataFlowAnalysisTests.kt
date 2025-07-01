@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.wgslfuzz.uniformitydataflow
+package com.wgslfuzz.uniformityanalysis
 
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LoggingParseErrorListener
@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class UniformityAnalysisTests {
+class UniformityDataFlowAnalysisTests {
     @Test
     fun simpleProgram() {
         val program =
