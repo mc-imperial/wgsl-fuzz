@@ -54,10 +54,13 @@ abstract class ReductionPass<ReductionOpportunityT> {
         while (granularity > 0) {
             var offset = fragments.size - granularity
             while (offset + granularity > 0) {
-                println("Fragments: ${fragments.size}")
-                println("Offset: $offset")
-                println("Granularity: $granularity")
-                val candidateReducedShaderJob = removeOpportunities(bestSoFar, fragments.slice(max(0, offset)..<min(fragments.size, offset + granularity)))
+                val candidateReducedShaderJob =
+                    removeOpportunities(
+                        bestSoFar,
+                        fragments.slice(
+                            max(0, offset)..<min(fragments.size, offset + granularity),
+                        ),
+                    )
                 if (interestingnessTest(candidateReducedShaderJob)) {
                     bestSoFar = candidateReducedShaderJob
                     progressMade = true

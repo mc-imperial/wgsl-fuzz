@@ -50,7 +50,6 @@ import java.security.cert.X509Certificate
 import java.util.Base64
 import javax.net.ssl.X509TrustManager
 import kotlin.io.path.createFile
-import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     val username =
@@ -120,30 +119,31 @@ fun main(args: Array<String>) {
 
     parser.parse(args)
 
-    val jobs: Array<File> = if (jobFile != null) {
-        if (jobDir != null) {
-            System.err.println("jobFile and jobDir arguments must be mutually exclusive")
+    val jobs: Array<File> =
+        if (jobFile != null) {
+            if (jobDir != null) {
+                System.err.println("jobFile and jobDir arguments must be mutually exclusive")
+                return
+            }
+            val file = File(jobFile!!)
+            if (!file.isFile) {
+                System.err.println("Job file $jobFile does not exist.")
+                return
+            }
+            arrayOf(file)
+        } else if (jobDir != null) {
+            val dir = File(jobDir)
+            if (!dir.isDirectory) {
+                System.err.println("Job directory $jobDir does not exist.")
+                return
+            }
+            dir.listFiles { file ->
+                file.isFile && file.extension == "wgsl"
+            } ?: emptyArray()
+        } else {
+            System.err.println("One of jobFile or jobDir must be provided.")
             return
         }
-        val file = File(jobFile!!)
-        if (!file.isFile) {
-            System.err.println("Job file ${jobFile} does not exist.")
-            return
-        }
-        arrayOf(file)
-    } else if (jobDir != null) {
-        val dir = File(jobDir)
-        if (!dir.isDirectory) {
-            System.err.println("Job directory ${jobDir} does not exist.")
-            return
-        }
-        dir.listFiles { file ->
-            file.isFile && file.extension == "wgsl"
-        } ?: emptyArray()
-    } else {
-        System.err.println("One of jobFile or jobDir must be provided.")
-        return
-    }
 
     val outputDirPath = Paths.get(outputDir)
 
@@ -195,16 +195,18 @@ fun runJobViaServer(
             repetitions = repetitions,
             timeoutMillis = timeoutMillis.toLong(),
         )
-    val jobResponse: ServerToClient = runBlocking {
-        val response = httpClient.post("$serverUrl/client-submit-job") {
-            contentType(ContentType.Application.Json)
-            setBody(messageIssueJob)
-            timeout {
-                requestTimeoutMillis = timeoutMillis.toLong()
-            }
+    val jobResponse: ServerToClient =
+        runBlocking {
+            val response =
+                httpClient.post("$serverUrl/client-submit-job") {
+                    contentType(ContentType.Application.Json)
+                    setBody(messageIssueJob)
+                    timeout {
+                        requestTimeoutMillis = timeoutMillis.toLong()
+                    }
+                }
+            response.body()
         }
-        response.body()
-    }
     jacksonObjectMapper().writeValue(outputDirPath.resolve("$jobFilenameNoSuffix.result").toFile(), jobResponse)
     if (jobResponse is ServerToClient.MessageRenderJobResult) {
         val renderJobResult = jobResponse.content
@@ -236,7 +238,7 @@ fun runJobViaServer(
 fun createClient(
     developerMode: Boolean,
     username: String,
-    password: String
+    password: String,
 ) = HttpClient(CIO) {
     if (developerMode) {
         // This disables certificate validation, which is useful during development but should not be used in production.

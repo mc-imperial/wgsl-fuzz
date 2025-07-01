@@ -29,6 +29,8 @@ import com.wgslfuzz.core.getUniformDeclaration
 import java.util.Random
 import kotlin.math.max
 
+private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
+
 interface FuzzerSettings {
     val maxDepth: Int
         get() = 10
@@ -366,7 +368,7 @@ fun generateKnownValueExpression(
         getNumericValueFromConstant(
             knownValue,
         )
-    if (knownValueAsInt !in 0..16777216) {
+    if (knownValueAsInt !in 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE) {
         throw UnsupportedOperationException("Known values are currently only supported within a limited range.")
     }
     val literalSuffix =
@@ -391,7 +393,7 @@ fun generateKnownValueExpression(
                 val randomValue = fuzzerSettings.randomInt(knownValueAsInt + 1)
                 assert(randomValue <= knownValueAsInt)
                 val difference: Int = knownValueAsInt - randomValue
-                assert (difference in 0..knownValueAsInt)
+                assert(difference in 0..knownValueAsInt)
                 val randomValueText = "$randomValue$literalSuffix"
                 val differenceText = "$difference$literalSuffix"
                 val randomValueKnownExpression =
@@ -430,9 +432,9 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.differenceOfKnownValues(depth) to {
-                val randomValue = fuzzerSettings.randomInt(16777216 - knownValueAsInt + 1)
+                val randomValue = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE - knownValueAsInt + 1)
                 val sum: Int = knownValueAsInt + randomValue
-                assert (sum in 0..16777216)
+                assert(sum in 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
                 val randomValueText = "$randomValue$literalSuffix"
                 val sumText = "$sum$literalSuffix"
                 val randomValueKnownExpression =

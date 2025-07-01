@@ -88,7 +88,7 @@ fun main(args: Array<String>) {
         .option(
             ArgType.String,
             fullName = "referenceImage",
-            description = "Reference image for bad image reduction"
+            description = "Reference image for bad image reduction",
         )
 
     parser.parse(args)
@@ -104,17 +104,18 @@ fun main(args: Array<String>) {
     ).use { httpClient ->
         println("Checking that original shader job is interesting")
         if (!isInteresting(
-            shaderJob = shaderJob,
-            jobFilename = "original.wgsl",
-            reductionWorkDir = outputDir,
-            serverUrl = serverUrl,
-            httpClient = httpClient,
-            repetitions = repetitions,
-            workerName = workerName,
-            timeoutMillis = timeoutMillis,
-            expectedOutputText = expectedOutputText,
-            referenceImage = referenceImage,
-            )) {
+                shaderJob = shaderJob,
+                jobFilename = "original.wgsl",
+                reductionWorkDir = outputDir,
+                serverUrl = serverUrl,
+                httpClient = httpClient,
+                repetitions = repetitions,
+                workerName = workerName,
+                timeoutMillis = timeoutMillis,
+                expectedOutputText = expectedOutputText,
+                referenceImage = referenceImage,
+            )
+        ) {
             throw RuntimeException("Original shader job not interesting.")
         }
         println("Original shader job is interesting!")
@@ -148,8 +149,16 @@ private fun isInteresting(
     expectedOutputText: String?,
     referenceImage: String?,
 ): Boolean {
-    AstWriter(PrintStream(FileOutputStream(File(
-        reductionWorkDir, jobFilename)))).emit(shaderJob.tu)
+    AstWriter(
+        PrintStream(
+            FileOutputStream(
+                File(
+                    reductionWorkDir,
+                    jobFilename,
+                ),
+            ),
+        ),
+    ).emit(shaderJob.tu)
     File(
         reductionWorkDir,
         jobFilename.removeSuffix(".wgsl") + ".uniforms",
@@ -193,7 +202,8 @@ private fun isInteresting(
     }
     AstWriter(
         out = PrintStream(FileOutputStream(File(reductionWorkDir, "best_annotated.wgsl"))),
-        emitCommentary = true).emit(
+        emitCommentary = true,
+    ).emit(
         shaderJob.tu,
     )
     Files.copy(

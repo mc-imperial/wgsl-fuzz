@@ -3,7 +3,10 @@ package com.wgslfuzz.tools
 import java.io.File
 import javax.imageio.ImageIO
 
-fun identicalImages(file1: File, file2: File): Boolean {
+fun identicalImages(
+    file1: File,
+    file2: File,
+): Boolean {
     val img1 = ImageIO.read(file1)
     val img2 = ImageIO.read(file2)
 
