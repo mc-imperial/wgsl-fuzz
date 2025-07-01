@@ -239,7 +239,6 @@ class StatementBehaviourTests {
         }
     }
 
-
     @Test
     fun behaviourOfWhileLoop() {
         val input =
