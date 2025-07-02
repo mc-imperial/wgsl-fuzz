@@ -30,10 +30,20 @@ enum class StatementBehaviour {
     RETURN,
 }
 
+// A statement behaviour map maps a statement to the set of possible behaviours of that statement.
+// The set of possible behaviour of each statement is a non-empty subset of { Next, Return, Break, Continue }
+// For more information, see: https://www.w3.org/TR/WGSL/#behaviors
+typealias StatementBehaviourMap = MutableMap<Statement, Set<StatementBehaviour>>
+
+// In statement behaviour analysis, the behaviour of a function is equivalent to the behaviour of its body.
+// The function behaviour map allows the behaviour of a function call statement to be determined from the name
+// of the callee. For more information, see:
+typealias FunctionBehaviourMap = MutableMap<String, Set<StatementBehaviour>>
+
 fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<StatementBehaviour>> {
     fun traversalAction(
         node: AstNode,
-        behaviourMap: Pair<MutableMap<Statement, Set<StatementBehaviour>>, MutableMap<String, Set<StatementBehaviour>>>,
+        behaviourMap: Pair<StatementBehaviourMap, FunctionBehaviourMap>,
     ) {
         when (node) {
             is GlobalDecl.Function -> functionBehaviour(node, behaviourMap.first, behaviourMap.second)
@@ -41,7 +51,7 @@ fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<State
         }
     }
 
-    val result = mutableMapOf<Statement, Set<StatementBehaviour>>()
+    val result: StatementBehaviourMap = mutableMapOf()
     traverse(::traversalAction, tu, Pair(result, mutableMapOf()))
     return result
 }
@@ -50,8 +60,8 @@ fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<State
 // https://www.w3.org/TR/WGSL/#behaviors-rules
 private fun functionBehaviour(
     function: GlobalDecl.Function,
-    behaviourMap: MutableMap<Statement, Set<StatementBehaviour>>,
-    functionMap: MutableMap<String, Set<StatementBehaviour>>,
+    behaviourMap: StatementBehaviourMap,
+    functionMap: FunctionBehaviourMap,
 ): Set<StatementBehaviour> {
     val bodyBehaviour = statementBehaviour(function.body, behaviourMap, functionMap)
     if (function.returnType != null && bodyBehaviour != setOf(StatementBehaviour.RETURN)) {
@@ -67,8 +77,8 @@ private fun functionBehaviour(
 
 private fun statementsBehaviour(
     statements: List<Statement>,
-    behaviourMap: MutableMap<Statement, Set<StatementBehaviour>>,
-    functionMap: MutableMap<String, Set<StatementBehaviour>>,
+    behaviourMap: StatementBehaviourMap,
+    functionMap: FunctionBehaviourMap,
 ): Set<StatementBehaviour> {
     var result: Set<StatementBehaviour> = setOf(StatementBehaviour.NEXT)
     for (statement in statements) {
@@ -85,19 +95,20 @@ private fun statementsBehaviour(
 
 private fun statementBehaviour(
     statement: Statement,
-    behaviourMap: MutableMap<Statement, Set<StatementBehaviour>>,
-    functionMap: MutableMap<String, Set<StatementBehaviour>>,
+    behaviourMap: StatementBehaviourMap,
+    functionMap: FunctionBehaviourMap,
 ): Set<StatementBehaviour> {
     val behaviour: Set<StatementBehaviour> =
         when (statement) {
-            is Statement.Empty -> setOf(StatementBehaviour.NEXT)
-            is Statement.Value -> setOf(StatementBehaviour.NEXT)
-            is Statement.Variable -> setOf(StatementBehaviour.NEXT)
-            is Statement.Assignment -> setOf(StatementBehaviour.NEXT)
-            is Statement.Discard -> setOf(StatementBehaviour.NEXT)
-            is Statement.ConstAssert -> setOf(StatementBehaviour.NEXT)
-            is Statement.Decrement -> setOf(StatementBehaviour.NEXT)
-            is Statement.Increment -> setOf(StatementBehaviour.NEXT)
+            is Statement.Empty,
+            is Statement.Value,
+            is Statement.Variable,
+            is Statement.Assignment,
+            is Statement.Discard,
+            is Statement.ConstAssert,
+            is Statement.Decrement,
+            is Statement.Increment,
+            -> setOf(StatementBehaviour.NEXT)
 
             is Statement.Break -> setOf(StatementBehaviour.BREAK)
             is Statement.Continue -> setOf(StatementBehaviour.CONTINUE)
