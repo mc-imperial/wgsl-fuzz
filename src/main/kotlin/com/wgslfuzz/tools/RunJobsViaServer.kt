@@ -132,7 +132,7 @@ fun main(args: Array<String>) {
             }
             arrayOf(file)
         } else if (jobDir != null) {
-            val dir = File(jobDir)
+            val dir = File(jobDir!!)
             if (!dir.isDirectory) {
                 System.err.println("Job directory $jobDir does not exist.")
                 return
@@ -207,7 +207,9 @@ fun runJobViaServer(
                 }
             response.body()
         }
-    jacksonObjectMapper().writeValue(outputDirPath.resolve("$jobFilenameNoSuffix.result.json").toFile(), jobResponse)
+    jacksonObjectMapper()
+        .writerWithDefaultPrettyPrinter()
+        .writeValue(outputDirPath.resolve("$jobFilenameNoSuffix.result.json").toFile(), jobResponse)
     if (jobResponse is ServerToClient.MessageRenderJobResult) {
         val renderJobResult = jobResponse.content
         if (renderJobResult.renderImageResults.isNotEmpty()) {
