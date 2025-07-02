@@ -189,7 +189,7 @@ private fun isInteresting(
         outputDirPath = Path.of(reductionWorkDir),
     )
     if (expectedOutputText != null) {
-        if (expectedOutputText !in File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".result").readText()) {
+        if (expectedOutputText !in File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".result.json").readText()) {
             println(1)
             return false
         }
@@ -236,11 +236,11 @@ private fun isInteresting(
         reductionWorkDir,
         "best.json",
     ).writeText(Json.encodeToString(shaderJob))
-    val resultFile = Path.of(reductionWorkDir).resolve(jobFilename.removeSuffix(".wgsl") + ".result")
+    val resultFile = Path.of(reductionWorkDir).resolve(jobFilename.removeSuffix(".wgsl") + ".result.json")
     if (resultFile.exists()) {
         Files.copy(
             resultFile,
-            Path.of(reductionWorkDir).resolve("best.result"),
+            Path.of(reductionWorkDir).resolve("best.result.json"),
             StandardCopyOption.REPLACE_EXISTING,
         )
     }
