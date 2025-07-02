@@ -24,6 +24,27 @@ import kotlin.test.assertEquals
 
 class StatementBehaviourTests {
     @Test
+    fun behaviourOfBuiltinsIsNext() {
+        val input =
+            """
+            @compute
+            fn main() {
+                workgroupBarrier();
+            }
+            """.trimIndent()
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
+
+        val behaviourMap = runStatementBehaviourAnalysis(tu)
+        val expectedBehaviour = setOf(StatementBehaviour.NEXT)
+
+        behaviourMap.keys.forEach { key ->
+            if (key is Statement.FunctionCall) {
+                assertEquals(expectedBehaviour, behaviourMap[key])
+            }
+        }
+    }
+
+    @Test
     fun behaviourOfIfReturnInOneBranches() {
         val input =
             """

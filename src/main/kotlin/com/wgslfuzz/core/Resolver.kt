@@ -398,16 +398,7 @@ private fun resolveAstNode(
                     // Good; nothing to do.
                 }
                 null -> {
-                    // This set should contain the names of all builtin functions that do not have the 'must_use' attribute
-                    val statementFunctionCallBuiltins =
-                        setOf(
-                            "atomicStore",
-                            "storageBarrier",
-                            "textureBarrier",
-                            "textureStore",
-                            "workgroupBarrier",
-                        )
-                    if (node.callee !in statementFunctionCallBuiltins) {
+                    if (isStatementFunctionCallBuiltin(node)) {
                         throw UnsupportedOperationException(
                             "Statement function call refers to ${node.callee} which is not in scope not the name of a known builtin.",
                         )
