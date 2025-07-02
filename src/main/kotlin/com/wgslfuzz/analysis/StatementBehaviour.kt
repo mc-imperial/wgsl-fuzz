@@ -130,7 +130,8 @@ private fun statementBehaviour(
                 throw IllegalArgumentException("Statement behaviour analysis must be performed on the desugared AST.")
 
             is Statement.Loop -> {
-                // TODO(JLJ): Currently implements the spec rule, not the bug fix I proposed
+                // TODO(JLJ): Currently implements the spec rule, not the bug fix I proposed:
+                // https://github.com/gpuweb/gpuweb/issues/5100
                 val bodyBehaviour = statementBehaviour(statement.body, behaviourMap, functionMap)
                 val loopBehaviour =
                     statement.continuingStatement
