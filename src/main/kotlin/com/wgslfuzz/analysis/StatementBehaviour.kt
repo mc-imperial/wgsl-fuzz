@@ -18,12 +18,9 @@ package com.wgslfuzz.analysis
 
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedStatement
-import com.wgslfuzz.core.ContinuingStatement
-import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
-import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.traverse
 
 enum class StatementBehaviour {
@@ -86,46 +83,6 @@ private fun statementsBehaviour(
     return result
 }
 
-private fun desugarFor(statement: Statement.For): Statement {
-    val loopBreak =
-        statement.condition?.let {
-            Statement.If(
-                condition = Expression.Unary(UnaryOperator.LOGICAL_NOT, statement.condition),
-                thenBranch =
-                    Statement.Compound(
-                        listOf<Statement>(
-                            Statement.Break(),
-                        ),
-                    ),
-            )
-        }
-    val continuing = statement.update?.let { ContinuingStatement(statements = Statement.Compound(listOf(it))) }
-    val loopBody = if (loopBreak != null) listOf(loopBreak) + statement.body.statements else statement.body.statements
-
-    val loop = Statement.Loop(body = Statement.Compound(loopBody), continuingStatement = continuing)
-
-    val result = if (statement.init == null) loop else Statement.Compound(listOf(statement.init, loop))
-    return result
-}
-
-private fun desugarWhile(whileStatement: Statement.While): Statement.Loop {
-    val body =
-        Statement.Compound(
-            listOf(
-                Statement.If(
-                    condition = Expression.Unary(UnaryOperator.LOGICAL_NOT, whileStatement.condition),
-                    thenBranch =
-                        Statement.Compound(
-                            listOf<Statement>(
-                                Statement.Break(),
-                            ),
-                        ),
-                ),
-            ) + whileStatement.body.statements,
-        )
-    return Statement.Loop(body = body)
-}
-
 private fun statementBehaviour(
     statement: Statement,
     behaviourMap: MutableMap<Statement, Set<StatementBehaviour>>,
@@ -156,8 +113,10 @@ private fun statementBehaviour(
                 ifBehaviour union elseBehaviour
             }
 
-            is Statement.For -> statementBehaviour(desugarFor(statement), behaviourMap, functionMap)
-            is Statement.While -> statementBehaviour(desugarWhile(statement), behaviourMap, functionMap)
+            is Statement.For ->
+                throw IllegalArgumentException("Statement behaviour analysis must be performed on the desugared AST.")
+            is Statement.While ->
+                throw IllegalArgumentException("Statement behaviour analysis must be performed on the desugared AST.")
 
             is Statement.Loop -> {
                 // TODO(JLJ): Currently implements the spec rule, not the bug fix I proposed

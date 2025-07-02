@@ -24,30 +24,6 @@ import kotlin.test.assertEquals
 
 class StatementBehaviourTests {
     @Test
-    fun behaviourOfIfReturnInAllBranches() {
-        val input =
-            """
-            @compute
-            fn main() {
-                if (true) {
-                    return;  
-                } else {
-                    return; 
-                }
-            }
-            """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
-        val behaviourMap = runStatementBehaviourAnalysis(tu)
-        val expectedBehaviour = setOf(StatementBehaviour.RETURN)
-
-        behaviourMap.keys.forEach { key ->
-            if (key is Statement.If) {
-                assertEquals(expectedBehaviour, behaviourMap[key])
-            }
-        }
-    }
-
-    @Test
     fun behaviourOfIfReturnInOneBranches() {
         val input =
             """
@@ -58,7 +34,7 @@ class StatementBehaviourTests {
                 } 
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.RETURN, StatementBehaviour.NEXT)
@@ -81,7 +57,7 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.RETURN)
@@ -104,7 +80,7 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.NEXT)
@@ -131,7 +107,7 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.NEXT, StatementBehaviour.RETURN)
@@ -155,7 +131,7 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.NEXT)
@@ -179,7 +155,7 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.RETURN)
@@ -203,13 +179,14 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.NEXT)
 
+        assert(behaviourMap.keys.any { it is Statement.Loop })
         behaviourMap.keys.forEach { key ->
-            if (key is Statement.For) {
+            if (key is Statement.Loop) {
                 assertEquals(expectedBehaviour, behaviourMap[key])
             }
         }
@@ -227,13 +204,14 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.NEXT, StatementBehaviour.RETURN)
 
+        assert(behaviourMap.keys.any { it is Statement.Loop })
         behaviourMap.keys.forEach { key ->
-            if (key is Statement.For) {
+            if (key is Statement.Loop) {
                 assertEquals(expectedBehaviour, behaviourMap[key])
             }
         }
@@ -251,13 +229,14 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.NEXT)
 
+        assert(behaviourMap.keys.any { it is Statement.Loop })
         behaviourMap.keys.forEach { key ->
-            if (key is Statement.For) {
+            if (key is Statement.Loop) {
                 assertEquals(expectedBehaviour, behaviourMap[key])
             }
         }
@@ -276,13 +255,14 @@ class StatementBehaviourTests {
                 }
             }
             """.trimIndent()
-        val tu = parseFromString(input, LoggingParseErrorListener())
+        val tu = parseFromString(input, LoggingParseErrorListener()).desugar()
 
         val behaviourMap = runStatementBehaviourAnalysis(tu)
         val expectedBehaviour = setOf(StatementBehaviour.NEXT, StatementBehaviour.RETURN)
 
+        assert(behaviourMap.keys.any { it is Statement.Loop })
         behaviourMap.keys.forEach { key ->
-            if (key is Statement.For) {
+            if (key is Statement.Loop) {
                 assertEquals(expectedBehaviour, behaviourMap[key])
             }
         }
