@@ -15,10 +15,9 @@
  */
 
 struct Uniforms {
-    // Can contain up to and including 5 values
     // Values must be between 0 and 20
     // Values cannot be 9, 5, 12, 15, 7
-    values: array<i32>,
+    values: vec4i
 }
 
 @group(0) @binding(0) var<uniform> ub: Uniforms;
@@ -31,23 +30,23 @@ struct BST {
 
 var<private> tree: array<BST, 10>;
 
-fn makeTreeNode(tree: BST, data: i32) {
-    tree.data = data;
-    tree.leftIndex = -1;
-    tree.rightIndex = -1;
+fn makeTreeNode(index: i32, data: i32) {
+    tree[index].data = data;
+    tree[index].leftIndex = -1;
+    tree[index].rightIndex = -1;
 }
 
 fn insert(treeIndex: i32, data: i32) {
     var baseIndex: i32 = 0;
     while (baseIndex <= treeIndex) {
-        // If new value is smaller thatn the current node, we known that we will have
+        // If new value is smaller that the current node, we known that we will have
         // add this element in the left side.
         if (data <= tree[baseIndex].data) {
             // If a left subtree of the current node is empty, the new node is added as
             // a left subtree of the current node.
             if (tree[baseIndex].leftIndex == -1) {
                 tree[baseIndex].leftIndex = treeIndex;
-                makeTreeNode(tree[treeIndex], data);
+                makeTreeNode(treeIndex, data);
                 return;
             } else {
                 baseIndex = tree[baseIndex].leftIndex;
@@ -58,7 +57,7 @@ fn insert(treeIndex: i32, data: i32) {
             // a right subtree of the current node.
             if (tree[baseIndex].rightIndex == -1) {
                 tree[baseIndex].rightIndex = treeIndex;
-                makeTreeNode(tree[treeIndex], data);
+                makeTreeNode(treeIndex, data);
                 return;
             } else {
                 baseIndex = tree[baseIndex].rightIndex;
@@ -69,15 +68,15 @@ fn insert(treeIndex: i32, data: i32) {
 }
 
 // Return element data if the given target exists in a tree. Otherwise, we simply return -1.
-fn search(target: i32) {
+fn search(targetElement: i32) -> i32 {
     var currentNode: BST;
     var index: i32 = 0;
     while (index != -1) {
         currentNode = tree[index];
-        if (currentNode.data == target) {
-            return target;
+        if (currentNode.data == targetElement) {
+            return targetElement;
         }
-        if (target > currentNode.data) {
+        if (targetElement > currentNode.data) {
             index = currentNode.rightIndex;
         } else {
             index = currentNode.leftIndex;
@@ -87,12 +86,10 @@ fn search(target: i32) {
 }
 
 fn contains(x: i32) -> bool {
-    for (var i = 0; i < arrayLength(&ub.values); i++) {
-        if (ub.values[i] == x) {
-            return true;
-        }
-    }
-    return false;
+    return ub.values.x == x ||
+           ub.values.y == x ||
+           ub.values.z == x ||
+           ub.values.w == x;
 }
 
 @vertex
@@ -105,7 +102,7 @@ fn fragmentMain() -> @location(0) vec4f {
     var treeIndex: i32 = 0;
 
     // Initialize root node.
-    makeTreeNode(tree[0], 9);
+    makeTreeNode(0, 9);
     // Each time we insert a new node into the tree, we increment one.
     treeIndex++;
 
@@ -115,10 +112,17 @@ fn fragmentMain() -> @location(0) vec4f {
     insert(treeIndex, 12);
     treeIndex++;
 
-    for (var i = 0; i < arrayLength(&ub.values); i++) {
-        insert(treeIndex, ub.values[i]);
-        treeIndex++;
-    }
+    insert(treeIndex, ub.values.x);
+    treeIndex++;
+
+    insert(treeIndex, ub.values.y);
+    treeIndex++;
+
+    insert(treeIndex, ub.values.z);
+    treeIndex++;
+
+    insert(treeIndex, ub.values.w);
+    treeIndex++;
 
     insert(treeIndex, 15);
         treeIndex++;
