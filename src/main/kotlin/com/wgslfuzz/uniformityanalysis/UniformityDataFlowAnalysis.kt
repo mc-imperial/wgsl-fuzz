@@ -16,11 +16,13 @@
 
 package com.wgslfuzz.uniformityanalysis
 
+import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ParameterDecl
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.traverse
 
 data class PresentInfo(
     val ifControls: List<Set<String>>,
@@ -486,14 +488,20 @@ fun analyseStatement(
             }
         }
         is Statement.Return -> {
-            val returnedVariableName = (statement.expression!! as Expression.Identifier).name
-            assert(returnedVariableName in variables)
+            val returnedVariableNames: Set<String> = collectNamesInExpression(statement.expression!!)
+            val parametersInfluencingReturnedValueUniformity =
+                (
+                    presentControls union breakControls union continueControls union
+                        returnControls
+                ).toMutableSet()
+            for (variableName in returnedVariableNames) {
+                check(variableName in variables)
+                parametersInfluencingReturnedValueUniformity.addAll(presentVariables[variableName]!!)
+            }
             analysisState
                 .copy(
                     returnedValueUniformity =
-                        analysisState.returnedValueUniformity union presentControls union breakControls union continueControls union
-                            returnControls union
-                            presentVariables[returnedVariableName]!!,
+                        analysisState.returnedValueUniformity union parametersInfluencingReturnedValueUniformity,
                 ).updateOutForStatement(
                     statement = statement,
                     uniformityRecord =
@@ -535,7 +543,7 @@ fun analyseStatement(
     }
 }
 
-fun mergeMaps(
+private fun mergeMaps(
     variableUniformityInfo1: Map<String, Set<String>>?,
     variableUniformityInfo2: Map<String, Set<String>>?,
 ): Map<String, Set<String>> {
@@ -552,4 +560,19 @@ fun mergeMaps(
     return variableUniformityInfo1.keys.associateWith {
         variableUniformityInfo1[it]!! union variableUniformityInfo2[it]!!
     }
+}
+
+private fun collectNamesInExpression(expr: Expression): Set<String> {
+    fun action(
+        node: AstNode,
+        names: MutableSet<String>,
+    ) {
+        traverse(::action, node, names)
+        if (node is Expression.Identifier) {
+            names.add(node.name)
+        }
+    }
+    val result = mutableSetOf<String>()
+    action(expr, result)
+    return result
 }
