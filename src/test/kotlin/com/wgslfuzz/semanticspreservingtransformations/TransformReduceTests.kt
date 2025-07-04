@@ -83,7 +83,7 @@ class TransformReduceTests {
             createShaderJob(
                 File("samples", "$filenameNoExtension.wgsl").readText(),
                 Json.decodeFromString(
-                    File("samples", "$filenameNoExtension.uniforms").readText(),
+                    File("samples", "$filenameNoExtension.uniforms.json").readText(),
                 ),
             )
         val shaderJobAsJson = Json.encodeToJsonElement(shaderJob)
