@@ -46,7 +46,6 @@ def extract_digraph(compiler_output):
 
 
 def main():
-    # TODO(JLJ): Add help messages
     parser = argparse.ArgumentParser(
         description="Generate the uniformity graph for a WGSL shader using tint."
     )
