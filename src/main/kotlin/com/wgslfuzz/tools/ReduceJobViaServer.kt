@@ -165,6 +165,8 @@ private fun isInteresting(
     expectedOutputText: String?,
     referenceImage: String?,
 ): Boolean {
+    val prettyJson = Json { prettyPrint = true }
+
     AstWriter(
         PrintStream(
             FileOutputStream(
@@ -178,7 +180,7 @@ private fun isInteresting(
     File(
         reductionWorkDir,
         jobFilename.removeSuffix(".wgsl") + ".uniforms.json",
-    ).writeText(Json.encodeToString(shaderJob.getByteLevelContentsForUniformBuffers()))
+    ).writeText(prettyJson.encodeToString(shaderJob.getByteLevelContentsForUniformBuffers()))
     runJobViaServer(
         job = File(reductionWorkDir, jobFilename),
         serverUrl = serverUrl,
@@ -235,7 +237,7 @@ private fun isInteresting(
     File(
         reductionWorkDir,
         "best.shaderjob.json",
-    ).writeText(Json.encodeToString(shaderJob))
+    ).writeText(prettyJson.encodeToString(shaderJob))
     val resultFile = Path.of(reductionWorkDir).resolve(jobFilename.removeSuffix(".wgsl") + ".result.json")
     if (resultFile.exists()) {
         Files.copy(
