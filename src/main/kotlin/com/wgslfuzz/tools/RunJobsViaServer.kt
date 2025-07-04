@@ -152,7 +152,7 @@ fun main(args: Array<String>) {
             println("Running job ${job.name}")
             val jobFilenameNoSuffix = job.name.removeSuffix(".wgsl")
             val resultFile =
-                outputDirPath.resolve("$jobFilenameNoSuffix.result").toFile()
+                outputDirPath.resolve("$jobFilenameNoSuffix.result.json").toFile()
             if (resultFile.exists()) {
                 System.err.println("Result file ${resultFile.absolutePath} already exists.")
                 continue
@@ -189,7 +189,7 @@ fun runJobViaServer(
                     shaderText = job.readText(),
                     uniformBuffers =
                         jacksonObjectMapper().readValue<List<UniformBufferInfoByteLevel>>(
-                            File("${job.absolutePath.removeSuffix(".wgsl")}.uniforms").readText(),
+                            File("${job.absolutePath.removeSuffix(".wgsl")}.uniforms.json").readText(),
                         ),
                 ),
             repetitions = repetitions,
@@ -207,7 +207,7 @@ fun runJobViaServer(
                 }
             response.body()
         }
-    jacksonObjectMapper().writeValue(outputDirPath.resolve("$jobFilenameNoSuffix.result").toFile(), jobResponse)
+    jacksonObjectMapper().writeValue(outputDirPath.resolve("$jobFilenameNoSuffix.result.json").toFile(), jobResponse)
     if (jobResponse is ServerToClient.MessageRenderJobResult) {
         val renderJobResult = jobResponse.content
         if (renderJobResult.renderImageResults.isNotEmpty()) {

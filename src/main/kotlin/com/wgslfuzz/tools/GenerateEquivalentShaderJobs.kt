@@ -86,7 +86,7 @@ fun main(args: Array<String>) {
         exitProcess(1)
     }
 
-    val uniforms = originalShader.removeSuffix(".wgsl") + ".uniforms"
+    val uniforms = originalShader.removeSuffix(".wgsl") + ".uniforms.json"
     if (!File(uniforms).exists()) {
         System.err.println("Uniforms file $originalShader does not exist")
         exitProcess(1)
@@ -134,8 +134,8 @@ fun main(args: Array<String>) {
         AstWriter(PrintStream(FileOutputStream(File(outputDir, "variant$paddedNumber.wgsl")))).emit(transformedShaderJob.tu)
         File(
             outputDir,
-            "variant$paddedNumber.uniforms",
+            "variant$paddedNumber.uniforms.json",
         ).writeText(Json.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
-        File(outputDir, "variant$paddedNumber.json").writeText(Json.encodeToString(transformedShaderJob))
+        File(outputDir, "variant$paddedNumber.shaderjob.json").writeText(Json.encodeToString(transformedShaderJob))
     }
 }
