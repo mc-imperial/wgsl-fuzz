@@ -31,7 +31,7 @@ keytool -importkeystore -deststorepass your_password -destkeypass your_password 
 rm keystore.p12 key.pem cert.pem
 ```
 
-Optional: You also need to grant the `java` executable permission to bind to ports below 1024 without running as root. To do this, run the following as root or via sudo:
+To use port 443 (the browser default) for https, you will need to grant the `java` executable permission to bind to ports below 1024 without running as root. To do this, run the following as root or via sudo:
 
 ```
 setcap 'cap_net_bind_service=+ep' $(readlink -f $(which java))
