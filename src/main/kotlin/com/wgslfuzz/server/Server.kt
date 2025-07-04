@@ -112,7 +112,7 @@ fun main(args: Array<String>) {
             log = logger
         },
         {
-            envConfig(port)
+            envConfig(serverPort = port)
         },
         module = Application::module,
     ).start(wait = true)
