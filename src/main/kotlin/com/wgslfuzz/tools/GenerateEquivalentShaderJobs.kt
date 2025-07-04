@@ -136,6 +136,6 @@ fun main(args: Array<String>) {
             outputDir,
             "variant$paddedNumber.uniforms.json",
         ).writeText(Json.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
-        File(outputDir, "variant$paddedNumber.json").writeText(Json.encodeToString(transformedShaderJob))
+        File(outputDir, "variant$paddedNumber.shaderjob.json").writeText(Json.encodeToString(transformedShaderJob))
     }
 }

@@ -110,7 +110,7 @@ fun main(args: Array<String>) {
     parser.parse(args)
 
     println("Parsing shader job from file")
-    val shaderJob = Json.decodeFromString<ShaderJob>(File(jobFile.removeSuffix(".wgsl") + ".json").readText())
+    val shaderJob = Json.decodeFromString<ShaderJob>(File(jobFile.removeSuffix(".wgsl") + ".shaderjob.json").readText())
     println("Parsing complete")
 
     createClient(
@@ -234,7 +234,7 @@ private fun isInteresting(
     )
     File(
         reductionWorkDir,
-        "best.json",
+        "best.shaderjob.json",
     ).writeText(Json.encodeToString(shaderJob))
     val resultFile = Path.of(reductionWorkDir).resolve(jobFilename.removeSuffix(".wgsl") + ".result.json")
     if (resultFile.exists()) {
