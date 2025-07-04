@@ -23,6 +23,7 @@ import tempfile
 from pathlib import Path
 
 
+# Extract a correctly formatted digraph from a string containing line breaks.
 def extract_digraph(compiler_output):
     depth = 0
     in_graph = False
