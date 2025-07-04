@@ -29,8 +29,8 @@ class UniformityDataFlowAnalysisTests {
     fun simpleProgram() {
         val program =
             """
-            fn f() {
-                ;
+            fn f() -> u32 {
+                return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -43,7 +43,7 @@ class UniformityDataFlowAnalysisTests {
     fun unconditionalBarrier() {
         val program =
             """
-            fn f() {
+            fn f() -> u32 {
                 workgroupBarrier();
             }
             """.trimIndent()
@@ -57,7 +57,7 @@ class UniformityDataFlowAnalysisTests {
     fun conditionalBarrier() {
         val program =
             """
-            fn f(a: u32) {
+            fn f(a: u32) -> u32 {
                 var x: u32;
                 x = a;
                 if x {
@@ -65,6 +65,7 @@ class UniformityDataFlowAnalysisTests {
                 } else {
                   ;
                 }
+                return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -77,7 +78,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierFollowingConditionalReturn() {
         val program =
             """
-            fn f(a: u32, b: u32) {
+            fn f(a: u32, b: u32) -> u32 {
                 var x: u32;
                 var y: u32;
                 x = a;
@@ -98,7 +99,7 @@ class UniformityDataFlowAnalysisTests {
     fun unreachableBarrier() {
         val program =
             """
-            fn f(a: u32, b: u32) {
+            fn f(a: u32, b: u32) -> u32 {
                 var x: u32;
                 var y: u32;
                 x = a;
@@ -125,7 +126,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierAfterLoop() {
         val program =
             """
-            fn f(a: u32, b: u32) {
+            fn f(a: u32, b: u32) -> u32 {
                 var x: u32;
                 var y: u32;
                 var z: u32;
@@ -140,6 +141,7 @@ class UniformityDataFlowAnalysisTests {
                    }
                 }
                 workgroupBarrier();
+                return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -152,7 +154,7 @@ class UniformityDataFlowAnalysisTests {
     fun conditionalBarrierAfterLoop() {
         val program =
             """
-            fn f(a: u32, b: u32) {
+            fn f(a: u32, b: u32) -> u32 {
                 var x: u32;
                 var y: u32;
                 var z: u32;
@@ -172,6 +174,7 @@ class UniformityDataFlowAnalysisTests {
                 if z {
                   workgroupBarrier();
                 }
+                return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -184,7 +187,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierAfterLoopWithReturn() {
         val program =
             """
-            fn f(a: u32, b: u32) {
+            fn f(a: u32, b: u32) -> u32 {
                 var x: u32;
                 var y: u32;
                 var z: u32;
@@ -218,7 +221,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierAfterBreakFreeLoopWithReturn() {
         val program =
             """
-            fn f(a: u32, b: u32) {
+            fn f(a: u32, b: u32) -> u32 {
                 var x: u32;
                 var y: u32;
                 var z: u32;
@@ -247,7 +250,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierAfterLoopWithUnconditionalReturn() {
         val program =
             """
-            fn f() {
+            fn f() -> u32 {
                 var x: u32;
                 x = 1;
                 loop {
@@ -266,11 +269,12 @@ class UniformityDataFlowAnalysisTests {
     fun barrierInLoopAfterUnconditionalBreak() {
         val program =
             """
-            fn f() {
+            fn f() -> u32 {
                 loop {
                    break;
                    workgroupBarrier();
                 }
+                return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -283,7 +287,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierInLoopAfterUnconditionalBreaks() {
         val program =
             """
-            fn f() {
+            fn f() -> i32 {
                 var x: u32;
                 x = 1;
                 loop {
@@ -294,6 +298,7 @@ class UniformityDataFlowAnalysisTests {
                    }
                    workgroupBarrier();
                 }
+                return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -306,7 +311,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierInLoopAfterUnconditionalContinue() {
         val program =
             """
-            fn f() {
+            fn f() -> u32 {
                 loop {
                    continue;
                    workgroupBarrier();
@@ -323,7 +328,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierInLoopAfterUnconditionalContinues() {
         val program =
             """
-            fn f() {
+            fn f() -> u32 {
                 var x: u32;
                 x = 1;
                 loop {
@@ -346,7 +351,7 @@ class UniformityDataFlowAnalysisTests {
     fun barrierInLoopAfterUnconditionalBreakContinuePair() {
         val program =
             """
-            fn f() {
+            fn f() -> u32 {
                 var x: u32;
                 x = 1;
                 loop {
@@ -369,7 +374,7 @@ class UniformityDataFlowAnalysisTests {
     fun misc1() {
         val program =
             """
-            fn f(tid: u32) {
+            fn f(tid: u32) -> u32 {
                 var x: u32;
                 x = 0;
                 if x {
@@ -390,7 +395,7 @@ class UniformityDataFlowAnalysisTests {
     fun misc2() {
         val program =
             """
-            fn f(tid: u32) {
+            fn f(tid: u32) -> u32 {
               var c: u32;
               var x: u32;
               c = 2;
@@ -414,7 +419,7 @@ class UniformityDataFlowAnalysisTests {
     fun misc3() {
         val program =
             """
-            fn f(a: u32, tid: u32) {
+            fn f(a: u32, tid: u32) -> u32 {
               var c: u32;
               var x: u32;
               c = a;
@@ -440,7 +445,7 @@ class UniformityDataFlowAnalysisTests {
     fun misc4() {
         val program =
             """
-            fn f(a: u32, tid: u32) {
+            fn f(a: u32, tid: u32) -> u32 {
               var x: u32;
               loop {
                 ;
@@ -459,7 +464,7 @@ class UniformityDataFlowAnalysisTests {
     fun misc5() {
         val program =
             """
-            fn f(a: u32, tid: u32) {
+            fn f(a: u32, tid: u32) -> u32 {
               var x: u32;
               loop {
                 continue;
@@ -478,7 +483,7 @@ class UniformityDataFlowAnalysisTests {
     fun misc6() {
         val program =
             """
-            fn main(tid: u32) {
+            fn f(tid: u32) -> u32 {
               var z1: u32;
               var z2: u32;
               var tid_: u32;
@@ -495,6 +500,7 @@ class UniformityDataFlowAnalysisTests {
                   ;
                 }
               }
+              return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -507,7 +513,7 @@ class UniformityDataFlowAnalysisTests {
     fun manyIterationsToConverge() {
         val program =
             """
-            fn main(tid: u32) {
+            fn f(tid: u32) -> u32 {
               var z1: u32;
               var z2: u32;
               var z3: u32;
@@ -540,6 +546,7 @@ class UniformityDataFlowAnalysisTests {
                   ;
                 }
               }
+              return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
@@ -552,8 +559,9 @@ class UniformityDataFlowAnalysisTests {
     fun loop1() {
         val program =
             """
-            fn main(lid: u32) {
-              var x = 0;
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x: u32;
               var _lid: u32;
               _lid = lid;
               if _lid {
@@ -579,11 +587,11 @@ class UniformityDataFlowAnalysisTests {
     fun loop1NoBreak() {
         val program =
             """
-            fn main(lid: u32) {
-              var x = 0;
-              var _lid: u32;
-              _lid = lid;
-              if _lid {
+            fn f(tid: u32) -> u32 {
+              var x: u32;
+              var _tid: u32;
+              _tid = tid;
+              if _tid {
                 loop {
                   x = 1;
                 }
@@ -605,8 +613,8 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var x = 0;
-              var myLid;
+              var x: u32;
+              var myLid: u32;
               myLid = lid;
               if myLid {
                 loop {
@@ -632,9 +640,9 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var myLid;
-              var x = 0;
-              var tt = 1;
+              var myLid: u32;
+              var x: u32;
+              var tt: u32;
               myLid = lid;
               loop {
                 if myLid { continue; }
@@ -658,13 +666,13 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var myLid;
-              var x1 = 0;
-              var x2 = 0;
-              var x3 = 0;
-              var x4 = 0;
-              var x5 = 0;
-              var result: u32 = 0;
+              var myLid: u32;
+              var x1: u32;
+              var x2: u32;
+              var x3: u32;
+              var x4: u32;
+              var x5: u32;
+              var result: u32;
               myLid = lid;
               loop {
                 if x5 { result = myLid; }
@@ -689,9 +697,10 @@ class UniformityDataFlowAnalysisTests {
     fun loop5() {
         val program =
             """
+            @compute @workgroup_size(16, 1, 1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var x = 0;
-              var myLid;
+              var x: u32;
+              var myLid: u32;
               myLid = lid;
               loop {
                 if x { workgroupBarrier(); }
@@ -709,10 +718,11 @@ class UniformityDataFlowAnalysisTests {
     fun loop6() {
         val program =
             """
+            @compute @workgroup_size(16, 1, 1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var x = 0;
-              var y = 0;
-              var myLid;
+              var x: u32;
+              var y: u32;
+              var myLid: u32;
               myLid = lid;
               loop {
                 x = myLid;
@@ -736,9 +746,9 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var x = 0;
-              var y = 0;
-              var myLid;
+              var x: u32;
+              var y: u32;
+              var myLid: u32;
               myLid = lid;
               loop {
                 x = myLid;
@@ -761,9 +771,10 @@ class UniformityDataFlowAnalysisTests {
     fun loop8() {
         val program =
             """
+            @compute @workgroup_size(16, 1, 1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var x = 0;
-              var myLid;
+              var x: u32;
+              var myLid: u32;
               myLid = lid;
               loop {
                 if myLid { continue; }
@@ -785,7 +796,7 @@ class UniformityDataFlowAnalysisTests {
     fun nestedLoop1() {
         val program =
             """
-            fn main(lid: u32) {
+            fn f(tid: u32) -> u32 {
               var x: u32;
               var y: u32;
               x = 0;
@@ -795,7 +806,7 @@ class UniformityDataFlowAnalysisTests {
                   break;
                 }
                 loop {
-                  x = lid;  
+                  x = tid;  
                   if y {
                     break;
                   }
@@ -804,12 +815,13 @@ class UniformityDataFlowAnalysisTests {
               if x {
                 workgroupBarrier();
               }
+              return 0;
             }
             """.trimIndent()
         val state = runAnalysisHelper(program)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
-        assertEquals(setOf("lid"), state.uniformParams)
+        assertEquals(setOf("tid"), state.uniformParams)
     }
 
     @Test
@@ -818,8 +830,8 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var myLid;
-              var u;
+              var myLid: u32;
+              var u: u32;
               myLid = lid;
               loop {
                 loop {
@@ -841,8 +853,8 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var myLid;
-              var u;
+              var myLid: u32;
+              var u: u32;
               myLid = lid;
               loop {
                 workgroupBarrier();
@@ -866,9 +878,9 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
-              var myLid;
-              var x = 0;
-              var ff = 0;
+              var myLid: u32;
+              var x: u32;
+              var ff: u32;
               myLid = lid;
               loop {
                 if x {
@@ -902,8 +914,8 @@ class UniformityDataFlowAnalysisTests {
             """
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid : u32) {
-              var count: u32 = 0;
-              var myLid;
+              var count: u32;
+              var myLid: u32;
               myLid = lid;
               loop {
                 workgroupBarrier();
@@ -924,6 +936,9 @@ class UniformityDataFlowAnalysisTests {
         assertTrue(state.uniformParams.isEmpty())
     }
 
-    private fun runAnalysisHelper(program: String): AnalysisState =
-        runAnalysis(parseFromString(program, LoggingParseErrorListener()).globalDecls[0] as GlobalDecl.Function)
+    private fun runAnalysisHelper(program: String): AnalysisState {
+        val tu = parseFromString(program, LoggingParseErrorListener())
+        checkProgramIsFeatherweight(tu)
+        return runAnalysis(tu.globalDecls[0] as GlobalDecl.Function)
+    }
 }
