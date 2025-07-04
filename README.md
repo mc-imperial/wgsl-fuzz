@@ -1,6 +1,6 @@
 # wgsl-fuzz
-Technology for fuzzing tooling for the WebGPU shading language
 
+Technology for fuzzing tooling for the WebGPU shading language
 
 ## Generating variant shader jobs
 
@@ -15,7 +15,7 @@ ls generated
 
 ## Running a server instance
 
-To run the server you first need to generate a `keystore.jks` file, which you should *not* check in: 
+To run the server you first need to generate a `keystore.jks` file, which you should _not_ check in:
 
 ```
 # Adapt SERVERNAME to the address of your server, e.g. localhost if you are running locally.
@@ -31,13 +31,13 @@ keytool -importkeystore -deststorepass your_password -destkeypass your_password 
 rm keystore.p12 key.pem cert.pem
 ```
 
-You also need to grant the `java` executable permission to bind to ports below 1024 without running as root. To do this, run the following as root or via sudo:
+Optional: You also need to grant the `java` executable permission to bind to ports below 1024 without running as root. To do this, run the following as root or via sudo:
 
 ```
 setcap 'cap_net_bind_service=+ep' $(readlink -f $(which java))
 ```
 
-Now you can run the server as follows:
+Now you can run the server as follows: (Note: if you did not give java permission to run on privileged ports then run using `--port 8443` which makes the port `8443` (or any other port you wish to use) instead of `443`)
 
 ```
 # Replace admin_username and admin_password with the username and password that a client should use when issuing jobs via the server.
