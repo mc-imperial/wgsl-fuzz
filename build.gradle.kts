@@ -103,3 +103,8 @@ tasks.register<JavaExec>("reduceJobViaServer") {
     mainClass.set("com.wgslfuzz.tools.ReduceJobViaServerKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("standAloneShaderHtml") {
+    mainClass.set("com.wgslfuzz.tools.StandAloneShaderHtmlKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
