@@ -37,6 +37,9 @@ import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.cli.ArgParser
+import kotlinx.cli.ArgType
+import kotlinx.cli.default
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.Logger
@@ -91,20 +94,31 @@ private val workerSessions: ConcurrentHashMap<String, WorkerSession> = Concurren
 
 private val logger: Logger = LoggerFactory.getLogger("com.wgslfuzz")
 
-fun main() {
+fun main(args: Array<String>) {
+    val parser = ArgParser("Server for handling shader jobs")
+
+    val port by parser
+        .option(
+            ArgType.Int,
+            fullName = "port",
+            description = "Set port of the server",
+        ).default(443)
+
+    parser.parse(args)
+
     embeddedServer(
         Netty,
         applicationEnvironment {
             log = logger
         },
         {
-            envConfig()
+            envConfig(serverPort = port)
         },
         module = Application::module,
     ).start(wait = true)
 }
 
-private fun ApplicationEngine.Configuration.envConfig() {
+private fun ApplicationEngine.Configuration.envConfig(serverPort: Int) {
     sslConnector(
         keyStore =
             KeyStore.getInstance("JKS").apply {
@@ -117,7 +131,7 @@ private fun ApplicationEngine.Configuration.envConfig() {
         privateKeyPassword = { Config.keyStorePassword.toCharArray() },
     ) {
         host = "0.0.0.0"
-        port = 443
+        port = serverPort
     }
 }
 

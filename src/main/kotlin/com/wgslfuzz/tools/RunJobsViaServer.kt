@@ -207,7 +207,12 @@ fun runJobViaServer(
                 }
             response.body()
         }
-    jacksonObjectMapper().writeValue(outputDirPath.resolve("$jobFilenameNoSuffix.result.json").toFile(), jobResponse)
+    jacksonObjectMapper()
+        .writerWithDefaultPrettyPrinter()
+        .writeValue(
+            outputDirPath.resolve("$jobFilenameNoSuffix.result.json").toFile(),
+            jobResponse,
+        )
     if (jobResponse is ServerToClient.MessageRenderJobResult) {
         val renderJobResult = jobResponse.content
         if (renderJobResult.renderImageResults.isNotEmpty()) {

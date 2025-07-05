@@ -46,6 +46,7 @@ class ResolverTests {
               var i : i32;
               while (i < 4)
               {
+                workgroupBarrier();
                 i = i + 1;
               }
               return i;

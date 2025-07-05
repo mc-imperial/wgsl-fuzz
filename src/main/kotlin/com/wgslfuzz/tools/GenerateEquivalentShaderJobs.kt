@@ -130,12 +130,14 @@ fun main(args: Array<String>) {
                 )
         } while (fuzzerSettings.randomBool())
 
+        val prettyJson = Json { prettyPrint = true }
+
         val paddedNumber = i.toString().padStart(digitsInOutputFilenames, '0')
         AstWriter(PrintStream(FileOutputStream(File(outputDir, "variant$paddedNumber.wgsl")))).emit(transformedShaderJob.tu)
         File(
             outputDir,
             "variant$paddedNumber.uniforms.json",
-        ).writeText(Json.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
-        File(outputDir, "variant$paddedNumber.shaderjob.json").writeText(Json.encodeToString(transformedShaderJob))
+        ).writeText(prettyJson.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
+        File(outputDir, "variant$paddedNumber.shaderjob.json").writeText(prettyJson.encodeToString(transformedShaderJob))
     }
 }
