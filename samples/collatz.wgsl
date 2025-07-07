@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+ /*
+  * Reimplemenation in WGSL of the GLSL shader from https://github.com/google/graphicsfuzz
+  * Original shader: https://github.com/google/graphicsfuzz/blob/master/shaders/src/main/glsl/samples/320es/stable_collatz.frag
+  */
+
 @group(0) @binding(0) var<uniform> resolution: vec2<i32>;
 
 const pal = array(
