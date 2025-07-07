@@ -17,7 +17,8 @@
 const ARRAY_LENGTH = 16;
 
 struct Number {
-    @size(16) value: i32
+    padding: vec3<i32>,
+    value: i32
 }
 
 struct Uniforms {
@@ -98,7 +99,6 @@ fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
 @fragment
 fn fragmentMain() -> @location(0) vec4f {
     for (var i = 0; i < ARRAY_LENGTH; i++) {
-
         heap[i] = ub.values[i].value;
     }
     endOfHeap = ARRAY_LENGTH;
