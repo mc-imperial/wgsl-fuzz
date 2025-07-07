@@ -29,14 +29,14 @@ fun main(args: Array<String>) {
         .option(
             ArgType.String,
             fullName = "wgslFile",
-            description = "Wgsl file for page",
+            description = "Wgsl sample shader to generate html file for",
         ).required()
 
     val uniformJsonPath by parser
         .option(
             ArgType.String,
             fullName = "uniformJson",
-            description = "Json file contain uniform data",
+            description = "Json file to read uniform data from",
         ).required()
 
     val outputFilePath by parser
@@ -50,7 +50,8 @@ fun main(args: Array<String>) {
         .option(
             ArgType.Boolean,
             fullName = "watch",
-            description = "Set a file watcher so if either wgslFile or uniformJson changes output html updates",
+            description =
+                "Set a file watcher so if either wgslFile or uniformJson changes output html updates with the changes",
         ).default(false)
 
     parser.parse(args)

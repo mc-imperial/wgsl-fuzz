@@ -59,7 +59,11 @@ dependencies {
 }
 
 tasks.generateGrammarSource {
-    outputDirectory = layout.buildDirectory.dir("generated/sources/main/kotlin/antlr").get().asFile
+    outputDirectory =
+        layout.buildDirectory
+            .dir("generated/sources/main/kotlin/antlr")
+            .get()
+            .asFile
     arguments = listOf("-visitor", "-package", "com.wgslfuzz")
 }
 
