@@ -105,9 +105,15 @@ private fun renderStandAloneTemplate(
         |const job = {
         |  shaderText,
         |  uniformBuffers,
+        |};
+        |
+        |async function main() {
+        |  const result = await executeJob(job, 1);
+        |
+        |  console.log(result);
         |}
         |
-        |executeJob(job, 1);
+        |main();
         """.trimMargin(),
     )
 
