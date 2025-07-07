@@ -20,10 +20,11 @@ const I32_MIN = -2147483648;
 const MAX_ELEMENT_UPPER_BOUND = 256;
 
 struct Number {
-    @size(16) value: i32
+    value: i32,
+    unusedPadding: vec2<i32>
 }
 
-// Elements can not be larger than MAX_ELEMENT_UPPER_BOUND
+// Elements cannot be larger than MAX_ELEMENT_UPPER_BOUND
 @group(0) @binding(0) var<uniform> ub: array<Number, ARRAY_LENGTH>;
 
 var<private> list: array<i32, ARRAY_LENGTH>;
