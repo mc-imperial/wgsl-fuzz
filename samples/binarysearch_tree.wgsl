@@ -15,7 +15,7 @@
  */
 
 /*
- * Reimplemenation in WGSL of the GLSL shader from https://github.com/google/graphicsfuzz
+ * Reimplementation in WGSL of the GLSL shader from https://github.com/google/graphicsfuzz
  * Modifications were also made to utilise storing some data in uniforms
  * Original shader: https://github.com/google/graphicsfuzz/blob/master/shaders/src/main/glsl/samples/320es/stable_binarysearch_tree.frag
  */
