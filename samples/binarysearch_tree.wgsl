@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+/*
+ * Reimplementation in WGSL of the GLSL shader from https://github.com/google/graphicsfuzz
+ * Modifications were also made to utilise storing some data in uniforms
+ * Original shader: https://github.com/google/graphicsfuzz/blob/master/shaders/src/main/glsl/samples/320es/stable_binarysearch_tree.frag
+ */
+
 struct Uniforms {
     // Values must be between 0 and 20
     // Values cannot be 9, 5, 12, 15, 7
