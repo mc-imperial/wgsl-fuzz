@@ -211,7 +211,7 @@ class ResolverTests {
             assertEquals(Type.F32, outerEntryX.type)
             val outerEntryV = scopeAtEndOfFunctionBody.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, outerEntryV.astNode)
-            assertEquals(Type.I32, outerEntryV.type)
+            assertEquals(Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), outerEntryV.type)
             val outerEntryY = scopeAtEndOfFunctionBody.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, outerEntryY.astNode)
             assertEquals(Type.I32, outerEntryY.type)
@@ -227,7 +227,7 @@ class ResolverTests {
             assertEquals(Type.F32, inner1EntryX.type)
             val inner1EntryV = scopeAtEndOfThenBranch.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, inner1EntryV.astNode)
-            assertEquals(Type.I32, inner1EntryV.type)
+            assertEquals(Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner1EntryV.type)
             val inner1EntryY = scopeAtEndOfThenBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner1EntryY.astNode)
             assertEquals(Type.I32, inner1EntryY.type)
@@ -259,7 +259,7 @@ class ResolverTests {
             assertEquals(Type.F32, inner3EntryX.type)
             val inner3EntryV = scopeAtEndOfElseBranch.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, inner3EntryV.astNode)
-            assertEquals(Type.I32, inner3EntryV.type)
+            assertEquals(Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner3EntryV.type)
             val inner3EntryY = scopeAtEndOfElseBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner3EntryY.astNode)
             assertEquals(Type.I32, inner3EntryY.type)
