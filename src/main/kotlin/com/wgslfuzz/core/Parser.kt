@@ -1161,9 +1161,20 @@ private class AstBuilder(
             "rgba8snorm" -> TexelFormat.RGBA8SNORM
             "rgba8uint" -> TexelFormat.RGBA8UINT
             "rgba8sint" -> TexelFormat.RGBA8SINT
+            "rgba16unorm" -> TexelFormat.RGBA16UNORM
+            "rgba16snorm" -> TexelFormat.RGBA16SNORM
             "rgba16uint" -> TexelFormat.RGBA16UINT
             "rgba16sint" -> TexelFormat.RGBA16SINT
             "rgba16float" -> TexelFormat.RGBA16FLOAT
+            "rg8unorm" -> TexelFormat.RG8UNORM
+            "rg8snorm" -> TexelFormat.RG8SNORM
+            "rg8uint" -> TexelFormat.RG8UINT
+            "rg8sint" -> TexelFormat.RG8SINT
+            "rg16unorm" -> TexelFormat.RG16UNORM
+            "rg16snorm" -> TexelFormat.RG16SNORM
+            "rg16uint" -> TexelFormat.RG16UINT
+            "rg16sint" -> TexelFormat.RG16SINT
+            "rg16float" -> TexelFormat.RG16FLOAT
             "r32uint" -> TexelFormat.R32UINT
             "r32sint" -> TexelFormat.R32SINT
             "r32float" -> TexelFormat.R32FLOAT
@@ -1174,6 +1185,18 @@ private class AstBuilder(
             "rgba32sint" -> TexelFormat.RGBA32SINT
             "rgba32float" -> TexelFormat.RGBA32FLOAT
             "bgra8unorm" -> TexelFormat.BGRA8UNORM
+            "r8unorm" -> TexelFormat.R8UNORM
+            "r8snorm" -> TexelFormat.R8SNORM
+            "r8uint" -> TexelFormat.R8UINT
+            "r8sint" -> TexelFormat.R8SINT
+            "r16unorm" -> TexelFormat.R16UNORM
+            "r16snorm" -> TexelFormat.R16SNORM
+            "r16uint" -> TexelFormat.R16UINT
+            "r16sint" -> TexelFormat.R16SINT
+            "r16float" -> TexelFormat.R16FLOAT
+            "rgb10a2unorm" -> TexelFormat.RGB10A2UNORM
+            "rgb10a2uint" -> TexelFormat.RGB10A2UINT
+            "rg11b10ufloat" -> TexelFormat.RG11B10UFLOAT
             else -> throw RuntimeException("Unknown texel format $texelFormat")
         }
     }
