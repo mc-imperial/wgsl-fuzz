@@ -407,7 +407,7 @@ private fun resolveAstNode(
                     } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
                 )
 
-            // TODO(JLJ): Correctly handle the 'handle' address space.
+            // TODO: Error if the handle address space is used incorrectly
             if (node.addressSpace == AddressSpace.FUNCTION) {
                 throw IllegalArgumentException(
                     "Variables in the function address space must only be declared in function scope.",
@@ -422,7 +422,6 @@ private fun resolveAstNode(
                 )
             }
 
-            // TODO(JLJ): Reduce duplication with non-global case
             val addressSpace = node.addressSpace ?: AddressSpace.FUNCTION
             val accessMode = node.accessMode ?: defaultAccessModeOf(addressSpace)
             val refType = type as? Type.Reference ?: Type.Reference(type, addressSpace, accessMode)
@@ -573,7 +572,7 @@ private fun nodeIntroducesNewScope(
             parentNode !is ContinuingStatement
     )
 
-private fun <T : Type> T.concreteType(): Type =
+private fun <T : Type> T.asStoreType(): Type =
     when (this) {
         is Type.Reference -> this.storeType
         else -> this
@@ -595,112 +594,65 @@ private fun resolveExpressionType(
 ): Type =
     when (expression) {
         is Expression.FunctionCall -> resolveTypeOfFunctionCallExpression(expression, resolverState)
-        is Expression.IndexLookup ->
+        is Expression.IndexLookup -> {
+            fun resolveDirectIndexType(type: Type) =
+                when (type) {
+                    is Type.Matrix -> Type.Vector(width = type.numRows, elementType = type.elementType)
+                    is Type.Vector -> type.elementType
+                    is Type.Array -> type.elementType
+                    else -> throw IllegalArgumentException("Index lookup attempted on unsuitable type $type")
+                }
+
             when (val targetType = resolverState.resolvedEnvironment.typeOf(expression.target)) {
-                is Type.Matrix ->
-                    Type.Vector(
-                        width = targetType.numRows,
-                        elementType = targetType.elementType,
-                    )
-                is Type.Vector -> targetType.elementType
-                is Type.Array -> targetType.elementType
                 is Type.Pointer -> {
-                    val newPointeeType =
-                        when (val pointeeType = targetType.pointeeType) {
-                            is Type.Vector -> pointeeType.elementType
-                            is Type.Array -> pointeeType.elementType
-                            is Type.Matrix -> Type.Vector(pointeeType.numRows, pointeeType.elementType)
-                            else -> TODO("Index lookup on pointer with pointee type ${targetType.pointeeType}")
-                        }
+                    val newPointeeType = resolveDirectIndexType(targetType.pointeeType)
                     Type.Pointer(newPointeeType, targetType.addressSpace, targetType.accessMode)
                 }
-                // TODO(JLJ): Reduce duplication with the above.
                 is Type.Reference -> {
-                    val newStoreType =
-                        when (val storeType = targetType.storeType) {
-                            is Type.Vector -> storeType.elementType
-                            is Type.Array -> storeType.elementType
-                            is Type.Matrix -> Type.Vector(storeType.numRows, storeType.elementType)
-                            else -> TODO("Index lookup on pointer with pointee type ${targetType.storeType}")
-                        }
+                    val newStoreType = resolveDirectIndexType(targetType.storeType)
                     Type.Reference(newStoreType, targetType.addressSpace, targetType.accessMode)
                 }
-                else -> throw IllegalArgumentException("Index lookup attempted on unsuitable type $targetType")
+                else -> resolveDirectIndexType(targetType)
             }
-        is Expression.MemberLookup ->
-            when (val receiverType = resolverState.resolvedEnvironment.typeOf(expression.receiver)) {
-                is Type.Struct ->
-                    receiverType.members
-                        .firstOrNull {
-                            it.first == expression.memberName
-                        }?. second
-                        ?: throw IllegalArgumentException("Struct with type $receiverType does not have a member ${expression.memberName}")
-                is Type.Vector ->
-                    // In the following, we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
-                    if (expression.memberName in setOf("x", "y", "z", "w", "r", "g", "b", "a")) {
-                        receiverType.elementType
-                    } else if (isSwizzle(expression.memberName)) {
-                        Type.Vector(expression.memberName.length, receiverType.elementType)
-                    } else {
-                        TODO()
-                    }
-                is Type.Pointer -> {
-                    val newPointeeType =
-                        when (val pointeeType = receiverType.pointeeType) {
-                            is Type.Vector ->
-                                // In the following we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
-                                // TODO(JLJ): Is there any reason there are fewer member names here?
-                                if (expression.memberName in setOf("x", "y", "z", "w")) {
-                                    pointeeType.elementType
-                                } else if (isSwizzle(expression.memberName)) {
-                                    Type.Vector(expression.memberName.length, pointeeType.elementType)
-                                } else {
-                                    TODO()
-                                }
+        }
+        is Expression.MemberLookup -> {
+            fun resolveDirectMemberLookupType(receiverType: Type) =
+                when (receiverType) {
+                    is Type.Struct ->
+                        receiverType.members
+                            .firstOrNull {
+                                it.first == expression.memberName
+                            }?.second
+                            ?: throw IllegalArgumentException(
+                                "Struct with type $receiverType does not have a member ${expression.memberName}",
+                            )
 
-                            is Type.Struct ->
-                                pointeeType.members
-                                    .firstOrNull {
-                                        it.first == expression.memberName
-                                    }?.second
-                                    ?: throw IllegalArgumentException(
-                                        "Struct with type $receiverType does not have a member ${expression.memberName}",
-                                    )
-
-                            else -> TODO("${receiverType.pointeeType}")
+                    is Type.Vector ->
+                        // In the following, we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
+                        if (expression.memberName in setOf("x", "y", "z", "w", "r", "g", "b", "a")) {
+                            receiverType.elementType
+                        } else if (isSwizzle(expression.memberName)) {
+                            Type.Vector(expression.memberName.length, receiverType.elementType)
+                        } else {
+                            TODO()
                         }
+
+                    else -> throw UnsupportedOperationException("Member lookup not implemented for receiver of type $receiverType")
+                }
+
+            when (val receiverType = resolverState.resolvedEnvironment.typeOf(expression.receiver)) {
+                is Type.Pointer -> {
+                    val newPointeeType = resolveDirectMemberLookupType(receiverType.pointeeType)
                     Type.Pointer(newPointeeType, receiverType.addressSpace, receiverType.accessMode)
                 }
-                // TODO(JLJ): Reduce duplication with the above1
                 is Type.Reference -> {
-                    val newStoreType =
-                        when (val storeType = receiverType.storeType) {
-                            is Type.Vector ->
-                                // In the following we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
-                                // TODO(JLJ): Is there any reason there are fewer member names here?
-                                if (expression.memberName in setOf("x", "y", "z", "w", "r", "g", "b", "a")) {
-                                    storeType.elementType
-                                } else if (isSwizzle(expression.memberName)) {
-                                    Type.Vector(expression.memberName.length, storeType.elementType)
-                                } else {
-                                    TODO()
-                                }
-
-                            is Type.Struct ->
-                                storeType.members
-                                    .firstOrNull {
-                                        it.first == expression.memberName
-                                    }?.second
-                                    ?: throw IllegalArgumentException(
-                                        "Struct with type $receiverType does not have a member ${expression.memberName}",
-                                    )
-
-                            else -> TODO("${receiverType.storeType}")
-                        }
+                    val newStoreType = resolveDirectMemberLookupType(receiverType.storeType)
                     Type.Reference(newStoreType, receiverType.addressSpace, receiverType.accessMode)
                 }
-                else -> throw UnsupportedOperationException("Member lookup not implemented for receiver of type $receiverType")
+
+                else -> resolveDirectMemberLookupType(receiverType)
             }
+        }
         is Expression.FloatLiteral ->
             if (expression.text.endsWith("f")) {
                 Type.F32
@@ -752,8 +704,8 @@ private fun resolveExpressionType(
         is AugmentedExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
         is AugmentedExpression.IdentityOperation -> resolverState.resolvedEnvironment.typeOf(expression.originalExpression)
         is AugmentedExpression.KnownValue -> {
-            val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue).concreteType()
-            val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression).concreteType()
+            val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue).asStoreType()
+            val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression).asStoreType()
             if (knownValueType != expressionType) {
                 throw RuntimeException("Types for known value expression and its corresponding obfuscated expression do not match.")
             }
@@ -908,15 +860,14 @@ private fun resolveBinary(
     resolverState: ResolverState,
     expression: Expression.Binary,
 ): Type {
-    val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs).concreteType()
-    val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs).concreteType()
+    val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs).asStoreType()
+    val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs).asStoreType()
     return when (val operator = expression.operator) {
         BinaryOperator.LESS_THAN,
         BinaryOperator.LESS_THAN_EQUAL,
         BinaryOperator.GREATER_THAN,
         BinaryOperator.GREATER_THAN_EQUAL,
         -> {
-            // TODO(JL): Reduce duplication.
             if (!rhsType.isAbstractionOf(lhsType) &&
                 !lhsType.isAbstractionOf(rhsType)
             ) {
@@ -1051,7 +1002,7 @@ private fun resolveTypeOfVectorValueConstructor(
         } else {
             var candidateElementType: Type.Scalar? = null
             for (arg in expression.args) {
-                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).concreteType()
+                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).asStoreType()
                 when (elementTypeForArg) {
                     is Type.Scalar -> {
                         // Nothing to do
@@ -1088,7 +1039,7 @@ private fun resolveTypeOfMatrixValueConstructor(
         } ?: run {
             var candidateElementType: Type.Scalar? = null
             for (arg in expression.args) {
-                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).concreteType()
+                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).asStoreType()
                 when (elementTypeForArg) {
                     is Type.Float -> {
                         // Nothing to do
@@ -1246,8 +1197,8 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("cross builtin takes two arguments")
                     }
-                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()
-                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).concreteType()
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
+                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreType()
                     if (arg1Type !is Type.Vector || arg2Type !is Type.Vector) {
                         throw RuntimeException("cross builtin requires vector arguments")
                     }
@@ -1266,7 +1217,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("determinant builtin function requires one argument")
                     }
-                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()
+                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
                     if (argType !is Type.Matrix) {
                         throw RuntimeException("determinant builtin function requires a matrix argument")
                     }
@@ -1279,7 +1230,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("$calleeName requires two arguments")
                     }
-                    val commonType = findCommonType(functionCallExpression.args, resolverState).concreteType()
+                    val commonType = findCommonType(functionCallExpression.args, resolverState).asStoreType()
                     if (commonType is Type.Vector) {
                         commonType.elementType
                     } else {
@@ -1290,7 +1241,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("dot requires two arguments")
                     }
-                    val commonType = findCommonType(functionCallExpression.args, resolverState).concreteType()
+                    val commonType = findCommonType(functionCallExpression.args, resolverState).asStoreType()
                     if (commonType is Type.Vector) {
                         commonType.elementType
                     } else {
@@ -1315,7 +1266,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("frexp requires one argument")
                     }
-                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()) {
+                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
                         Type.F16 -> FrexpResultF16
                         Type.F32 -> FrexpResultF32
                         Type.AbstractFloat, Type.AbstractInteger -> FrexpResultAbstract
@@ -1374,7 +1325,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("length requires one argument")
                     }
-                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()) {
+                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
                         is Type.Float -> argType
                         is Type.Vector -> argType.elementType
                         else -> throw RuntimeException("Unsupported argument type for length builtin function")
@@ -1406,7 +1357,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("modf requires one argument")
                     }
-                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()) {
+                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
                         Type.F16 -> ModfResultF16
                         Type.F32 -> ModfResultF32
                         Type.AbstractFloat -> ModfResultAbstract
@@ -1456,7 +1407,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size !in 1..2) {
                         throw RuntimeException("textureDimensions requires two arguments")
                     }
-                    val textureType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()
+                    val textureType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
                     if (textureType !is Type.Texture) {
                         throw RuntimeException("Type of first argument to textureDimensions must be a texture")
                     }
@@ -1501,14 +1452,14 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size < 2) {
                         throw RuntimeException("$calleeName requires at least 2 arguments")
                     }
-                    when (resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()) {
+                    when (resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
                         Type.Texture.Depth2D, Type.Texture.DepthCube, Type.Texture.Depth2DArray, Type.Texture.DepthCubeArray ->
                             Type.Vector(
                                 4,
                                 Type.F32,
                             )
                         else -> {
-                            when (val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).concreteType()) {
+                            when (val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreType()) {
                                 is Type.Texture.Sampled -> Type.Vector(4, arg2Type.sampledType)
                                 else -> throw RuntimeException("$calleeName requires a suitable texture as its first or second argument")
                             }
@@ -1520,7 +1471,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.isEmpty()) {
                         throw RuntimeException("textureLoad requires a first argument of texture type")
                     }
-                    val textureArg = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()
+                    val textureArg = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
                     if (textureArg !is Type.Texture) {
                         throw RuntimeException("textureLoad requires a first argument of texture type")
                     }
@@ -1546,7 +1497,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     } else {
                         when (
                             val textureType =
-                                resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()
+                                resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
                         ) {
                             is Type.Texture.Sampled ->
                                 if (textureType.sampledType is Type.F32) {
@@ -1566,7 +1517,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("$calleeName requires one argument")
                     }
-                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).concreteType()
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
                     if (arg1Type is Type.Matrix) {
                         Type.Matrix(
                             numCols = arg1Type.numRows,
