@@ -752,8 +752,8 @@ private fun resolveExpressionType(
         is AugmentedExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
         is AugmentedExpression.IdentityOperation -> resolverState.resolvedEnvironment.typeOf(expression.originalExpression)
         is AugmentedExpression.KnownValue -> {
-            val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue)
-            val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression)
+            val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue).concreteType()
+            val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression).concreteType()
             if (knownValueType != expressionType) {
                 throw RuntimeException("Types for known value expression and its corresponding obfuscated expression do not match.")
             }
