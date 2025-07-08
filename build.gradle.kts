@@ -59,7 +59,11 @@ dependencies {
 }
 
 tasks.generateGrammarSource {
-    outputDirectory = layout.buildDirectory.dir("generated/sources/main/kotlin/antlr").get().asFile
+    outputDirectory =
+        layout.buildDirectory
+            .dir("generated/sources/main/kotlin/antlr")
+            .get()
+            .asFile
     arguments = listOf("-visitor", "-package", "com.wgslfuzz")
 }
 
@@ -101,5 +105,10 @@ tasks.register<JavaExec>("runJobsViaServer") {
 
 tasks.register<JavaExec>("reduceJobViaServer") {
     mainClass.set("com.wgslfuzz.tools.ReduceJobViaServerKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("standAloneShaderHtml") {
+    mainClass.set("com.wgslfuzz.tools.StandAloneShaderHtmlKt")
     classpath = sourceSets["main"].runtimeClasspath
 }

@@ -1539,9 +1539,20 @@ private fun TexelFormat.toVectorElementType(): Type.Scalar =
         TexelFormat.RGBA8SNORM -> Type.F32
         TexelFormat.RGBA8UINT -> Type.U32
         TexelFormat.RGBA8SINT -> Type.I32
+        TexelFormat.RGBA16UNORM -> Type.F32
+        TexelFormat.RGBA16SNORM -> Type.F32
         TexelFormat.RGBA16UINT -> Type.U32
         TexelFormat.RGBA16SINT -> Type.I32
         TexelFormat.RGBA16FLOAT -> Type.F32
+        TexelFormat.RG8UNORM -> Type.F32
+        TexelFormat.RG8SNORM -> Type.F32
+        TexelFormat.RG8UINT -> Type.U32
+        TexelFormat.RG8SINT -> Type.I32
+        TexelFormat.RG16UNORM -> Type.F32
+        TexelFormat.RG16SNORM -> Type.F32
+        TexelFormat.RG16UINT -> Type.U32
+        TexelFormat.RG16SINT -> Type.I32
+        TexelFormat.RG16FLOAT -> Type.F32
         TexelFormat.R32UINT -> Type.U32
         TexelFormat.R32SINT -> Type.I32
         TexelFormat.R32FLOAT -> Type.F32
@@ -1552,6 +1563,18 @@ private fun TexelFormat.toVectorElementType(): Type.Scalar =
         TexelFormat.RGBA32SINT -> Type.I32
         TexelFormat.RGBA32FLOAT -> Type.F32
         TexelFormat.BGRA8UNORM -> Type.F32
+        TexelFormat.R8UNORM -> Type.F32
+        TexelFormat.R8SNORM -> Type.F32
+        TexelFormat.R8UINT -> Type.U32
+        TexelFormat.R8SINT -> Type.I32
+        TexelFormat.R16UNORM -> Type.F32
+        TexelFormat.R16SNORM -> Type.F32
+        TexelFormat.R16UINT -> Type.U32
+        TexelFormat.R16SINT -> Type.I32
+        TexelFormat.R16FLOAT -> Type.F32
+        TexelFormat.RGB10A2UNORM -> Type.F32
+        TexelFormat.RGB10A2UINT -> Type.U32
+        TexelFormat.RG11B10UFLOAT -> Type.F32
     }
 
 private fun Type.isAbstractionOf(maybeConcretizedVersion: Type): Boolean =
