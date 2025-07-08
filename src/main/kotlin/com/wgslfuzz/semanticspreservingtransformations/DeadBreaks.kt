@@ -19,6 +19,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
+import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
@@ -46,7 +47,7 @@ private class InjectDeadBreaks(
             compound.statements.forEachIndexed { index, statement ->
                 if (index in injectionPoints) {
                     newBody.add(
-                        createDeadBreak(),
+                        createDeadBreak(shaderJob.environment.scopeAvailableBefore(statement)),
                     )
                 }
                 newBody.add(
@@ -57,17 +58,17 @@ private class InjectDeadBreaks(
             }
             if (compound.statements.size in injectionPoints) {
                 newBody.add(
-                    createDeadBreak(),
+                    createDeadBreak(shaderJob.environment.scopeAvailableAtEnd(compound)),
                 )
             }
             Statement.Compound(newBody)
         }
 
-    private fun createDeadBreak() =
+    private fun createDeadBreak(scope: Scope) =
         AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob),
+                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                 thenBranch =
                     Statement.Compound(
                         listOf(Statement.Break()),
