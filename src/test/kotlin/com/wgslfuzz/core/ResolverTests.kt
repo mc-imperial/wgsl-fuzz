@@ -69,7 +69,10 @@ class ResolverTests {
         assertEquals(Type.Bool, environment.typeOf(whileCondition))
         val whileConditionInner = whileCondition.target as Expression.Binary
         assertEquals(Type.Bool, environment.typeOf(whileConditionInner))
-        assertEquals(Type.I32, environment.typeOf(whileConditionInner.lhs))
+        assertEquals(
+            Type.Reference(storeType = Type.I32, addressSpace = AddressSpace.FUNCTION, accessMode = AccessMode.READ_WRITE),
+            environment.typeOf(whileConditionInner.lhs),
+        )
         assertEquals(Type.AbstractInteger, environment.typeOf(whileConditionInner.rhs))
     }
 
@@ -230,7 +233,7 @@ class ResolverTests {
             assertEquals(Type.I32, inner1EntryY.type)
             val inner1EntryC = scopeAtEndOfThenBranch.getEntry("c") as ScopeEntry.LocalVariable
             assertSame(b1, inner1EntryC.astNode)
-            assertEquals(Type.F32, inner1EntryC.type)
+            assertEquals(Type.Reference(Type.F32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner1EntryC.type)
         }
 
         run {
@@ -240,7 +243,7 @@ class ResolverTests {
             assertEquals(Type.F32, inner2EntryX.type)
             val inner2EntryV = scopeAtEndOfElseIfBranch.getEntry("v") as ScopeEntry.LocalVariable
             assertSame(c1, inner2EntryV.astNode)
-            assertEquals(Type.F32, inner2EntryV.type)
+            assertEquals(Type.Reference(Type.F32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner2EntryV.type)
             val inner2EntryY = scopeAtEndOfElseIfBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner2EntryY.astNode)
             assertEquals(Type.I32, inner2EntryY.type)
@@ -262,7 +265,7 @@ class ResolverTests {
             assertEquals(Type.I32, inner3EntryY.type)
             val inner3EntryC = scopeAtEndOfElseBranch.getEntry("c") as ScopeEntry.LocalVariable
             assertSame(d1, inner3EntryC.astNode)
-            assertEquals(Type.Bool, inner3EntryC.type)
+            assertEquals(Type.Reference(Type.Bool, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner3EntryC.type)
         }
     }
 
