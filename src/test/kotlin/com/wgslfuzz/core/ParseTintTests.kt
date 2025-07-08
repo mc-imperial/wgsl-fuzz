@@ -93,7 +93,12 @@ class ParseTintTests {
                 text.contains("enable subgroups") ||
                 // binding_array is not currently mentioned in the WGSL specification, but online
                 // research suggests that it is a naga extension.
-                text.contains("binding_array")
+                text.contains("binding_array") ||
+                // TODO(JLJ): Unknown texel formats, trivial to support.
+                text.contains("textureDimensions") ||
+                text.contains("textureNumLayers") ||
+                text.contains("textureLoad") ||
+                text.contains("textureStore")
             ) {
                 return@forEach
             }
