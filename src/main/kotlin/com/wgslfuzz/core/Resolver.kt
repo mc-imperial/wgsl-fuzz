@@ -69,16 +69,34 @@ sealed interface ScopeEntry {
     ) : TypedDecl
 }
 
-interface Scope {
+sealed interface Scope {
     val parent: Scope?
-    val enclosingAstNode: AstNode
 
     fun getEntry(name: String): ScopeEntry?
 }
 
+sealed interface ResolvedEnvironment {
+    val globalScope: Scope
+
+    fun typeOf(expression: Expression): Type
+
+    fun typeOf(lhsExpression: LhsExpression): Type
+
+    /**
+     * Yields a scope that can be used to query all declarations that are in scope immediately _before_ the given
+     * statement. Therefore, if the statement is a declaration this scope does _not_ include the declaration itself.
+     */
+    fun scopeAvailableBefore(statement: Statement): Scope
+
+    /**
+     * Yields a scope that can be used to query all declarations that are in scope at the very end of a compound
+     * statement - i.e., right before its closing curly brace.
+     */
+    fun scopeAvailableAtEnd(compound: Statement.Compound): Scope
+}
+
 private class ScopeImpl(
     override val parent: ScopeImpl?,
-    override val enclosingAstNode: AstNode,
 ) : Scope {
     private val entries: MutableMap<String, ScopeEntry> = mutableMapOf()
 
@@ -92,27 +110,43 @@ private class ScopeImpl(
         entries[name] = node
     }
 
+    /**
+     * Creates a new scope based on this scope. The parent of the resulting scope is referentially equal to the parent
+     * of this scope (so that parent scopes are not copied), but the immediate contents of this scope are captured via
+     * a fresh map in the newly-created scope. The point of this is to allow each statement in a compound to have its
+     * own view of what is in scope so far in the compound.
+     */
+    fun shallowCopy(): Scope {
+        val result =
+            ScopeImpl(
+                parent = parent,
+            )
+        for (nameEntryPair: Map.Entry<String, ScopeEntry> in entries) {
+            result.entries[nameEntryPair.key] = nameEntryPair.value
+        }
+        return result
+    }
+
     override fun getEntry(name: String): ScopeEntry? = entries[name] ?: parent?.getEntry(name)
-}
-
-sealed interface ResolvedEnvironment {
-    val globalScope: Scope
-
-    fun typeOf(expression: Expression): Type
-
-    fun typeOf(lhsExpression: LhsExpression): Type
-
-    fun enclosingScope(statement: Statement): Scope
 }
 
 private class ResolvedEnvironmentImpl(
     override val globalScope: Scope,
 ) : ResolvedEnvironment {
+    // The resolving process gives a type to _every_ expression in the AST.
     private val expressionTypes: MutableMap<Expression, Type> = mutableMapOf()
 
+    // The resolving process gives a type to _every_ left-hand-side expression in the AST.
     private val lhsExpressionTypes: MutableMap<LhsExpression, Type> = mutableMapOf()
 
-    private val statementScopes: MutableMap<Statement, Scope> = mutableMapOf()
+    // For every statement in the AST, we record a scope capturing what is available right before the statement. For
+    // statements in the same compound, these scopes can be different due to intervening local variable/value
+    // declarations.
+    private val scopeAvailableBeforeEachStatement: MutableMap<Statement, Scope> = mutableMapOf()
+
+    // For every compound in the AST, we record a scope capturing what is available right at the end of the compound,
+    // i.e. just before its closing curly brace.
+    private val scopeAvailableAtEndOfEachCompound: MutableMap<Statement, Scope> = mutableMapOf()
 
     fun recordType(
         expression: Expression,
@@ -130,12 +164,20 @@ private class ResolvedEnvironmentImpl(
         lhsExpressionTypes[lhsExpression] = type
     }
 
-    fun recordScope(
+    fun recordScopeAvailableBeforeStatement(
         statement: Statement,
         scope: Scope,
     ) {
-        assert(statement !in statementScopes.keys)
-        statementScopes[statement] = scope
+        assert(statement !in scopeAvailableBeforeEachStatement.keys)
+        scopeAvailableBeforeEachStatement[statement] = scope
+    }
+
+    fun recordScopeAvailableAtEndOfCompound(
+        compound: Statement.Compound,
+        scope: Scope,
+    ) {
+        assert(compound !in scopeAvailableAtEndOfEachCompound.keys)
+        scopeAvailableAtEndOfEachCompound[compound] = scope
     }
 
     override fun typeOf(expression: Expression): Type =
@@ -146,8 +188,11 @@ private class ResolvedEnvironmentImpl(
         lhsExpressionTypes[lhsExpression]
             ?: throw IllegalArgumentException("No type for $lhsExpression")
 
-    override fun enclosingScope(statement: Statement): Scope =
-        statementScopes[statement] ?: throw IllegalArgumentException("No scope for $statement")
+    override fun scopeAvailableBefore(statement: Statement): Scope =
+        scopeAvailableBeforeEachStatement[statement] ?: throw IllegalArgumentException("No scope for $statement")
+
+    override fun scopeAvailableAtEnd(compound: Statement.Compound): Scope =
+        scopeAvailableAtEndOfEachCompound[compound] ?: throw IllegalArgumentException("No scope for $compound")
 }
 
 private fun collectUsedModuleScopeNames(node: AstNode): Set<String> {
@@ -276,24 +321,28 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
     return result
 }
 
-private class ResolverState(
-    val resolvedEnvironment: ResolvedEnvironmentImpl,
-    var currentScope: ScopeImpl,
-) {
+private class ResolverState {
+    var currentScope: ScopeImpl = ScopeImpl(null)
+        private set
+
+    val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(currentScope)
+
     val ancestorsStack: MutableList<AstNode> = mutableListOf()
 
-    fun withScope(
-        node: AstNode,
+    fun maybeWithScope(
+        newScopeRequired: Boolean,
         action: () -> Unit,
     ) {
-        val newScope =
-            ScopeImpl(
-                parent = currentScope,
-                enclosingAstNode = node,
-            )
-        currentScope = newScope
+        if (newScopeRequired) {
+            currentScope =
+                ScopeImpl(
+                    parent = currentScope,
+                )
+        }
         action()
-        currentScope = newScope.parent!!
+        if (newScopeRequired) {
+            currentScope = currentScope.parent!!
+        }
     }
 }
 
@@ -307,28 +356,23 @@ private fun resolveAstNode(
     }
 
     if (node is Statement) {
-        resolverState.resolvedEnvironment.recordScope(node, resolverState.currentScope)
+        // Creating a shallow copy of the current scope and associating the shallow copy with this statement ensures that:
+        // - all statements in the current compound statement will share all enclosing scopes
+        // - this statement will have its own view of what is in scope at this point in the current compound statement,
+        //   so that if local variables/values are declared in sequence, only those that have already been declared
+        //   this statement will be in scope for the statement.
+        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(node, resolverState.currentScope.shallowCopy())
     }
 
     val parentNode = resolverState.ancestorsStack.firstOrNull()
-    resolverState.ancestorsStack.addFirst(node)
-    if (node is Statement.Loop ||
-        node is ContinuingStatement ||
-        node is Statement.For ||
-        (
-            node is Statement.Compound &&
-                parentNode !is GlobalDecl.Function &&
-                parentNode !is Statement.Loop &&
-                parentNode !is ContinuingStatement
-        )
-    ) {
-        resolverState.withScope(node) {
-            traverse(::resolveAstNode, node, resolverState)
-        }
-    } else {
+    resolverState.maybeWithScope(nodeIntroducesNewScope(node, parentNode)) {
+        resolverState.ancestorsStack.addFirst(node)
         traverse(::resolveAstNode, node, resolverState)
+        if (node is Statement.Compound) {
+            resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(node, resolverState.currentScope.shallowCopy())
+        }
+        resolverState.ancestorsStack.removeFirst()
     }
-    resolverState.ancestorsStack.removeFirst()
 
     when (node) {
         is GlobalDecl.TypeAlias -> {
@@ -444,6 +488,27 @@ private fun resolveAstNode(
         }
     }
 }
+
+/**
+ * Whether a node introduces a new lexical scope is a little subtle. Generally, a compound statement introduces a new
+ * scope, but there are exceptions. For example, the parameters of a function declaration share the same lexical scope
+ * as the function body, so the function body's compound statement does not introduce a new scope. As another example,
+ * the continuing construct of a loop inherits the scope of the loop construct, therefore we cannot rely on the
+ * (disjoint) compound statements of a loop and its continuing construct when it comes to the introduction of scopes.
+ * This helper encapsulates the subtleties of when new scopes are introduced.
+ */
+private fun nodeIntroducesNewScope(
+    node: AstNode,
+    parentNode: AstNode?,
+) = node is Statement.Loop ||
+    node is ContinuingStatement ||
+    node is Statement.For ||
+    (
+        node is Statement.Compound &&
+            parentNode !is GlobalDecl.Function &&
+            parentNode !is Statement.Loop &&
+            parentNode !is ContinuingStatement
+    )
 
 private fun resolveExpressionType(
     expression: Expression,
@@ -1928,7 +1993,7 @@ private fun resolveFunctionBody(
 ) {
     val functionScopeEntry = resolverState.currentScope.getEntry(functionDecl.name) as ScopeEntry.Function
     assert(functionScopeEntry.astNode == functionDecl)
-    resolverState.withScope(functionDecl) {
+    resolverState.maybeWithScope(true) {
         functionDecl.parameters.forEachIndexed { index, parameterDecl ->
             resolverState.currentScope.addEntry(
                 parameterDecl.name,
@@ -1941,6 +2006,7 @@ private fun resolveFunctionBody(
         functionDecl.body.statements.forEach {
             resolveAstNode(it, resolverState)
         }
+        resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(functionDecl.body, resolverState.currentScope.shallowCopy())
     }
 }
 
@@ -1948,17 +2014,8 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
     val (topLevelNameDependencies, nameToDecl) = collectTopLevelNameDependencies(tu)
     val orderedGlobalDecls = orderGlobalDeclNames(topLevelNameDependencies)
 
-    val globalScope =
-        ScopeImpl(
-            parent = null,
-            enclosingAstNode = tu,
-        )
-
     val resolverState =
-        ResolverState(
-            ResolvedEnvironmentImpl(globalScope),
-            globalScope,
-        )
+        ResolverState()
 
     // Resolve name-introducing global decls in order, then other global decls
     for (name in orderedGlobalDecls) {
