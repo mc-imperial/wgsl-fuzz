@@ -576,7 +576,6 @@ class ResolverTests {
         }
     }
 
-
     @Test
     fun testMemberLookupRefDeref() {
         val input =
@@ -629,7 +628,10 @@ class ResolverTests {
 
             val entrySPointer = scopeAtEndOfFunctionBody.getEntry("s_pointer") as ScopeEntry.LocalValue
             assertSame(sPointer, entrySPointer.astNode)
-            assertEquals(Type.Pointer(Type.Struct("S", listOf(Pair("elem", Type.I32))), AddressSpace.FUNCTION, AccessMode.READ_WRITE), entrySPointer.type)
+            assertEquals(
+                Type.Pointer(Type.Struct("S", listOf(Pair("elem", Type.I32))), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entrySPointer.type,
+            )
 
             val entryEFromPointer = scopeAtEndOfFunctionBody.getEntry("e_from_pointer") as ScopeEntry.LocalVariable
             assertSame(eFromPointer, entryEFromPointer.astNode)
