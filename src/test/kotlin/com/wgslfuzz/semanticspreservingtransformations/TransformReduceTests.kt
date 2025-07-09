@@ -26,12 +26,14 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import java.util.Random
 
-class TransformReduceTests {
+abstract class TransformReduceTests {
+    protected abstract val filenameNoExtension: String
+
     @Test
     fun testAddDeadReturns() {
         testTransformationAndReduction(
             42,
-            "bubblesort_flag",
+            filenameNoExtension,
             ::addDeadReturns,
         )
     }
@@ -40,7 +42,7 @@ class TransformReduceTests {
     fun testAddDeadBreaks() {
         testTransformationAndReduction(
             43,
-            "bubblesort_flag",
+            filenameNoExtension,
             ::addDeadBreaks,
         )
     }
@@ -49,7 +51,7 @@ class TransformReduceTests {
     fun testAddDeadContinues() {
         testTransformationAndReduction(
             44,
-            "bubblesort_flag",
+            filenameNoExtension,
             ::addDeadContinues,
         )
     }
@@ -58,7 +60,7 @@ class TransformReduceTests {
     fun testAddIdentityOperations() {
         testTransformationAndReduction(
             45,
-            "bubblesort_flag",
+            filenameNoExtension,
             ::addIdentityOperations,
         )
     }
@@ -67,7 +69,7 @@ class TransformReduceTests {
     fun testMultipleTransformations() {
         testTransformationAndReduction(
             45,
-            "bubblesort_flag",
+            filenameNoExtension,
         ) { shaderJob, fuzzerSettings ->
             addIdentityOperations(addDeadReturns(addIdentityOperations(shaderJob, fuzzerSettings), fuzzerSettings), fuzzerSettings)
         }
