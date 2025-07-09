@@ -72,7 +72,7 @@ class ShaderJob(
                         binding = binding,
                         data =
                             getBytesForExpression(
-                                type = getStructType(environment, tu.getUniformDeclaration(group, binding)),
+                                type = getUniformType(environment, tu.getUniformDeclaration(group, binding)),
                                 value = pipelineState.getUniformValue(group, binding),
                                 offset = 0,
                             ),
@@ -176,12 +176,11 @@ fun createShaderJob(
         val binding: Int = uniformBuffer.binding
         val bufferBytes: List<UByte> = uniformBuffer.data.map(Int::toUByte)
 
-        val structType =
-            getStructType(environment, tu.getUniformDeclaration(group, binding))
+        val uniformType: Type = getUniformType(environment, tu.getUniformDeclaration(group, binding))
 
         val (literalExpr, newBufferByteIndex) =
             literalExprFromBytes(
-                structType,
+                uniformType,
                 bufferBytes,
                 0,
             )
@@ -191,13 +190,19 @@ fun createShaderJob(
     return ShaderJob(tu, PipelineState(uniformValues))
 }
 
-private fun getStructType(
+private fun getUniformType(
     environment: ResolvedEnvironment,
     uniformDeclaration: GlobalDecl.Variable,
-) = (
-    environment.globalScope
-        .getEntry((uniformDeclaration.typeDecl as TypeDecl.NamedType).name) as ScopeEntry.Struct
-).type
+) = if (uniformDeclaration.typeDecl is TypeDecl.NamedType) {
+    getUniformTypeByName(environment, uniformDeclaration.typeDecl.name)
+} else {
+    getUniformTypeByName(environment, uniformDeclaration.name)
+}
+
+private fun getUniformTypeByName(
+    environment: ResolvedEnvironment,
+    uniformName: String,
+) = (environment.globalScope.getEntry(uniformName) as ScopeEntry.TypedDecl).type
 
 private fun literalExprFromBytes(
     type: Type,
