@@ -705,7 +705,7 @@ private fun resolveTypeOfIndexLookupExpression(
     The same thing applies to arrays and matrices. In the following example, the variable mat has the type
     ref<function, mat2x3<i32>, read_write>. The variable row has the type ref<function, vec3<i32>, read_write>.
 
-        var mat = mat2x3<i32>(vec3<i32>(0,1, 2), vec3<i32>(3,4,5));
+        var mat = mat2x3<f32>(vec3<f32>(0,1, 2), vec3<f32>(3,4,5));
         var row = mat[0];
      */
     return when (val targetType = resolverState.resolvedEnvironment.typeOf(indexLookup.target)) {
@@ -1643,55 +1643,6 @@ private fun resolveTypeOfFunctionCallExpression(
                 )
         else -> throw RuntimeException("Function call attempted on unknown callee ${functionCallExpression.callee}")
     }
-
-private fun resolveTypeOfAddressOfExpression(
-    expression: Expression.Unary,
-    resolverState: ResolverState,
-): Type {
-    var target = expression.target
-    while (target !is Expression.Identifier) {
-        target =
-            when (target) {
-                is Expression.Paren -> target.target
-                is Expression.MemberLookup -> {
-                    target.receiver
-                }
-                is Expression.Unary -> {
-                    when (target.operator) {
-                        UnaryOperator.ADDRESS_OF, UnaryOperator.DEREFERENCE -> target.target
-                        else -> throw RuntimeException("Unsupported use of unary operator ${target.operator} under address-of")
-                    }
-                }
-
-                is Expression.IndexLookup -> target.target
-                else -> throw RuntimeException("Unsupported expression $target under address-of")
-            }
-    }
-    val targetType = resolverState.resolvedEnvironment.typeOf(target)
-    val pointeeType = resolverState.resolvedEnvironment.typeOf(expression.target)
-
-    return when (targetType) {
-        is Type.Pointer -> {
-            Type.Pointer(
-                pointeeType = pointeeType,
-                addressSpace = targetType.addressSpace,
-                accessMode = targetType.accessMode,
-            )
-        }
-
-        is Type.Reference -> {
-            Type.Pointer(
-                pointeeType = pointeeType,
-                addressSpace = targetType.addressSpace,
-                accessMode = targetType.accessMode,
-            )
-        }
-
-        else -> {
-            TODO("Unsupported target for address-of $targetType")
-        }
-    }
-}
 
 private fun resolveFloatTypeDecl(floatTypeDecl: TypeDecl.FloatTypeDecl): Type.Float =
     when (floatTypeDecl) {
