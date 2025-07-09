@@ -399,38 +399,7 @@ private fun resolveAstNode(
                 ),
             )
         }
-        is GlobalDecl.Variable -> {
-            val type: Type =
-                defaultConcretizationOf(
-                    node.typeDecl?.let {
-                        resolveTypeDecl(node.typeDecl, resolverState)
-                    } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
-                )
-
-            // TODO: Error if the handle address space is used incorrectly
-            if (node.addressSpace == AddressSpace.FUNCTION) {
-                throw IllegalArgumentException(
-                    "Variables in the function address space must only be declared in function scope.",
-                )
-            } else if (node.accessMode != null && node.addressSpace == null) {
-                throw IllegalArgumentException(
-                    "If an access mode is specified for a variable an address space must also be specified.",
-                )
-            } else if (node.addressSpace != AddressSpace.STORAGE && node.accessMode != null) {
-                throw IllegalArgumentException(
-                    "The access mode must not be specified unless a variable is in the storage address space.",
-                )
-            }
-
-            val addressSpace = node.addressSpace ?: AddressSpace.FUNCTION
-            val accessMode = node.accessMode ?: defaultAccessModeOf(addressSpace)
-            val refType = type as? Type.Reference ?: Type.Reference(type, addressSpace, accessMode)
-
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.GlobalVariable(node, refType),
-            )
-        }
+        is GlobalDecl.Variable -> resolveGlobalVariable(node, resolverState)
         is GlobalDecl.Constant -> {
             resolverState.currentScope.addEntry(
                 node.name,
@@ -503,52 +472,97 @@ private fun resolveAstNode(
                 ScopeEntry.LocalValue(node, type),
             )
         }
-        is Statement.Variable -> {
-            var type: Type =
-                node.typeDecl?.let {
-                    resolveTypeDecl(node.typeDecl, resolverState)
-                } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
-            if (type.isAbstract()) {
-                type = defaultConcretizationOf(type)
-            }
-
-            if (node.accessMode != null && node.addressSpace == null) {
-                throw IllegalArgumentException(
-                    "If an access mode is specified for a variable an address space must also be specified.",
-                )
-            } else if (node.addressSpace in
-                setOf(
-                    AddressSpace.PRIVATE,
-                    AddressSpace.STORAGE,
-                    AddressSpace.UNIFORM,
-                    AddressSpace.WORKGROUP,
-                    AddressSpace.HANDLE,
-                )
-            ) {
-                throw IllegalArgumentException(
-                    "The address spaces private, storage, uniform, workgroup and handle can only be used for module scope variables",
-                )
-            } else if (node.accessMode != null) {
-                throw IllegalArgumentException(
-                    "The access mode must not be specified unless a variable is in the storage address space.",
-                )
-            }
-
-            val addressSpace = node.addressSpace ?: AddressSpace.FUNCTION
-            val accessMode = defaultAccessModeOf(addressSpace)
-            type = type as? Type.Reference ?: Type.Reference(type, addressSpace, accessMode)
-
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.LocalVariable(node, type),
-            )
-        }
+        is Statement.Variable -> resolveLocalVariable(node, resolverState)
         is Expression -> resolverState.resolvedEnvironment.recordType(node, resolveExpressionType(node, resolverState))
         is LhsExpression -> resolverState.resolvedEnvironment.recordType(node, resolveLhsExpressionType(node, resolverState))
         else -> {
             // No action
         }
     }
+}
+
+private fun resolveGlobalVariable(
+    node: GlobalDecl.Variable,
+    resolverState: ResolverState,
+) {
+    val type: Type =
+        defaultConcretizationOf(
+            node.typeDecl?.let {
+                resolveTypeDecl(node.typeDecl, resolverState)
+            } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
+        )
+
+    if (node.addressSpace == AddressSpace.FUNCTION) {
+        throw IllegalArgumentException(
+            "Variables in the function address space must only be declared in function scope.",
+        )
+    } else if (node.accessMode != null && node.addressSpace == null) {
+        throw IllegalArgumentException(
+            "If an access mode is specified for a variable an address space must also be specified.",
+        )
+    } else if (node.addressSpace != AddressSpace.STORAGE && node.accessMode != null) {
+        throw IllegalArgumentException(
+            "The access mode must not be specified unless a variable is in the storage address space.",
+        )
+    } else if (node.addressSpace == AddressSpace.HANDLE) {
+        // A handle address space cannot be specified in WGSL source.
+        throw IllegalArgumentException(
+            "The handle address space cannot be specified in WGSL source.",
+        )
+    }
+
+    val refType =
+        if (type is Type.Texture || type is Type.Sampler) {
+            // Access to texture and sampler types are mediated through a handle.
+            // https://www.w3.org/TR/WGSL/#texture-sampler-types
+            Type.Reference(type, AddressSpace.HANDLE, AccessMode.READ)
+        } else {
+            val addressSpace = node.addressSpace ?: AddressSpace.FUNCTION
+            val accessMode = node.accessMode ?: defaultAccessModeOf(addressSpace)
+            type as? Type.Reference ?: Type.Reference(type, addressSpace, accessMode)
+        }
+
+    resolverState.currentScope.addEntry(
+        node.name,
+        ScopeEntry.GlobalVariable(node, refType),
+    )
+}
+
+private fun resolveLocalVariable(
+    node: Statement.Variable,
+    resolverState: ResolverState,
+) {
+    var type: Type =
+        node.typeDecl?.let {
+            resolveTypeDecl(node.typeDecl, resolverState)
+        } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!)
+    if (type.isAbstract()) {
+        type = defaultConcretizationOf(type)
+    }
+
+    if (node.accessMode != null && node.addressSpace == null) {
+        throw IllegalArgumentException(
+            "If an access mode is specified for a variable an address space must also be specified.",
+        )
+    } else if (node.addressSpace != null && node.addressSpace != AddressSpace.FUNCTION) {
+        throw IllegalArgumentException(
+            "The address spaces private, storage, uniform, workgroup and handle can only be used for module scope variables",
+        )
+    } else if (node.accessMode != null) {
+        throw IllegalArgumentException(
+            "The access mode must not be specified unless a variable is in the storage address space.",
+        )
+    }
+
+    // If the address space is not specified in the source, default to function.
+    val addressSpace = node.addressSpace ?: AddressSpace.FUNCTION
+    val accessMode = defaultAccessModeOf(addressSpace)
+    type = type as? Type.Reference ?: Type.Reference(type, addressSpace, accessMode)
+
+    resolverState.currentScope.addEntry(
+        node.name,
+        ScopeEntry.LocalVariable(node, type),
+    )
 }
 
 /**
@@ -572,7 +586,7 @@ private fun nodeIntroducesNewScope(
             parentNode !is ContinuingStatement
     )
 
-private fun <T : Type> T.asStoreType(): Type =
+private fun Type.asStoreType(): Type =
     when (this) {
         is Type.Reference -> this.storeType
         else -> this
@@ -594,65 +608,8 @@ private fun resolveExpressionType(
 ): Type =
     when (expression) {
         is Expression.FunctionCall -> resolveTypeOfFunctionCallExpression(expression, resolverState)
-        is Expression.IndexLookup -> {
-            fun resolveDirectIndexType(type: Type) =
-                when (type) {
-                    is Type.Matrix -> Type.Vector(width = type.numRows, elementType = type.elementType)
-                    is Type.Vector -> type.elementType
-                    is Type.Array -> type.elementType
-                    else -> throw IllegalArgumentException("Index lookup attempted on unsuitable type $type")
-                }
-
-            when (val targetType = resolverState.resolvedEnvironment.typeOf(expression.target)) {
-                is Type.Pointer -> {
-                    val newPointeeType = resolveDirectIndexType(targetType.pointeeType)
-                    Type.Pointer(newPointeeType, targetType.addressSpace, targetType.accessMode)
-                }
-                is Type.Reference -> {
-                    val newStoreType = resolveDirectIndexType(targetType.storeType)
-                    Type.Reference(newStoreType, targetType.addressSpace, targetType.accessMode)
-                }
-                else -> resolveDirectIndexType(targetType)
-            }
-        }
-        is Expression.MemberLookup -> {
-            fun resolveDirectMemberLookupType(receiverType: Type) =
-                when (receiverType) {
-                    is Type.Struct ->
-                        receiverType.members
-                            .firstOrNull {
-                                it.first == expression.memberName
-                            }?.second
-                            ?: throw IllegalArgumentException(
-                                "Struct with type $receiverType does not have a member ${expression.memberName}",
-                            )
-
-                    is Type.Vector ->
-                        // In the following, we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
-                        if (expression.memberName in setOf("x", "y", "z", "w", "r", "g", "b", "a")) {
-                            receiverType.elementType
-                        } else if (isSwizzle(expression.memberName)) {
-                            Type.Vector(expression.memberName.length, receiverType.elementType)
-                        } else {
-                            TODO()
-                        }
-
-                    else -> throw UnsupportedOperationException("Member lookup not implemented for receiver of type $receiverType")
-                }
-
-            when (val receiverType = resolverState.resolvedEnvironment.typeOf(expression.receiver)) {
-                is Type.Pointer -> {
-                    val newPointeeType = resolveDirectMemberLookupType(receiverType.pointeeType)
-                    Type.Pointer(newPointeeType, receiverType.addressSpace, receiverType.accessMode)
-                }
-                is Type.Reference -> {
-                    val newStoreType = resolveDirectMemberLookupType(receiverType.storeType)
-                    Type.Reference(newStoreType, receiverType.addressSpace, receiverType.accessMode)
-                }
-
-                else -> resolveDirectMemberLookupType(receiverType)
-            }
-        }
+        is Expression.IndexLookup -> resolveTypeOfIndexLookupExpression(expression, resolverState)
+        is Expression.MemberLookup -> resolveTypeOfMemberLookupExpression(expression, resolverState)
         is Expression.FloatLiteral ->
             if (expression.text.endsWith("f")) {
                 Type.F32
@@ -713,6 +670,116 @@ private fun resolveExpressionType(
         }
     }
 
+private fun resolveTypeOfIndexLookupExpression(
+    indexLookup: Expression.IndexLookup,
+    resolverState: ResolverState,
+): Type {
+    fun resolveDirectIndexType(type: Type): Type =
+        when (type) {
+            is Type.Matrix -> Type.Vector(width = type.numRows, elementType = type.elementType)
+            is Type.Vector -> type.elementType
+            // TODO: Throw a shader creation error if the index is a const expr greater than the
+            // element count of the array
+            is Type.Array -> type.elementType
+            else -> throw IllegalArgumentException("Index lookup attempted on unsuitable type $type")
+        }
+
+    // Check the type of the index is i32 or u32.
+    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/94): This is not really strict enough.
+    val indexType = resolverState.resolvedEnvironment.typeOf(indexLookup.index).asStoreType()
+    if (!indexType.isAbstractionOf(Type.I32) && !indexType.isAbstractionOf(Type.U32)) {
+        println(resolverState.resolvedEnvironment.typeOf(indexLookup.index))
+        throw IllegalArgumentException("Array index expression must be of type i32 or u32.")
+    }
+
+    /* When accessing an index through a memory view expression (i.e. through a pointer or reference),
+    a reference type is returned. The store type of the reference is the same as the type of the elements in the
+    target.
+
+    For example, consider the following code snippet in the body of a function. The type of arr is
+    ref<function, array<i32,2>, read_write>. The variable elem then has the type ref<function, i32, read_write>.
+
+        var arr = array<i32, 2>(0,1);
+        var elem = arr[0];
+
+    The same thing applies to arrays and matrices. In the following example, the variable mat has the type
+    ref<function, mat2x3<i32>, read_write>. The variable row has the type ref<function, vec3<i32>, read_write>.
+
+        var mat = mat2x3<i32>(vec3<i32>(0,1, 2), vec3<i32>(3,4,5));
+        var row = mat[0];
+     */
+    return when (val targetType = resolverState.resolvedEnvironment.typeOf(indexLookup.target)) {
+        // https://www.w3.org/TR/WGSL/#array-access-expr
+        is Type.Pointer -> {
+            val newStoreType = resolveDirectIndexType(targetType.pointeeType)
+            Type.Reference(newStoreType, targetType.addressSpace, targetType.accessMode)
+        }
+        // https://www.w3.org/TR/WGSL/#array-access-expr
+        is Type.Reference -> {
+            val newStoreType = resolveDirectIndexType(targetType.storeType)
+            Type.Reference(newStoreType, targetType.addressSpace, targetType.accessMode)
+        }
+        else -> resolveDirectIndexType(targetType)
+    }
+}
+
+private fun resolveTypeOfMemberLookupExpression(
+    memberLookup: Expression.MemberLookup,
+    resolverState: ResolverState,
+): Type {
+    fun resolveDirectMemberLookupType(receiverType: Type): Type =
+        when (receiverType) {
+            is Type.Struct ->
+                receiverType.members
+                    .firstOrNull {
+                        it.first == memberLookup.memberName
+                    }?.second
+                    ?: throw IllegalArgumentException(
+                        "Struct with type $receiverType does not have a member ${memberLookup.memberName}",
+                    )
+
+            is Type.Vector ->
+                // In the following, we could check whether the vector indices exist, e.g. using z on a vec2 is not be allowed.
+                if (memberLookup.memberName in setOf("x", "y", "z", "w", "r", "g", "b", "a")) {
+                    receiverType.elementType
+                } else if (isSwizzle(memberLookup.memberName)) {
+                    Type.Vector(memberLookup.memberName.length, receiverType.elementType)
+                } else {
+                    TODO()
+                }
+
+            else -> throw UnsupportedOperationException("Member lookup not implemented for receiver of type $receiverType")
+        }
+
+    /* When accessing a member through a memory view expression (i.e. through a pointer or reference),
+    a reference type is returned. The store type of the reference is the same as the type of the member in the
+    target.
+
+    For example, consider the following code snippet in the body of a function. The type of `t` is
+    ref<function, T, read_write>. The variable elem will then have the type ref<function, i32, read_write>.
+
+        struct T {
+            a: i32,
+        }
+        var t: T;
+        var elem = t.a;
+    */
+    return when (val receiverType = resolverState.resolvedEnvironment.typeOf(memberLookup.receiver)) {
+        // https://www.w3.org/TR/WGSL/#component-reference-from-vector-memory-view
+        is Type.Pointer -> {
+            val newStoreType = resolveDirectMemberLookupType(receiverType.pointeeType)
+            Type.Reference(newStoreType, receiverType.addressSpace, receiverType.accessMode)
+        }
+        // https://www.w3.org/TR/WGSL/#component-reference-from-vector-memory-view
+        is Type.Reference -> {
+            val newStoreType = resolveDirectMemberLookupType(receiverType.storeType)
+            Type.Reference(newStoreType, receiverType.addressSpace, receiverType.accessMode)
+        }
+
+        else -> resolveDirectMemberLookupType(receiverType)
+    }
+}
+
 private fun resolveLhsExpressionType(
     lhsExpression: LhsExpression,
     resolverState: ResolverState,
@@ -726,6 +793,8 @@ private fun resolveLhsExpressionType(
                         "type",
                 )
             }
+            // The AddressOf expression converts a pointer to a reference.
+            // https://www.w3.org/TR/WGSL/#address-of-expr
             Type.Pointer(referenceType.storeType, referenceType.addressSpace, referenceType.accessMode)
         }
         is LhsExpression.Dereference -> {
@@ -733,6 +802,8 @@ private fun resolveLhsExpressionType(
             if (pointerType !is Type.Pointer) {
                 throw RuntimeException("Dereference in LHS expression applied to expression ${lhsExpression.target} with non-pointer type")
             }
+            // The Indirection expression converts a reference to a pointer.
+            // https://www.w3.org/TR/WGSL/#indirection-expr
             Type.Reference(pointerType.pointeeType, pointerType.addressSpace, pointerType.accessMode)
         }
         is LhsExpression.Identifier -> {
@@ -836,6 +907,8 @@ private fun resolveUnary(
         if (pointerType !is Type.Pointer) {
             throw RuntimeException("Dereference applied to expression $expression with non-pointer type")
         }
+        // The Indirection expression converts a reference to a pointer.
+        // https://www.w3.org/TR/WGSL/#indirection-expr
         Type.Reference(pointerType.pointeeType, pointerType.addressSpace, pointerType.accessMode)
     }
 
@@ -844,12 +917,16 @@ private fun resolveUnary(
         if (referenceType !is Type.Reference) {
             throw RuntimeException("Address-of applied to expression $expression with non-reference type")
         }
+        // The AddressOf expression converts a pointer to a reference.
+        // https://www.w3.org/TR/WGSL/#address-of-expr
         Type.Pointer(referenceType.storeType, referenceType.addressSpace, referenceType.accessMode)
     }
 
     UnaryOperator.LOGICAL_NOT -> {
         val targetType = resolverState.resolvedEnvironment.typeOf(expression.target)
-        assert(targetType == Type.Bool || (targetType is Type.Reference && targetType.storeType is Type.Bool))
+        if (targetType.asStoreType() != Type.Bool) {
+            throw IllegalArgumentException("Logical not applied to expression $expression with non-bool type")
+        }
         Type.Bool
     }
 
@@ -2099,7 +2176,7 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
     val resolverState =
         ResolverState()
 
-    // Resolve name-introducing global decls in order, then other global decls
+// Resolve name-introducing global decls in order, then other global decls
     for (name in orderedGlobalDecls) {
         val astNode = nameToDecl[name]!!
         if (astNode is GlobalDecl.Function) {
