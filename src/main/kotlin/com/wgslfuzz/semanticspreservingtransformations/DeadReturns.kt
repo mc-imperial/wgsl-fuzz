@@ -56,54 +56,50 @@ private class InjectDeadReturns(
             enclosingFunctionReturnType = null
             result
         } else {
-            injections[node]?.let { injectionPoints ->
+            injections[node]?.let { indices ->
                 val compound = node as Statement.Compound
                 val newBody = mutableListOf<Statement>()
-                compound.statements.forEachIndexed { index, statement ->
-                    if (index in injectionPoints) {
+                for (index in 0..compound.statements.size) {
+                    if (index in indices) {
                         newBody.add(
-                            createDeadReturn(shaderJob.environment.scopeAvailableBefore(statement)),
+                            createDeadReturn(
+                                scope = shaderJob.environment.scopeAtIndex(compound, index),
+                            ),
                         )
                     }
-                    newBody.add(
-                        statement.clone {
-                            injectDeadReturns(it, injections)
-                        },
-                    )
-                }
-                if (compound.statements.size in injectionPoints) {
-                    newBody.add(
-                        createDeadReturn(shaderJob.environment.scopeAvailableAtEnd(compound)),
-                    )
+                    if (index < compound.statements.size) {
+                        newBody.add(
+                            compound.statements[index].clone {
+                                injectDeadReturns(it, injections)
+                            },
+                        )
+                    }
                 }
                 Statement.Compound(newBody)
             }
         }
 
-    private fun createDeadReturn(scope: Scope): AugmentedStatement.DeadCodeFragment =
-        AugmentedStatement.DeadCodeFragment(
-            Statement.If(
-                condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                thenBranch =
-                    Statement.Compound(
-                        listOf(
-                            Statement.Return(
-                                enclosingFunctionReturnType?.let {
-                                    generateArbitraryExpression(
-                                        depth = 0,
-                                        type = it,
-                                        sideEffectsAllowed = true,
-                                        fuzzerSettings = fuzzerSettings,
-                                        shaderJob = shaderJob,
-                                        scope = scope,
-                                    )
-                                },
-                            ),
-                        ),
-                    ),
-            ),
+    private fun createDeadReturn(scope: Scope): AugmentedStatement.DeadCodeFragment {
+        val returnStatement =
+            Statement.Return(
+                enclosingFunctionReturnType?.let {
+                    generateArbitraryExpression(
+                        depth = 0,
+                        type = it,
+                        sideEffectsAllowed = true,
+                        fuzzerSettings = fuzzerSettings,
+                        shaderJob = shaderJob,
+                        scope = scope,
+                    )
+                },
+            )
+        return deadDiscardOrReturn(
+            shaderJob = shaderJob,
+            fuzzerSettings = fuzzerSettings,
+            scope = scope,
+            discardOrReturn = returnStatement,
         )
+    }
 
     private fun selectInjectionPoints(
         node: AstNode,

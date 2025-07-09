@@ -25,8 +25,85 @@ import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
+
+/**
+ * For convenience this helper is shared with the pass that injects dead returns.
+ */
+fun deadDiscardOrReturn(
+    shaderJob: ShaderJob,
+    fuzzerSettings: FuzzerSettings,
+    scope: Scope,
+    discardOrReturn: Statement,
+): AugmentedStatement.DeadCodeFragment {
+    check(discardOrReturn is Statement.Discard || discardOrReturn is Statement.Return)
+    val deadStatement =
+        Statement.Compound(
+            listOf(discardOrReturn),
+        )
+    val choices =
+        mutableListOf(
+            1 to {
+                createIfFalseThenDeadStatement(
+                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                    includeEmptyElseBranch = false,
+                )
+            },
+            1 to {
+                createIfFalseThenDeadStatement(
+                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                    includeEmptyElseBranch = true,
+                )
+            },
+            2 to {
+                createIfTrueElseDeadStatement(
+                    trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                )
+            },
+            1 to {
+                createWhileFalseDeadStatement(
+                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                )
+            },
+            1 to {
+                createForWithFalseConditionDeadStatement(
+                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                    // TODO: with some probability, randomly pick a variable and perform a random update to it.
+                    unreachableUpdate = null,
+                )
+            },
+            1 to {
+                val includeContinuingStatement = fuzzerSettings.randomBool()
+                val breakIfExpr =
+                    if (includeContinuingStatement && fuzzerSettings.randomBool()) {
+                        generateArbitraryExpression(
+                            depth = 0,
+                            type = Type.Bool,
+                            sideEffectsAllowed = true,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        )
+                    } else {
+                        null
+                    }
+                createLoopWithUnconditionalBreakDeadStatement(
+                    trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                    includeContinuingStatement = includeContinuingStatement,
+                    breakIfExpr = breakIfExpr,
+                )
+            },
+        )
+    return choose(fuzzerSettings, choices)
+}
 
 private typealias DeadDiscardInjections = MutableMap<Statement.Compound, Set<Int>>
 
@@ -41,40 +118,30 @@ private class InjectDeadDiscards(
         node: AstNode?,
         injections: DeadDiscardInjections,
     ): AstNode? =
-        injections[node]?.let { injectionPoints ->
+        injections[node]?.let { indices ->
             val compound = node as Statement.Compound
             val newBody = mutableListOf<Statement>()
-            compound.statements.forEachIndexed { index, statement ->
-                if (index in injectionPoints) {
+            for (index in 0..compound.statements.size) {
+                if (index in indices) {
                     newBody.add(
-                        createDeadDiscard(shaderJob.environment.scopeAvailableBefore(statement)),
+                        deadDiscardOrReturn(
+                            shaderJob = shaderJob,
+                            fuzzerSettings = fuzzerSettings,
+                            scope = shaderJob.environment.scopeAtIndex(compound, index),
+                            discardOrReturn = Statement.Discard(),
+                        ),
                     )
                 }
-                newBody.add(
-                    statement.clone {
-                        injectDeadDiscards(it, injections)
-                    },
-                )
-            }
-            if (compound.statements.size in injectionPoints) {
-                newBody.add(
-                    createDeadDiscard(TODO()),
-                )
+                if (index < compound.statements.size) {
+                    newBody.add(
+                        compound.statements[index].clone {
+                            injectDeadDiscards(it, injections)
+                        },
+                    )
+                }
             }
             Statement.Compound(newBody)
         }
-
-    private fun createDeadDiscard(scope: Scope) =
-        AugmentedStatement.DeadCodeFragment(
-            Statement.If(
-                condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                thenBranch =
-                    Statement.Compound(
-                        listOf(Statement.Discard()),
-                    ),
-            ),
-        )
 
     private fun selectInjectionPoints(
         node: AstNode,
