@@ -763,7 +763,7 @@ private fun resolveTypeOfMemberLookupExpression(
         }
         var t: T;
         var elem = t.a;
-    */
+     */
     return when (val receiverType = resolverState.resolvedEnvironment.typeOf(memberLookup.receiver)) {
         // https://www.w3.org/TR/WGSL/#component-reference-from-vector-memory-view
         is Type.Pointer -> {
