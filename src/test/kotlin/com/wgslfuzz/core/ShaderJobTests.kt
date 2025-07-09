@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class ShaderJobTests {
-    private val exampleShaderText =
+    private val exampleShaderText1 =
         """
         struct S {
            a: i32,       // 1
@@ -49,7 +49,7 @@ class ShaderJobTests {
         }
         """.trimIndent()
 
-    private val exampleUniformBuffers =
+    private val exampleUniformBuffers1 =
         """
         [
             {
@@ -77,12 +77,53 @@ class ShaderJobTests {
         ]
         """.trimIndent()
 
+    private val exampleShaderText2 =
+        """
+            |@group(0) @binding(0) var<uniform> a: vec3<i32>;
+            |@group(0) @binding(1) var<uniform> b: i32;
+            |
+            |@vertex
+            |fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
+            |  return vec4f(pos, 0, 1);
+            |}
+            |
+            |@fragment
+            |fn fragmentMain() -> @location(0) vec4f {
+            |    if (a.x == 1 && a.y == 2 && a.z == 3 && b == 4) {
+            |       return vec4(1.0f, 0.0f, 0.0f, 1.0f);
+            |    }
+            |    return vec4(0.0f, 1.0f, 0.0f, 1.0f);
+            |}
+        """.trimMargin()
+
+    private val exampleUniformBuffers2 =
+        """
+            |[
+            |    {
+            |        "binding": 0,
+            |        "group": 0,
+            |        "data": [
+            |            1, 0, 0, 0,
+            |            2, 0, 0, 0,
+            |            3, 0, 0, 0
+            |        ]
+            |    },
+            |    {
+            |       "binding": 1,
+            |       "group": 0,
+            |       "data": [
+            |           4, 0, 0, 0
+            |       ]
+            |    }
+            |]
+        """.trimMargin()
+
     @Test
-    fun testSimpleUniformValues() {
-        val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(exampleUniformBuffers)
+    fun `Test createShaderJob with struct uniform type`() {
+        val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(exampleUniformBuffers1)
         val shaderJob =
             createShaderJob(
-                exampleShaderText,
+                exampleShaderText1,
                 uniformBuffers,
             )
         assertEquals(uniformBuffers, shaderJob.getByteLevelContentsForUniformBuffers())
@@ -103,5 +144,24 @@ class ShaderJobTests {
         assertEquals("9", (eExpr.args[1] as Expression.IntLiteral).text)
         assertEquals("10", (eExpr.args[2] as Expression.IntLiteral).text)
         assertEquals("11", (eExpr.args[3] as Expression.IntLiteral).text)
+    }
+
+    @Test
+    fun `Test createShaderJob without struct uniform type`() {
+        val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(exampleUniformBuffers2)
+        val shaderJob =
+            createShaderJob(
+                exampleShaderText2,
+                uniformBuffers,
+            )
+        assertEquals(uniformBuffers, shaderJob.getByteLevelContentsForUniformBuffers())
+
+        val a = shaderJob.pipelineState.getUniformValue(group = 0, binding = 0) as Expression.Vec3ValueConstructor
+        assertEquals("1", (a.args[0] as Expression.IntLiteral).text)
+        assertEquals("2", (a.args[1] as Expression.IntLiteral).text)
+        assertEquals("3", (a.args[2] as Expression.IntLiteral).text)
+
+        val b = shaderJob.pipelineState.getUniformValue(group = 0, binding = 1) as Expression.IntLiteral
+        assertEquals("4", b.text)
     }
 }
