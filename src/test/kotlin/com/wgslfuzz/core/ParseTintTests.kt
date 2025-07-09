@@ -94,7 +94,7 @@ class ParseTintTests {
                 // binding_array is not currently mentioned in the WGSL specification, but online
                 // research suggests that it is a naga extension.
                 text.contains("binding_array") ||
-                // TODO(JLJ): Unknown texel formats, trivial to support.
+                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/89): Unknown texel formats, trivial to support.
                 text.contains("textureDimensions") ||
                 text.contains("textureNumLayers") ||
                 text.contains("textureLoad") ||
