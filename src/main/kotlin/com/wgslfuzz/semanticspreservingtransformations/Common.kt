@@ -420,10 +420,10 @@ private fun generateArbitraryBool(
         return constantWithSameValueEverywhere(1, Type.Bool)
     }
 
-    val choices: List<Pair<Int, () -> AugmentedExpression.ArbitraryBoolExpression>> =
+    val choices: List<Pair<Int, () -> AugmentedExpression.ArbitraryExpression>> =
         listOf(
             fuzzerSettings.arbitraryBooleanExpressionWeights.not(depth) to {
-                AugmentedExpression.ArbitraryBoolExpression(
+                AugmentedExpression.ArbitraryExpression(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
                         target =
@@ -438,7 +438,7 @@ private fun generateArbitraryBool(
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.or(depth) to {
-                AugmentedExpression.ArbitraryBoolExpression(
+                AugmentedExpression.ArbitraryExpression(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_OR,
                         lhs =
@@ -461,7 +461,7 @@ private fun generateArbitraryBool(
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.and(depth) to {
-                AugmentedExpression.ArbitraryBoolExpression(
+                AugmentedExpression.ArbitraryExpression(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_AND,
                         lhs =
@@ -484,14 +484,14 @@ private fun generateArbitraryBool(
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.literal(depth) to {
-                AugmentedExpression.ArbitraryBoolExpression(
+                AugmentedExpression.ArbitraryExpression(
                     Expression.BoolLiteral(
                         text = fuzzerSettings.randomElement(listOf("true", "false")),
                     ),
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.variableFromScope(depth) to {
-                AugmentedExpression.ArbitraryBoolExpression(
+                AugmentedExpression.ArbitraryExpression(
                     randomVariableFromScope(scope, type = Type.Bool, fuzzerSettings),
                 )
             },

@@ -1089,7 +1089,7 @@ sealed interface AugmentedExpression :
     ) : AugmentedExpression
 
     @Serializable
-    class ArbitraryBoolExpression(
+    class ArbitraryExpression(
         val expression: Expression,
     ) : AugmentedExpression
 
