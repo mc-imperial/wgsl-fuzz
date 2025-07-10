@@ -22,6 +22,21 @@
  * 256 has been used as my infinity
  */
 
+/*
+ * The graph that is inputted into the input uniform.
+ * All node labels are prefixed with N.
+ * All arc weights have no prefix.
+ *        6
+ * N0 ---------- N1
+ * |             | \  1
+ * |             |   \
+ * |4            |2    N3
+ * |             |   /
+ * |      5      | /  4
+ * N4 ---------- N3
+ */
+
+
 struct Number {
    value: i32,
    unusedPadding: vec2<i32>
