@@ -1146,30 +1146,31 @@ sealed interface AugmentedStatement :
     AugmentedAstNode,
     Statement {
     /**
-     * A statement whose execution is guaranteed to have no observable effect due to the statement being guarded by a
-     * false condition, meaning that it is safe to remove the statement entirely, or manipulate the internals of the
-     * statement (under the false guard).
+     * A compound statement guarded by a false-by-construction condition (or equivalent), such as:
      *
-     * It is up to the client that creates such a statement to ensure that the statement guard really does evaluate to
-     * false. The augmented node merely serves as marker in the AST to indicate that this statement could be removed or
-     * manipulated in other ways without changing semantics.
+     * if (false-by-construction) {
+     *   // dead code
+     * }
+     *
+     * or:
+     *
+     * if (true-by-construction) {
+     *
+     * } else {
+     *   // dead code
+     * }
+     *
+     * or:
+     *
+     * while (false-by-construction) {
+     *   // dead code
+     * }
+     *
+     * It is up to the client that creates this kind of AST node to ensure that the provided statement really does have
+     * this property.
      */
     @Serializable
     class DeadCodeFragment(
         val statement: Statement,
-    ) : AugmentedStatement {
-        init {
-            when (statement) {
-                is Statement.If -> {
-                    require(statement.condition is AugmentedExpression.FalseByConstruction)
-                }
-                is Statement.While -> {
-                    require(statement.condition is AugmentedExpression.FalseByConstruction)
-                }
-                else -> {
-                    throw UnsupportedOperationException("Only 'if' and 'while' currently supported for dead statement.")
-                }
-            }
-        }
-    }
+    ) : AugmentedStatement
 }

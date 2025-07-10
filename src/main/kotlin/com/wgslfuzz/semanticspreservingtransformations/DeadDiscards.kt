@@ -25,9 +25,89 @@ import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
 
+// This file encapsulates the logic for injecting dead discards. While there is a lot in common with the logic for
+// injecting dead returns, breaks and continues, there are enough differences to make code sharing artificial (save for
+// certain helper functions).
+
+/**
+ * For convenience this helper is shared with the pass that injects dead returns.
+ */
+fun deadDiscardOrReturn(
+    shaderJob: ShaderJob,
+    fuzzerSettings: FuzzerSettings,
+    scope: Scope,
+    discardOrReturn: Statement,
+): AugmentedStatement.DeadCodeFragment {
+    check(discardOrReturn is Statement.Discard || discardOrReturn is Statement.Return)
+    val deadStatement =
+        Statement.Compound(
+            listOf(discardOrReturn),
+        )
+    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/98) The weights for these choices could be controlled via
+    //  fuzzer settings.
+    val choices =
+        mutableListOf(
+            2 to {
+                createIfFalseThenDeadStatement(
+                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                    includeEmptyElseBranch = fuzzerSettings.randomBool(),
+                )
+            },
+            2 to {
+                createIfTrueElseDeadStatement(
+                    trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                )
+            },
+            1 to {
+                createWhileFalseDeadStatement(
+                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                )
+            },
+            1 to {
+                createForWithFalseConditionDeadStatement(
+                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/99): with some probability, perhaps
+                    //  controlled via fuzzer settings, randomly pick a variable and perform a random update to it.
+                    unreachableUpdate = null,
+                )
+            },
+            1 to {
+                val includeContinuingStatement = fuzzerSettings.randomBool()
+                val breakIfExpr =
+                    if (includeContinuingStatement && fuzzerSettings.randomBool()) {
+                        generateArbitraryExpression(
+                            depth = 0,
+                            type = Type.Bool,
+                            sideEffectsAllowed = true,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        )
+                    } else {
+                        null
+                    }
+                createLoopWithUnconditionalBreakDeadStatement(
+                    trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                    deadStatement = deadStatement,
+                    includeContinuingStatement = includeContinuingStatement,
+                    breakIfExpr = breakIfExpr,
+                )
+            },
+        )
+    return choose(fuzzerSettings, choices)
+}
+
+/**
+ * See DeadBreakContinueInjections - the purpose of this typealias is similar.
+ */
 private typealias DeadDiscardInjections = MutableMap<Statement.Compound, Set<Int>>
 
 private class InjectDeadDiscards(
@@ -37,50 +117,47 @@ private class InjectDeadDiscards(
     private val functionToShaderStage: Map<String, Set<ShaderStage>> =
         runFunctionToShaderStageAnalysis(shaderJob.tu, shaderJob.environment)
 
+    /**
+     * See corresponding comment in DeadBreaksAndContinues.
+     */
     private fun injectDeadDiscards(
         node: AstNode?,
         injections: DeadDiscardInjections,
     ): AstNode? =
-        injections[node]?.let { injectionPoints ->
+        injections[node]?.let { indices ->
             val compound = node as Statement.Compound
             val newBody = mutableListOf<Statement>()
-            compound.statements.forEachIndexed { index, statement ->
-                if (index in injectionPoints) {
+            for (index in 0..compound.statements.size) {
+                if (index in indices) {
                     newBody.add(
-                        createDeadDiscard(shaderJob.environment.scopeAvailableBefore(statement)),
+                        deadDiscardOrReturn(
+                            shaderJob = shaderJob,
+                            fuzzerSettings = fuzzerSettings,
+                            scope = shaderJob.environment.scopeAtIndex(compound, index),
+                            discardOrReturn = Statement.Discard(),
+                        ),
                     )
                 }
-                newBody.add(
-                    statement.clone {
-                        injectDeadDiscards(it, injections)
-                    },
-                )
-            }
-            if (compound.statements.size in injectionPoints) {
-                newBody.add(
-                    createDeadDiscard(TODO()),
-                )
+                if (index < compound.statements.size) {
+                    newBody.add(
+                        compound.statements[index].clone {
+                            injectDeadDiscards(it, injections)
+                        },
+                    )
+                }
             }
             Statement.Compound(newBody)
         }
 
-    private fun createDeadDiscard(scope: Scope) =
-        AugmentedStatement.DeadCodeFragment(
-            Statement.If(
-                condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                thenBranch =
-                    Statement.Compound(
-                        listOf(Statement.Discard()),
-                    ),
-            ),
-        )
-
+    /**
+     * Traversal action function for randomly deciding where to inject.
+     */
     private fun selectInjectionPoints(
         node: AstNode,
         injectionPoints: DeadDiscardInjections,
     ) {
         if (node is GlobalDecl.Function) {
+            // Functions that might be called from non-fragment shaders must be skipped.
             functionToShaderStage[node.name]?.let {
                 if (ShaderStage.VERTEX in it || ShaderStage.COMPUTE in it) {
                     // Discards are only allowed in fragment shaders.
