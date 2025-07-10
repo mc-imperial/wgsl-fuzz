@@ -45,6 +45,15 @@ struct Number {
 const NUM_NODES = 5;
 
 @group(0) @binding(0) var<uniform> input: array<array<Number, NUM_NODES>, NUM_NODES>;
+
+/*
+ * This is the correct matrix output of the algorithm passed in as a uniform.
+ * [0, 6, 7, 8, 4]
+ * [6, 0, 1, 2, 7]
+ * [7, 1, 0, 3, 8]
+ * [8, 2, 3, 0, 5]
+ * [4, 7, 8, 5, 0]
+ */
 @group(0) @binding(1) var<uniform> correctOutput: array<array<Number, NUM_NODES>, NUM_NODES>;
 
 var<private> shortestPaths: array<array<i32, NUM_NODES>, NUM_NODES>;
