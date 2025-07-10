@@ -73,6 +73,8 @@ sealed interface Scope {
     val parent: Scope?
 
     fun getEntry(name: String): ScopeEntry?
+
+    fun getAllEntries(): List<ScopeEntry>
 }
 
 sealed interface ResolvedEnvironment {
@@ -128,6 +130,8 @@ private class ScopeImpl(
     }
 
     override fun getEntry(name: String): ScopeEntry? = entries[name] ?: parent?.getEntry(name)
+
+    override fun getAllEntries(): List<ScopeEntry> = entries.map { it.value } + (parent?.getAllEntries() ?: emptyList())
 }
 
 private class ResolvedEnvironmentImpl(
@@ -625,6 +629,7 @@ private fun resolveExpressionType(
         is AugmentedExpression.FalseByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.falseExpression)
         is AugmentedExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
         is AugmentedExpression.IdentityOperation -> resolverState.resolvedEnvironment.typeOf(expression.originalExpression)
+        is AugmentedExpression.ArbitraryBoolExpression -> resolverState.resolvedEnvironment.typeOf(expression.expression)
         is AugmentedExpression.KnownValue -> {
             val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue)
             val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression)
