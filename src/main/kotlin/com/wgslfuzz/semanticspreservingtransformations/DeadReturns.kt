@@ -28,6 +28,13 @@ import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
 
+// This file encapsulates the logic for injecting dead returns. While there is a lot in common with the logic for
+// injecting dead discards, breaks and continues, there are enough differences to make code sharing artificial (save for
+// certain helper functions).
+
+/**
+ * See DeadBreakContinueInjections - the purpose of this typealias is similar.
+ */
 private typealias DeadReturnInjections = MutableMap<Statement.Compound, Set<Int>>
 
 private class InjectDeadReturns(
@@ -36,14 +43,21 @@ private class InjectDeadReturns(
 ) {
     private var enclosingFunctionReturnType: Type? = null
 
+    /**
+     * See corresponding comment in DeadBreaksAndContinues.
+     */
     private fun injectDeadReturns(
         node: AstNode?,
         injections: DeadReturnInjections,
     ): AstNode? =
         if (node is GlobalDecl.Function) {
-            assert(enclosingFunctionReturnType == null)
+            // Intercepting function declarations is necessary to capture the return type of the function being
+            // traversed. This is important so that dead return statements can use the right return type.
+            check(enclosingFunctionReturnType == null)
             enclosingFunctionReturnType =
                 (shaderJob.environment.globalScope.getEntry(node.name) as ScopeEntry.Function).type.returnType
+            // Leave the function intact, except for its body which must be cloned with replacements that will inject
+            // dead returns.
             val result =
                 GlobalDecl.Function(
                     attributes = node.attributes,
@@ -56,6 +70,7 @@ private class InjectDeadReturns(
             enclosingFunctionReturnType = null
             result
         } else {
+            // The logic here is analogous to that in DeadBreaksAndContinues.
             injections[node]?.let { indices ->
                 val compound = node as Statement.Compound
                 val newBody = mutableListOf<Statement>()
@@ -80,6 +95,8 @@ private class InjectDeadReturns(
         }
 
     private fun createDeadReturn(scope: Scope): AugmentedStatement.DeadCodeFragment {
+        // Make a return statement, returning a randomly-generated expression of the right type when there is a return
+        // type.
         val returnStatement =
             Statement.Return(
                 enclosingFunctionReturnType?.let {

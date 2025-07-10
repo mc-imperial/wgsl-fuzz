@@ -29,6 +29,10 @@ import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
 
+// This file encapsulates the logic for injecting dead discards. While there is a lot in common with the logic for
+// injecting dead returns, breaks and continues, there are enough differences to make code sharing artificial (save for
+// certain helper functions).
+
 /**
  * For convenience this helper is shared with the pass that injects dead returns.
  */
@@ -43,20 +47,15 @@ fun deadDiscardOrReturn(
         Statement.Compound(
             listOf(discardOrReturn),
         )
+    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/98) The weights for these choices could be controlled via
+    //  fuzzer settings.
     val choices =
         mutableListOf(
-            1 to {
+            2 to {
                 createIfFalseThenDeadStatement(
                     falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
-                    includeEmptyElseBranch = false,
-                )
-            },
-            1 to {
-                createIfFalseThenDeadStatement(
-                    falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                    deadStatement = deadStatement,
-                    includeEmptyElseBranch = true,
+                    includeEmptyElseBranch = fuzzerSettings.randomBool(),
                 )
             },
             2 to {
@@ -75,7 +74,8 @@ fun deadDiscardOrReturn(
                 createForWithFalseConditionDeadStatement(
                     falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
-                    // TODO: with some probability, randomly pick a variable and perform a random update to it.
+                    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/99): with some probability, perhaps
+                    //  controlled via fuzzer settings, randomly pick a variable and perform a random update to it.
                     unreachableUpdate = null,
                 )
             },
@@ -105,6 +105,9 @@ fun deadDiscardOrReturn(
     return choose(fuzzerSettings, choices)
 }
 
+/**
+ * See DeadBreakContinueInjections - the purpose of this typealias is similar.
+ */
 private typealias DeadDiscardInjections = MutableMap<Statement.Compound, Set<Int>>
 
 private class InjectDeadDiscards(
@@ -114,6 +117,9 @@ private class InjectDeadDiscards(
     private val functionToShaderStage: Map<String, Set<ShaderStage>> =
         runFunctionToShaderStageAnalysis(shaderJob.tu, shaderJob.environment)
 
+    /**
+     * See corresponding comment in DeadBreaksAndContinues.
+     */
     private fun injectDeadDiscards(
         node: AstNode?,
         injections: DeadDiscardInjections,
@@ -143,11 +149,15 @@ private class InjectDeadDiscards(
             Statement.Compound(newBody)
         }
 
+    /**
+     * Traversal action function for randomly deciding where to inject.
+     */
     private fun selectInjectionPoints(
         node: AstNode,
         injectionPoints: DeadDiscardInjections,
     ) {
         if (node is GlobalDecl.Function) {
+            // Functions that might be called from non-fragment shaders must be skipped.
             functionToShaderStage[node.name]?.let {
                 if (ShaderStage.VERTEX in it || ShaderStage.COMPUTE in it) {
                     // Discards are only allowed in fragment shaders.
