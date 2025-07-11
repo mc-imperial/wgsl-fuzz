@@ -195,89 +195,72 @@ class ResolverTests {
         val a2 = fn.body.statements[1] as Statement.If
         val a2Body = a2.thenBranch
         val b1 = a2Body.statements[0]
-        val b2 = a2Body.statements[1]
         val a3 = a2.elseBranch as Statement.If
         val a3Body = a3.thenBranch
         val c1 = a3Body.statements[0]
-        val c2 = a3Body.statements[1]
         val a4 = a3.elseBranch as Statement.Compound
         val d1 = a4.statements[0]
-        val d2 = a4.statements[1]
-        val a5 = fn.body.statements[2]
 
         run {
-            val outerScope = environment.enclosingScope(a1)
-            assertSame(outerScope, environment.enclosingScope(a2))
-            assertSame(outerScope, environment.enclosingScope(a2Body))
-            assertSame(outerScope, environment.enclosingScope(a3))
-            assertSame(outerScope, environment.enclosingScope(a3Body))
-            assertSame(outerScope, environment.enclosingScope(a4))
-            assertSame(outerScope, environment.enclosingScope(a5))
-            assertSame(fn, outerScope.enclosingAstNode)
-            val outerEntryX = outerScope.getEntry("x") as ScopeEntry.Parameter
+            val scopeAtEndOfFunctionBody = environment.scopeAvailableAtEnd(fn.body)
+            val outerEntryX = scopeAtEndOfFunctionBody.getEntry("x") as ScopeEntry.Parameter
             assertSame(xParam, outerEntryX.astNode)
             assertEquals(Type.F32, outerEntryX.type)
-            val outerEntryV = outerScope.getEntry("v") as ScopeEntry.GlobalVariable
+            val outerEntryV = scopeAtEndOfFunctionBody.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, outerEntryV.astNode)
             assertEquals(Type.I32, outerEntryV.type)
-            val outerEntryY = outerScope.getEntry("y") as ScopeEntry.Parameter
+            val outerEntryY = scopeAtEndOfFunctionBody.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, outerEntryY.astNode)
             assertEquals(Type.I32, outerEntryY.type)
-            val outerEntryC = outerScope.getEntry("c") as ScopeEntry.LocalValue
+            val outerEntryC = scopeAtEndOfFunctionBody.getEntry("c") as ScopeEntry.LocalValue
             assertSame(a1, outerEntryC.astNode)
             assertEquals(Type.I32, outerEntryC.type)
         }
 
         run {
-            val innerScope1 = environment.enclosingScope(b1)
-            assertSame(innerScope1, environment.enclosingScope(b2))
-            assertSame(a2Body, innerScope1.enclosingAstNode)
-            val inner1EntryX = innerScope1.getEntry("x") as ScopeEntry.Parameter
+            val scopeAtEndOfThenBranch = environment.scopeAvailableAtEnd(a2Body)
+            val inner1EntryX = scopeAtEndOfThenBranch.getEntry("x") as ScopeEntry.Parameter
             assertSame(xParam, inner1EntryX.astNode)
             assertEquals(Type.F32, inner1EntryX.type)
-            val inner1EntryV = innerScope1.getEntry("v") as ScopeEntry.GlobalVariable
+            val inner1EntryV = scopeAtEndOfThenBranch.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, inner1EntryV.astNode)
             assertEquals(Type.I32, inner1EntryV.type)
-            val inner1EntryY = innerScope1.getEntry("y") as ScopeEntry.Parameter
+            val inner1EntryY = scopeAtEndOfThenBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner1EntryY.astNode)
             assertEquals(Type.I32, inner1EntryY.type)
-            val inner1EntryC = innerScope1.getEntry("c") as ScopeEntry.LocalVariable
+            val inner1EntryC = scopeAtEndOfThenBranch.getEntry("c") as ScopeEntry.LocalVariable
             assertSame(b1, inner1EntryC.astNode)
             assertEquals(Type.F32, inner1EntryC.type)
         }
 
         run {
-            val innerScope2 = environment.enclosingScope(c1)
-            assertSame(innerScope2, environment.enclosingScope(c2))
-            assertSame(a3Body, innerScope2.enclosingAstNode)
-            val inner2EntryX = innerScope2.getEntry("x") as ScopeEntry.Parameter
+            val scopeAtEndOfElseIfBranch = environment.scopeAvailableAtEnd(a3Body)
+            val inner2EntryX = scopeAtEndOfElseIfBranch.getEntry("x") as ScopeEntry.Parameter
             assertSame(xParam, inner2EntryX.astNode)
             assertEquals(Type.F32, inner2EntryX.type)
-            val inner2EntryV = innerScope2.getEntry("v") as ScopeEntry.LocalVariable
+            val inner2EntryV = scopeAtEndOfElseIfBranch.getEntry("v") as ScopeEntry.LocalVariable
             assertSame(c1, inner2EntryV.astNode)
             assertEquals(Type.F32, inner2EntryV.type)
-            val inner2EntryY = innerScope2.getEntry("y") as ScopeEntry.Parameter
+            val inner2EntryY = scopeAtEndOfElseIfBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner2EntryY.astNode)
             assertEquals(Type.I32, inner2EntryY.type)
-            val inner2EntryC = innerScope2.getEntry("c") as ScopeEntry.LocalValue
+            val inner2EntryC = scopeAtEndOfElseIfBranch.getEntry("c") as ScopeEntry.LocalValue
             assertSame(a1, inner2EntryC.astNode)
             assertEquals(Type.I32, inner2EntryC.type)
         }
 
         run {
-            val innerScope3 = environment.enclosingScope(d1)
-            assertSame(innerScope3, environment.enclosingScope(d2))
-            assertSame(a4, innerScope3.enclosingAstNode)
-            val inner3EntryX = innerScope3.getEntry("x") as ScopeEntry.Parameter
+            val scopeAtEndOfElseBranch = environment.scopeAvailableAtEnd(a4)
+            val inner3EntryX = scopeAtEndOfElseBranch.getEntry("x") as ScopeEntry.Parameter
             assertSame(xParam, inner3EntryX.astNode)
             assertEquals(Type.F32, inner3EntryX.type)
-            val inner3EntryV = innerScope3.getEntry("v") as ScopeEntry.GlobalVariable
+            val inner3EntryV = scopeAtEndOfElseBranch.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, inner3EntryV.astNode)
             assertEquals(Type.I32, inner3EntryV.type)
-            val inner3EntryY = innerScope3.getEntry("y") as ScopeEntry.Parameter
+            val inner3EntryY = scopeAtEndOfElseBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner3EntryY.astNode)
             assertEquals(Type.I32, inner3EntryY.type)
-            val inner3EntryC = innerScope3.getEntry("c") as ScopeEntry.LocalVariable
+            val inner3EntryC = scopeAtEndOfElseBranch.getEntry("c") as ScopeEntry.LocalVariable
             assertSame(d1, inner3EntryC.astNode)
             assertEquals(Type.Bool, inner3EntryC.type)
         }
@@ -318,15 +301,23 @@ class ResolverTests {
         val forLoopUpdate = forLoop.update!!
         val forLoopFirstStatement = forLoop.body.statements[0]
 
-        val scopeEnclosingForLoop = environment.enclosingScope(forLoop)
-        val scopeEnclosingForLoopInit = environment.enclosingScope(forLoopInit)
-        val scopeEnclosingForLoopFirstStatement = environment.enclosingScope(forLoopFirstStatement)
-        assertNotSame(scopeEnclosingForLoop, scopeEnclosingForLoopInit)
-        assertNotSame(scopeEnclosingForLoop, scopeEnclosingForLoopFirstStatement)
-        assertNotSame(scopeEnclosingForLoopInit, scopeEnclosingForLoopFirstStatement)
-        assertSame(scopeEnclosingForLoopInit, environment.enclosingScope(forLoopUpdate))
-        assertNotSame(scopeEnclosingForLoopInit.getEntry("i"), scopeEnclosingForLoopFirstStatement.getEntry("i"))
-        assertNull(scopeEnclosingForLoop.getEntry("i"))
+        val scopeBeforeForLoop = environment.scopeAvailableBefore(forLoop)
+        assertNull(scopeBeforeForLoop.getEntry("i"))
+
+        val scopeBeforeForLoopInit = environment.scopeAvailableBefore(forLoopInit)
+        assertNull(scopeBeforeForLoopInit.getEntry("i"))
+
+        val scopeBeforeForLoopUpdate = environment.scopeAvailableBefore(forLoopUpdate)
+        val loopVariable = scopeBeforeForLoopUpdate.getEntry("i")
+        assertNotNull(loopVariable)
+
+        val scopeBeforeForLoopFirstStatement = environment.scopeAvailableBefore(forLoopFirstStatement)
+        val loopVariableAgain = scopeBeforeForLoopFirstStatement.getEntry("i")
+        assertSame(loopVariable, loopVariableAgain)
+
+        val scopeAtEndOfForLoopBody = environment.scopeAvailableAtEnd(forLoop.body)
+        val differentVariable = scopeAtEndOfForLoopBody.getEntry("i")
+        assertNotSame(differentVariable, loopVariable)
     }
 
     @Test
@@ -349,45 +340,84 @@ class ResolverTests {
         val errorListener = LoggingParseErrorListener()
         val tu = parseFromString(input, errorListener)
         val environment = resolve(tu)
-        val loopStatement = (tu.globalDecls[0] as GlobalDecl.Function).body.statements[1] as Statement.Loop
+
+        val functionBody = (tu.globalDecls[0] as GlobalDecl.Function).body
+
+        val declBeforeLoopStatement = functionBody.statements[0]
+        val scopeBeforeDeclBeforeLoopStatement = environment.scopeAvailableBefore(declBeforeLoopStatement)
+
+        val loopStatement = functionBody.statements[1] as Statement.Loop
+        val scopeBeforeLoopStatement = environment.scopeAvailableBefore(loopStatement)
+
         val loopBody = loopStatement.body
+        val scopeBeforeLoopBody = environment.scopeAvailableBefore(loopBody)
+
         val firstStatementInLoop = loopBody.statements[0]
+        val scopeBeforeFirstStatementInLoop = environment.scopeAvailableBefore(firstStatementInLoop)
+
         val continuingStatementCompound = loopStatement.continuingStatement!!.statements
+        val scopeBeforeContinuingStatementCompound = environment.scopeAvailableBefore(continuingStatementCompound)
+
         val continuingStatementFirstInnerStatement = continuingStatementCompound.statements[0]
+        val scopeBeforeContinuingStatementFirstInnerStatement = environment.scopeAvailableBefore(continuingStatementFirstInnerStatement)
 
-        val enclosingScopeLoopStatement = environment.enclosingScope(loopStatement)
-        val enclosingScopeLoopBody = environment.enclosingScope(loopBody)
-        val enclosingScopeFirstStatementInLoop = environment.enclosingScope(firstStatementInLoop)
-        val enclosingScopeContinuingStatementCompound = environment.enclosingScope(continuingStatementCompound)
-        val enclosingScopeContinuingStatementFirstInnerStatement = environment.enclosingScope(continuingStatementFirstInnerStatement)
+        val continuingStatementSecondInnerStatement = continuingStatementCompound.statements[1]
+        val scopeBeforeContinuingStatementSecondInnerStatement = environment.scopeAvailableBefore(continuingStatementSecondInnerStatement)
 
-        assertNotSame(enclosingScopeLoopStatement, enclosingScopeLoopBody)
-        assertNotSame(enclosingScopeLoopStatement, enclosingScopeFirstStatementInLoop)
-        assertNotSame(enclosingScopeLoopStatement, enclosingScopeContinuingStatementCompound)
-        assertNotSame(enclosingScopeLoopStatement, enclosingScopeContinuingStatementFirstInnerStatement)
+        val continuingStatementThirdInnerStatement = continuingStatementCompound.statements[2]
+        val scopeBeforeContinuingStatementThirdInnerStatement = environment.scopeAvailableBefore(continuingStatementThirdInnerStatement)
 
-        // These DO have the same scope: the loop construct itself introduces the scope (rather than the compound)
-        assertSame(enclosingScopeLoopBody, enclosingScopeFirstStatementInLoop)
+        val scopeAtEndOfContinuing = environment.scopeAvailableAtEnd(continuingStatementCompound)
+        val scopeAtEndOfLoopBody = environment.scopeAvailableAtEnd(loopBody)
+        val scopeAtEndOfFunctionBody = environment.scopeAvailableAtEnd(functionBody)
 
-        assertNotSame(enclosingScopeLoopBody, enclosingScopeContinuingStatementCompound)
-        assertNotSame(enclosingScopeLoopBody, enclosingScopeContinuingStatementFirstInnerStatement)
+        assertNull(scopeBeforeDeclBeforeLoopStatement.getEntry("i"))
+        assertNull(scopeBeforeDeclBeforeLoopStatement.getEntry("j"))
+        assertNull(scopeBeforeDeclBeforeLoopStatement.getEntry("x"))
 
-        // These DO have the same scope: the continuing statement itself introduces the scope (rather than the compound)
-        assertSame(enclosingScopeContinuingStatementCompound, enclosingScopeContinuingStatementFirstInnerStatement)
+        val declOfI = scopeBeforeLoopStatement.getEntry("i")
+        assertNotNull(declOfI)
+        assertNull(scopeBeforeLoopStatement.getEntry("j"))
+        assertNull(scopeBeforeLoopStatement.getEntry("x"))
 
-        assertNotNull(enclosingScopeLoopStatement.getEntry("i"))
-        assertNull(enclosingScopeLoopStatement.getEntry("x"))
-        assertNull(enclosingScopeLoopStatement.getEntry("j"))
+        assertSame(declOfI, scopeBeforeLoopBody.getEntry("i"))
+        assertNull(scopeBeforeLoopBody.getEntry("j"))
+        assertNull(scopeBeforeLoopBody.getEntry("x"))
 
-        assertNotNull(enclosingScopeLoopBody.getEntry("i"))
-        assertNotNull(enclosingScopeLoopBody.getEntry("x"))
-        assertNull(enclosingScopeLoopBody.getEntry("j"))
+        assertSame(declOfI, scopeBeforeFirstStatementInLoop.getEntry("i"))
+        assertNull(scopeBeforeFirstStatementInLoop.getEntry("j"))
+        assertNull(scopeBeforeFirstStatementInLoop.getEntry("x"))
 
-        assertNotNull(enclosingScopeContinuingStatementCompound.getEntry("i"))
-        assertNotNull(enclosingScopeContinuingStatementCompound.getEntry("x"))
-        assertNotNull(enclosingScopeContinuingStatementCompound.getEntry("j"))
+        assertSame(declOfI, scopeBeforeContinuingStatementCompound.getEntry("i"))
+        assertNull(scopeBeforeContinuingStatementCompound.getEntry("j"))
+        val outerDeclOfX = scopeBeforeContinuingStatementCompound.getEntry("x")
+        assertNotNull(outerDeclOfX)
 
-        assertNotSame(enclosingScopeLoopBody.getEntry("x"), enclosingScopeContinuingStatementCompound.getEntry("x"))
+        assertSame(declOfI, scopeBeforeContinuingStatementFirstInnerStatement.getEntry("i"))
+        assertNull(scopeBeforeContinuingStatementFirstInnerStatement.getEntry("j"))
+        assertSame(outerDeclOfX, scopeBeforeContinuingStatementFirstInnerStatement.getEntry("x"))
+
+        assertSame(declOfI, scopeBeforeContinuingStatementSecondInnerStatement.getEntry("i"))
+        val innerDeclOfX = scopeBeforeContinuingStatementSecondInnerStatement.getEntry("x")
+        assertNotNull(innerDeclOfX)
+        assertNotSame(outerDeclOfX, innerDeclOfX)
+        assertNull(scopeBeforeContinuingStatementSecondInnerStatement.getEntry("j"))
+
+        assertSame(declOfI, scopeBeforeContinuingStatementThirdInnerStatement.getEntry("i"))
+        assertSame(innerDeclOfX, scopeBeforeContinuingStatementThirdInnerStatement.getEntry("x"))
+        assertNull(scopeBeforeContinuingStatementThirdInnerStatement.getEntry("j"))
+
+        assertSame(declOfI, scopeAtEndOfContinuing.getEntry("i"))
+        assertSame(innerDeclOfX, scopeAtEndOfContinuing.getEntry("x"))
+        assertNotNull(scopeAtEndOfContinuing.getEntry("j"))
+
+        assertSame(declOfI, scopeAtEndOfLoopBody.getEntry("i"))
+        assertSame(outerDeclOfX, scopeAtEndOfLoopBody.getEntry("x"))
+        assertNull(scopeAtEndOfLoopBody.getEntry("j"))
+
+        assertSame(declOfI, scopeAtEndOfFunctionBody.getEntry("i"))
+        assertNull(scopeAtEndOfFunctionBody.getEntry("x"))
+        assertNull(scopeAtEndOfFunctionBody.getEntry("j"))
     }
 
     @Test
