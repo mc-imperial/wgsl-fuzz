@@ -22,6 +22,7 @@ import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.GlobalDecl
+import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
@@ -46,7 +47,7 @@ private class InjectDeadDiscards(
             compound.statements.forEachIndexed { index, statement ->
                 if (index in injectionPoints) {
                     newBody.add(
-                        createDeadDiscard(),
+                        createDeadDiscard(shaderJob.environment.scopeAvailableBefore(statement)),
                     )
                 }
                 newBody.add(
@@ -57,17 +58,17 @@ private class InjectDeadDiscards(
             }
             if (compound.statements.size in injectionPoints) {
                 newBody.add(
-                    createDeadDiscard(),
+                    createDeadDiscard(TODO()),
                 )
             }
             Statement.Compound(newBody)
         }
 
-    private fun createDeadDiscard() =
+    private fun createDeadDiscard(scope: Scope) =
         AugmentedStatement.DeadCodeFragment(
             Statement.If(
                 condition =
-                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob),
+                    generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                 thenBranch =
                     Statement.Compound(
                         listOf(Statement.Discard()),

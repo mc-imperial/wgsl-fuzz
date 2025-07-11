@@ -19,6 +19,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
@@ -169,6 +170,7 @@ private fun generateFalseByConstructionExpression(
     depth: Int,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
+    scope: Scope,
 ): AugmentedExpression.FalseByConstruction {
     if (depth >= fuzzerSettings.maxDepth) {
         return AugmentedExpression.FalseByConstruction(
@@ -188,13 +190,14 @@ private fun generateFalseByConstructionExpression(
                 AugmentedExpression.FalseByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
+                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
                         generateArbitraryExpression(
                             depth = depth + 1,
                             type = Type.Bool,
                             sideEffectsAllowed = true,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
+                            scope = scope,
                         ),
                     ),
                 )
@@ -210,8 +213,9 @@ private fun generateFalseByConstructionExpression(
                             sideEffectsAllowed = false, // No side effects as this will be executable
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
+                            scope = scope,
                         ),
-                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
+                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
                     ),
                 )
             },
@@ -220,7 +224,7 @@ private fun generateFalseByConstructionExpression(
                 AugmentedExpression.FalseByConstruction(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
-                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
+                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
                     ),
                 )
             },
@@ -247,6 +251,7 @@ private fun generateTrueByConstructionExpression(
     depth: Int,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
+    scope: Scope,
 ): AugmentedExpression.TrueByConstruction {
     if (depth >= fuzzerSettings.maxDepth) {
         return AugmentedExpression.TrueByConstruction(
@@ -266,13 +271,14 @@ private fun generateTrueByConstructionExpression(
                 AugmentedExpression.TrueByConstruction(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
+                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
                         generateArbitraryExpression(
                             depth = depth + 1,
                             type = Type.Bool,
                             sideEffectsAllowed = true,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
+                            scope = scope,
                         ),
                     ),
                 )
@@ -288,8 +294,9 @@ private fun generateTrueByConstructionExpression(
                             sideEffectsAllowed = false, // No side effects as this will be executable
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
+                            scope = scope,
                         ),
-                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
+                        generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
                     ),
                 )
             },
@@ -298,7 +305,7 @@ private fun generateTrueByConstructionExpression(
                 AugmentedExpression.TrueByConstruction(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
-                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob),
+                        generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
                     ),
                 )
             },
@@ -330,12 +337,14 @@ private fun generateTrueByConstructionExpression(
 fun generateFalseByConstructionExpression(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
-): AugmentedExpression.FalseByConstruction = generateFalseByConstructionExpression(0, fuzzerSettings, shaderJob)
+    scope: Scope,
+): AugmentedExpression.FalseByConstruction = generateFalseByConstructionExpression(0, fuzzerSettings, shaderJob, scope)
 
 fun generateTrueByConstructionExpression(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
-): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, shaderJob)
+    scope: Scope,
+): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, shaderJob, scope)
 
 fun generateArbitraryExpression(
     depth: Int,
@@ -343,6 +352,7 @@ fun generateArbitraryExpression(
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
+    scope: Scope,
 ): Expression {
     // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
     return constantWithSameValueEverywhere(1, type)
