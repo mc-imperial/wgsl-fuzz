@@ -29,6 +29,7 @@ def exclude_dirname(f: str):
             ".git",
             ".idea",
             ".gradle",
+            ".kotlin",
             ".vscode",
             "external",
         ]
