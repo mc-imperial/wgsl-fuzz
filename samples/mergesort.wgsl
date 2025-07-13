@@ -58,12 +58,6 @@ fn merge(fromIndex: i32, midIndex: i32, toIndex: i32) {
     i++;
   }
 
-  while (j < ARRAY_LENGTH && j <= toIndex) {
-      temp[k] = data[j];
-      k++;
-      j++;
-    }
-
   for (var i = fromIndex; i <= toIndex; i++) {
     data[i] = temp[i];
   }
@@ -77,7 +71,7 @@ fn mergeSort() {
     for (var i = low; i < high; i += 2 * m) {
       let fromIndex = i;
       let midIndex = i + m - 1;
-      let toIndex = min(i + 2 * m - 1, high);
+      let toIndex = min(i + (2 * m) - 1, high);
       merge(fromIndex, midIndex, toIndex);
     }
   }
