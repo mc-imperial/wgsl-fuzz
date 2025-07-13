@@ -93,7 +93,11 @@ class ParseTintTests {
                 text.contains("enable subgroups") ||
                 // binding_array is not currently mentioned in the WGSL specification, but online
                 // research suggests that it is a naga extension.
-                text.contains("binding_array")
+                text.contains("binding_array") ||
+                // texel_buffers cannot be found within the WGSL specification. It is a proposal
+                // which is under active development and has not been standardised yet.
+                // Link to proposal: https://github.com/gpuweb/gpuweb/blob/main/proposals/texel-buffers.md
+                text.contains("texel_buffers")
             ) {
                 return@forEach
             }
