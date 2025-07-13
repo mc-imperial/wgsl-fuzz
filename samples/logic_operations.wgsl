@@ -19,6 +19,10 @@
  * Original shader: https://github.com/google/graphicsfuzz/blob/master/shaders/src/main/glsl/samples/320es/stable_logicops.frag
  */
 
+ @group(0) @binding(0) var<uniform> pointFour: f32;
+ @group(0) @binding(1) var<uniform> pointSix: f32;
+ @group(0) @binding(2) var<uniform> num256: i32;
+
 fn toNumber(b: bool) -> f32 {
     if (b) {
         return 1;
@@ -33,22 +37,28 @@ fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
 
 @fragment
 fn fragmentMain(@builtin(position) gl_FragCoord: vec4f) -> @location(0) vec4f {
-    let coord = gl_FragCoord.xy * (1.0 / 256.0);
+    if (pointFour != 0.4 || pointSix != 0.6 || num256 != 256) {
+      return vec4(0, 1, 0, 1);
+    }
 
-    if (coord.x > 0.4) {
-        if (coord.y < 0.6) {
-            let icoord = vec2<u32>(((coord - vec2(0.4, 0.0)) * vec2(1.0 / 0.4, 1.0 / 0.6)) * 256.0);
+    let coord = gl_FragCoord.xy * (1.0 / f32(num256));
+
+    if (coord.x > pointFour) {
+        if (coord.y < pointSix) {
+            let icoord = vec2<u32>(
+              ((coord - vec2(pointFour, 0.0)) * vec2(1.0 / pointFour, 1.0 / pointSix)) * f32(num256)
+            );
 
             let res1 = u32(((icoord.x * icoord.y) >> (icoord.x & u32(31))) & u32(0xffffffff));
-            let res2 = u32(((icoord.x * icoord.y) >> (icoord.x & u32(31))) & u32(0xffffffff));
+            let res2 = u32(((icoord.x * icoord.y) << (icoord.x & u32(31))) & u32(0xffffffff));
 
-            var res3 = 0;
-            if ((res2 & u32(0x80000000)) != 0) {
+            var res3: u32 = 0;
+            if ((res2 & u32(0x80000000)) != u32(0)) {
                 res3 = 1;
             }
 
-            var res4 = 0;
-            if ((res1 & 1) != 0) {
+            var res4: u32 = 0;
+            if ((res1 & u32(1)) != 0) {
                 res4 = 1;
             }
 
@@ -56,7 +66,9 @@ fn fragmentMain(@builtin(position) gl_FragCoord: vec4f) -> @location(0) vec4f {
 
             return vec4(res, res, res, 1);
         } else {
-            let icoord = vec2<u32>(((coord - vec2(0.4, 0.6)) * vec2(1.0 / 0.4, 1.0 / 0.4)) * 256);
+            let icoord = vec2<i32>(
+              ((coord - vec2(pointFour, pointSix)) * vec2(1.0 / pointFour, 1.0 / pointFour)) * f32(num256)
+            );
 
             let res3 = i32(((icoord.x >> 5) & 1) ^ ((icoord.y & 32) >> 5));
             let res2 = i32(((icoord.y * icoord.y) >> 10) & 1);
@@ -65,7 +77,7 @@ fn fragmentMain(@builtin(position) gl_FragCoord: vec4f) -> @location(0) vec4f {
             return vec4(f32(res1 ^ res2), f32(res2 & res3), f32(res1 | res3), 1);
         }
     } else {
-        let icoord = vec2<u32>(((coord - vec2(0.4, 0.0)) * vec2(1.0 / 0.6, 1.0)) * 256);
+        let icoord = vec2<i32>(((coord - vec2(pointFour, 0.0)) * vec2(1.0 / pointSix, 1.0)) * f32(num256));
 
         let v = i32((icoord.x ^ icoord.y) * icoord.y);
 
