@@ -47,7 +47,9 @@ fun runStatementBehaviourAnalysis(tu: TranslationUnit): Map<Statement, Set<State
         behaviourMap: Pair<StatementBehaviourMap, FunctionBehaviourMap>,
     ) {
         when (node) {
-            is GlobalDecl.Function -> functionBehaviour(node, behaviourMap.first, behaviourMap.second)
+            is GlobalDecl.Function -> {
+                behaviourMap.second[node.name] = functionBehaviour(node, behaviourMap.first, behaviourMap.second)
+            }
             else -> null
         }
     }
@@ -189,6 +191,6 @@ private fun statementBehaviour(
             is AugmentedStatement.DeadCodeFragment -> setOf(StatementBehaviour.NEXT)
         }
 
-    behaviourMap.put(statement, behaviour)
+    behaviourMap[statement] = behaviour
     return behaviour
 }
