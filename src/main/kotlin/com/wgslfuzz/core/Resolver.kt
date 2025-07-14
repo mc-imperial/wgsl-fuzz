@@ -586,7 +586,7 @@ private fun nodeIntroducesNewScope(
             parentNode !is ContinuingStatement
     )
 
-private fun Type.asStoreType(): Type =
+private fun Type.asStoreTypeIfReference(): Type =
     when (this) {
         is Type.Reference -> this.storeType
         else -> this
@@ -661,8 +661,8 @@ private fun resolveExpressionType(
         is AugmentedExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
         is AugmentedExpression.IdentityOperation -> resolverState.resolvedEnvironment.typeOf(expression.originalExpression)
         is AugmentedExpression.KnownValue -> {
-            val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue).asStoreType()
-            val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression).asStoreType()
+            val knownValueType = resolverState.resolvedEnvironment.typeOf(expression.knownValue).asStoreTypeIfReference()
+            val expressionType = resolverState.resolvedEnvironment.typeOf(expression.expression).asStoreTypeIfReference()
             if (knownValueType != expressionType) {
                 throw RuntimeException("Types for known value expression and its corresponding obfuscated expression do not match.")
             }
@@ -686,7 +686,7 @@ private fun resolveTypeOfIndexLookupExpression(
 
     // Check the type of the index is i32 or u32.
     // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/94): This is not really strict enough.
-    val indexType = resolverState.resolvedEnvironment.typeOf(indexLookup.index).asStoreType()
+    val indexType = resolverState.resolvedEnvironment.typeOf(indexLookup.index).asStoreTypeIfReference()
     if (!indexType.isAbstractionOf(Type.I32) && !indexType.isAbstractionOf(Type.U32)) {
         println(resolverState.resolvedEnvironment.typeOf(indexLookup.index))
         throw IllegalArgumentException("Array index expression must be of type i32 or u32.")
@@ -924,7 +924,7 @@ private fun resolveUnary(
 
     UnaryOperator.LOGICAL_NOT -> {
         val targetType = resolverState.resolvedEnvironment.typeOf(expression.target)
-        if (targetType.asStoreType() != Type.Bool) {
+        if (targetType.asStoreTypeIfReference() != Type.Bool) {
             throw IllegalArgumentException("Logical not applied to expression $expression with non-bool type")
         }
         Type.Bool
@@ -937,8 +937,8 @@ private fun resolveBinary(
     resolverState: ResolverState,
     expression: Expression.Binary,
 ): Type {
-    val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs).asStoreType()
-    val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs).asStoreType()
+    val lhsType = resolverState.resolvedEnvironment.typeOf(expression.lhs).asStoreTypeIfReference()
+    val rhsType = resolverState.resolvedEnvironment.typeOf(expression.rhs).asStoreTypeIfReference()
     return when (val operator = expression.operator) {
         BinaryOperator.LESS_THAN,
         BinaryOperator.LESS_THAN_EQUAL,
@@ -1079,7 +1079,7 @@ private fun resolveTypeOfVectorValueConstructor(
         } else {
             var candidateElementType: Type.Scalar? = null
             for (arg in expression.args) {
-                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).asStoreType()
+                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).asStoreTypeIfReference()
                 when (elementTypeForArg) {
                     is Type.Scalar -> {
                         // Nothing to do
@@ -1116,7 +1116,7 @@ private fun resolveTypeOfMatrixValueConstructor(
         } ?: run {
             var candidateElementType: Type.Scalar? = null
             for (arg in expression.args) {
-                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).asStoreType()
+                var elementTypeForArg = resolverState.resolvedEnvironment.typeOf(arg).asStoreTypeIfReference()
                 when (elementTypeForArg) {
                     is Type.Float -> {
                         // Nothing to do
@@ -1274,8 +1274,8 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("cross builtin takes two arguments")
                     }
-                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
-                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreType()
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()
                     if (arg1Type !is Type.Vector || arg2Type !is Type.Vector) {
                         throw RuntimeException("cross builtin requires vector arguments")
                     }
@@ -1294,7 +1294,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("determinant builtin function requires one argument")
                     }
-                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
+                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (argType !is Type.Matrix) {
                         throw RuntimeException("determinant builtin function requires a matrix argument")
                     }
@@ -1307,7 +1307,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("$calleeName requires two arguments")
                     }
-                    val commonType = findCommonType(functionCallExpression.args, resolverState).asStoreType()
+                    val commonType = findCommonType(functionCallExpression.args, resolverState).asStoreTypeIfReference()
                     if (commonType is Type.Vector) {
                         commonType.elementType
                     } else {
@@ -1318,7 +1318,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 2) {
                         throw RuntimeException("dot requires two arguments")
                     }
-                    val commonType = findCommonType(functionCallExpression.args, resolverState).asStoreType()
+                    val commonType = findCommonType(functionCallExpression.args, resolverState).asStoreTypeIfReference()
                     if (commonType is Type.Vector) {
                         commonType.elementType
                     } else {
@@ -1343,7 +1343,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("frexp requires one argument")
                     }
-                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
+                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()) {
                         Type.F16 -> FrexpResultF16
                         Type.F32 -> FrexpResultF32
                         Type.AbstractFloat, Type.AbstractInteger -> FrexpResultAbstract
@@ -1402,7 +1402,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("length requires one argument")
                     }
-                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
+                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()) {
                         is Type.Float -> argType
                         is Type.Vector -> argType.elementType
                         else -> throw RuntimeException("Unsupported argument type for length builtin function")
@@ -1434,7 +1434,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("modf requires one argument")
                     }
-                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
+                    when (val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()) {
                         Type.F16 -> ModfResultF16
                         Type.F32 -> ModfResultF32
                         Type.AbstractFloat -> ModfResultAbstract
@@ -1484,7 +1484,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size !in 1..2) {
                         throw RuntimeException("textureDimensions requires two arguments")
                     }
-                    val textureType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
+                    val textureType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (textureType !is Type.Texture) {
                         throw RuntimeException("Type of first argument to textureDimensions must be a texture")
                     }
@@ -1529,14 +1529,14 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size < 2) {
                         throw RuntimeException("$calleeName requires at least 2 arguments")
                     }
-                    when (resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()) {
+                    when (resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()) {
                         Type.Texture.Depth2D, Type.Texture.DepthCube, Type.Texture.Depth2DArray, Type.Texture.DepthCubeArray ->
                             Type.Vector(
                                 4,
                                 Type.F32,
                             )
                         else -> {
-                            when (val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreType()) {
+                            when (val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()) {
                                 is Type.Texture.Sampled -> Type.Vector(4, arg2Type.sampledType)
                                 else -> throw RuntimeException("$calleeName requires a suitable texture as its first or second argument")
                             }
@@ -1548,7 +1548,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.isEmpty()) {
                         throw RuntimeException("textureLoad requires a first argument of texture type")
                     }
-                    val textureArg = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
+                    val textureArg = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (textureArg !is Type.Texture) {
                         throw RuntimeException("textureLoad requires a first argument of texture type")
                     }
@@ -1574,7 +1574,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     } else {
                         when (
                             val textureType =
-                                resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
+                                resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                         ) {
                             is Type.Texture.Sampled ->
                                 if (textureType.sampledType is Type.F32) {
@@ -1594,7 +1594,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("$calleeName requires one argument")
                     }
-                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreType()
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (arg1Type is Type.Matrix) {
                         Type.Matrix(
                             numCols = arg1Type.numRows,
