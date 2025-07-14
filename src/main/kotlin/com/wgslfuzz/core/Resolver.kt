@@ -586,7 +586,7 @@ private fun nodeIntroducesNewScope(
             parentNode !is ContinuingStatement
     )
 
-private fun Type.asStoreTypeIfReference(): Type =
+fun Type.asStoreTypeIfReference(): Type =
     when (this) {
         is Type.Reference -> this.storeType
         else -> this

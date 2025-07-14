@@ -88,6 +88,8 @@ class ShaderJob(
         value: Expression,
         offset: Int,
     ): List<Int> {
+        // The resolved type may be a reference. We only care about the store type of the reference, so remove the outer reference.
+        val type = type.asStoreTypeIfReference()
         when (type) {
             is Type.Struct -> {
                 val result = mutableListOf<Int>()
@@ -210,6 +212,8 @@ private fun literalExprFromBytes(
     bufferByteIndex: Int,
 ): Pair<Expression, Int> {
     assert(bufferByteIndex % 4 == 0)
+    // The resolved type may be a reference. We only care about the store type of the reference, so remove the outer reference.
+    val type = type.asStoreTypeIfReference()
     when (type) {
         is Type.Struct -> {
             val memberExpressions = mutableListOf<Expression>()
