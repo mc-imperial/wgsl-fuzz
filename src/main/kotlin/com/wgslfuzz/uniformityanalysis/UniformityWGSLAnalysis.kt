@@ -736,48 +736,15 @@ private fun analyseStatement(
         is Statement.Decrement -> TODO()
 
         // Implement the rules for function calls described in: https://www.w3.org/TR/WGSL/#uniformity-function-calls
-        is Statement.FunctionCall -> {
-            val lastCfi =
-                statement.args.fold(
-                    cf,
-                ) { lastCf, expr ->
-                    analyseExpression(
-                        lastCf,
-                        expr,
-                        functionInfo,
-                        functionInfoMap,
-                        environment.scopeAvailableBefore(statement),
-                        environment,
-                    ).cfNode
-                }
-
-            val result = createUniformityNode("Result_function_call")
-            val cfAfter = createUniformityNode("CF_after_function_call")
-
-            if (isFunctionCallBuiltin(statement.callee)) {
-                if (statement.callee == "atomic_store" || statement.callee == "texture_store") {
-                    TODO()
-                } else {
-                    // The remaining builtin statement function calls are barriers.
-                    // Add an edge from Required to be uniform to the last CF_i
-                    functionInfo.requiredToBeUniformError.addEdges(lastCfi)
-                    // TODO(JLJ): Potential trigger set additions
-                }
-            } else if (CallSiteTag.isRequiredToBeUniform(functionInfoMap[statement.callee]!!.callSiteTag)) {
-                TODO()
-            } else {
-                TODO()
-            }
-
-            // Add edge from CF_after to the last CF_i
-            cfAfter.addEdges(lastCfi)
-            result.addEdges(cfAfter)
-
-            statement.args.forEach { TODO() }
-
-            // NOTE: The spec doesn't explicitly say to use this node going forward, but it seems sensible
-            cfAfter
-        }
+        is Statement.FunctionCall ->
+            analyseFunctionCall(
+                cf,
+                statement,
+                functionInfo,
+                functionInfoMap,
+                environment.scopeAvailableBefore(statement),
+                environment,
+            ).cfNode
 
         is Statement.Increment -> TODO()
 
@@ -865,6 +832,71 @@ private fun analyseLhsExpression(
         is LhsExpression.Paren -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, functionInfoMap, scope, environment)
     }
 
+private fun analyseFunctionCall(
+    cf: UniformityNode,
+    astNode: AstNode,
+    functionInfo: FunctionInfo,
+    functionInfoMap: FunctionInfoMap,
+    scope: Scope,
+    environment: ResolvedEnvironment,
+): ExpressionAnalysisResult {
+    val (args, callee) =
+        when (astNode) {
+            is Statement.FunctionCall -> Pair(astNode.args, astNode.callee)
+            is Expression.FunctionCall -> Pair(astNode.args, astNode.callee)
+            else -> throw IllegalArgumentException("The argument to analyseFunctionCall must be a FunctionCall Ast Node.")
+        }
+
+    val lastCfi =
+        args.fold(
+            cf,
+        ) { lastCf, expr ->
+            analyseExpression(
+                lastCf,
+                expr,
+                functionInfo,
+                functionInfoMap,
+                scope,
+                environment,
+            ).cfNode
+        }
+
+    // TODO(JLJ) Handle argument expressions
+
+    val result = createUniformityNode("Result_function_call")
+    val cfAfter = createUniformityNode("CF_after_function_call")
+
+    if (isFunctionCallBuiltin(callee)) {
+        if (callee == "atomic_store" || callee == "texture_store") {
+            TODO()
+        } else {
+            // The remaining builtin statement function calls are barriers.
+            // Add an edge from Required to be uniform to the last CF_i
+            functionInfo.requiredToBeUniformError.addEdges(lastCfi)
+            // TODO(JLJ): Potential trigger set additions
+        }
+    } else {
+        val calleeFunctionInfo = functionInfoMap[callee]!!
+        if (CallSiteTag.isRequiredToBeUniform(calleeFunctionInfo.callSiteTag)) {
+            val uniformityNode = functionInfo.callSiteTagToUniformityNode(calleeFunctionInfo.callSiteTag)!!
+            uniformityNode.addEdges(lastCfi)
+            // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
+        }
+        if (functionInfo.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
+            result.addEdges(functionInfo.mayBeNonUniform)
+        }
+    }
+
+    // Add edge from CF_after to the last CF_i
+    cfAfter.addEdges(lastCfi)
+    result.addEdges(cfAfter)
+
+    args.forEach { TODO() }
+
+    // NOTE: The spec doesn't explicitly say to use this node going forward, but it seems sensible
+    return ExpressionAnalysisResult(cfAfter, result)
+}
+
 private fun analyseExpression(
     cf: UniformityNode,
     expression: Expression,
@@ -943,56 +975,7 @@ private fun analyseExpression(
             }
 
         // TODO(JLJ): Reduce duplication with statement function calls
-        is Expression.FunctionCall -> {
-            val lastCfi =
-                expression.args.fold(
-                    cf,
-                ) { lastCf, expr ->
-                    analyseExpression(
-                        lastCf,
-                        expr,
-                        functionInfo,
-                        functionInfoMap,
-                        scope,
-                        environment,
-                    ).cfNode
-                }
-
-            // TODO(JLJ) Handle argument expressions
-
-            val result = createUniformityNode("Result_function_call")
-            val cfAfter = createUniformityNode("CF_after_function_call")
-
-            if (isFunctionCallBuiltin(expression.callee)) {
-                if (expression.callee == "atomic_store" || expression.callee == "texture_store") {
-                    TODO()
-                } else {
-                    // The remaining builtin statement function calls are barriers.
-                    // Add an edge from Required to be uniform to the last CF_i
-                    functionInfo.requiredToBeUniformError.addEdges(lastCfi)
-                    // TODO(JLJ): Potential trigger set additions
-                }
-            } else {
-                val calleeFunctionInfo = functionInfoMap[expression.callee]!!
-                if (CallSiteTag.isRequiredToBeUniform(calleeFunctionInfo.callSiteTag)) {
-                    val uniformityNode = functionInfo.callSiteTagToUniformityNode(calleeFunctionInfo.callSiteTag)!!
-                    uniformityNode.addEdges(lastCfi)
-                    // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
-                }
-                if (functionInfo.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
-                    result.addEdges(functionInfo.mayBeNonUniform)
-                }
-            }
-
-            // Add edge from CF_after to the last CF_i
-            cfAfter.addEdges(lastCfi)
-            result.addEdges(cfAfter)
-
-            expression.args.forEach { TODO() }
-
-            // NOTE: The spec doesn't explicitly say to use this node going forward, but it seems sensible
-            ExpressionAnalysisResult(cfAfter, result)
-        }
+        is Expression.FunctionCall -> analyseFunctionCall(cf, expression, functionInfo, functionInfoMap, scope, environment)
 
         is AugmentedExpression.FalseByConstruction -> TODO()
         is AugmentedExpression.AddZero -> TODO()
