@@ -123,6 +123,13 @@ enum class InterpolateSampling {
 sealed interface AstNode
 
 /**
+ * An AstNode that has a name property
+ */
+sealed interface NamedAstNode : AstNode {
+    val name: String
+}
+
+/**
  * A translation unit corresponds to a fully parsed WGSL program.
  */
 @Serializable
@@ -238,50 +245,56 @@ class Directive(
 sealed interface GlobalDecl : AstNode {
     @Serializable
     class Constant(
-        val name: String,
+        override val name: String,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression,
-    ) : GlobalDecl
+    ) : GlobalDecl,
+        NamedAstNode
 
     @Serializable
     class Override(
         val attributes: List<Attribute> = emptyList(),
-        val name: String,
+        override val name: String,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
-    ) : GlobalDecl
+    ) : GlobalDecl,
+        NamedAstNode
 
     @Serializable
     class Variable(
         val attributes: List<Attribute> = emptyList(),
-        val name: String,
+        override val name: String,
         val addressSpace: AddressSpace? = null,
         val accessMode: AccessMode? = null,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
-    ) : GlobalDecl
+    ) : GlobalDecl,
+        NamedAstNode
 
     @Serializable
     class Function(
         val attributes: List<Attribute> = emptyList(),
-        val name: String,
+        override val name: String,
         val parameters: List<ParameterDecl>,
         val returnAttributes: List<Attribute> = emptyList(),
         val returnType: TypeDecl? = null,
         val body: Statement.Compound,
-    ) : GlobalDecl
+    ) : GlobalDecl,
+        NamedAstNode
 
     @Serializable
     class Struct(
-        val name: String,
+        override val name: String,
         val members: List<StructMember>,
-    ) : GlobalDecl
+    ) : GlobalDecl,
+        NamedAstNode
 
     @Serializable
     class TypeAlias(
-        val name: String,
+        override val name: String,
         val typeDecl: TypeDecl,
-    ) : GlobalDecl
+    ) : GlobalDecl,
+        NamedAstNode
 
     @Serializable
     class ConstAssert(
@@ -300,9 +313,9 @@ sealed interface GlobalDecl : AstNode {
 @Serializable
 sealed interface TypeDecl : AstNode {
     @Serializable
-    sealed interface ScalarTypeDecl : TypeDecl {
-        val name: String
-    }
+    sealed interface ScalarTypeDecl :
+        TypeDecl,
+        NamedAstNode
 
     @Serializable
     class Bool : ScalarTypeDecl {
@@ -338,9 +351,10 @@ sealed interface TypeDecl : AstNode {
     }
 
     @Serializable
-    sealed interface VectorTypeDecl : TypeDecl {
+    sealed interface VectorTypeDecl :
+        TypeDecl,
+        NamedAstNode {
         val elementType: ScalarTypeDecl
-        val name: String
     }
 
     @Serializable
@@ -368,9 +382,10 @@ sealed interface TypeDecl : AstNode {
     }
 
     @Serializable
-    sealed interface MatrixTypeDecl : TypeDecl {
+    sealed interface MatrixTypeDecl :
+        TypeDecl,
+        NamedAstNode {
         val elementType: FloatTypeDecl
-        val name: String
     }
 
     @Serializable
@@ -453,8 +468,9 @@ sealed interface TypeDecl : AstNode {
 
     @Serializable
     class NamedType(
-        val name: String,
-    ) : TypeDecl
+        override val name: String,
+    ) : TypeDecl,
+        NamedAstNode
 
     @Serializable
     class Pointer(
@@ -585,8 +601,9 @@ sealed interface Expression : AstNode {
 
     @Serializable
     class Identifier(
-        val name: String,
-    ) : Expression
+        override val name: String,
+    ) : Expression,
+        NamedAstNode
 
     @Serializable
     class Paren(
@@ -826,8 +843,9 @@ sealed interface Expression : AstNode {
 sealed interface LhsExpression : AstNode {
     @Serializable
     class Identifier(
-        val name: String,
-    ) : LhsExpression
+        override val name: String,
+    ) : LhsExpression,
+        NamedAstNode
 
     @Serializable
     class Paren(
@@ -980,19 +998,21 @@ sealed interface Statement : AstNode {
     @Serializable
     class Value(
         val isConst: Boolean,
-        val name: String,
+        override val name: String,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression,
-    ) : ForInit
+    ) : ForInit,
+        NamedAstNode
 
     @Serializable
     class Variable(
-        val name: String,
+        override val name: String,
         val addressSpace: AddressSpace? = null,
         val accessMode: AccessMode? = null,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
-    ) : ForInit
+    ) : ForInit,
+        NamedAstNode
 }
 
 /**
@@ -1030,9 +1050,9 @@ class SwitchClause(
 @Serializable
 class ParameterDecl(
     val attributes: List<Attribute> = emptyList(),
-    val name: String,
+    override val name: String,
     val typeDecl: TypeDecl,
-) : AstNode
+) : NamedAstNode
 
 /**
  * A member in a struct declaration.
@@ -1040,9 +1060,9 @@ class ParameterDecl(
 @Serializable
 class StructMember(
     val attributes: List<Attribute> = emptyList(),
-    val name: String,
+    override val name: String,
     val typeDecl: TypeDecl,
-) : AstNode
+) : NamedAstNode
 
 // The following interfaces and classes extend the AstNode hierarchy with additional nodes that *augment* the AST to
 // encode transformations that have been applied to a translation unit.
