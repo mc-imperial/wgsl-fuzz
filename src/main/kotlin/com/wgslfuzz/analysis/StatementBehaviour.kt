@@ -21,7 +21,7 @@ import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
-import com.wgslfuzz.core.isStatementFunctionCallBuiltin
+import com.wgslfuzz.core.isFunctionCallBuiltin
 import com.wgslfuzz.core.traverse
 
 enum class StatementBehaviour {
@@ -177,7 +177,7 @@ private fun statementBehaviour(
 
             is Statement.FunctionCall ->
                 // All builtin functions have the behaviour set `{ Next }`: https://www.w3.org/TR/WGSL/#behaviors-rules
-                if (isStatementFunctionCallBuiltin(statement)) {
+                if (isFunctionCallBuiltin(statement.callee)) {
                     setOf(StatementBehaviour.NEXT)
                 } else {
                     // Functions have been reordered so that a callee will be analysed before callers. This means

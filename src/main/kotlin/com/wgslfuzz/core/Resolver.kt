@@ -459,7 +459,7 @@ private fun resolveAstNode(
                     // Good; nothing to do.
                 }
                 null -> {
-                    if (!isStatementFunctionCallBuiltin(node)) {
+                    if (!isFunctionCallBuiltin(node.callee)) {
                         throw UnsupportedOperationException(
                             "Statement function call refers to ${node.callee} which is not in scope not the name of a known builtin.",
                         )

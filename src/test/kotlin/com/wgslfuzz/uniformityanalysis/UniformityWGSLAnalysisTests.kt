@@ -42,7 +42,7 @@ class UniformityWGSLAnalysisTests {
     fun checkUniform(shader: String) {
         val tu = parseFromString(shader, LoggingParseErrorListener()).desugar()
         val environment = resolve(tu)
-        assertDoesNotThrow {runWGSLUniformityGraphAnalysis(tu, environment)}
+        assertDoesNotThrow { runWGSLUniformityGraphAnalysis(tu, environment) }
     }
 
     @Test
@@ -76,8 +76,8 @@ class UniformityWGSLAnalysisTests {
             """.trimIndent()
         checkNonUniform(input)
     }
-    @Test
 
+    @Test
     fun nonUniformVariable2() {
         val input =
             """
@@ -138,7 +138,6 @@ class UniformityWGSLAnalysisTests {
         checkNonUniform(input)
     }
 
-
     @Test
     fun nonUniformVariableCond3() {
         val input =
@@ -191,7 +190,6 @@ class UniformityWGSLAnalysisTests {
             """.trimIndent()
         checkNonUniform(input)
     }
-
 
     @Test
     fun nonUniformLoop2() {
@@ -256,6 +254,208 @@ class UniformityWGSLAnalysisTests {
               if (result == 1) {
                 workgroupBarrier();
               }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformLoop5() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x:u32 = 0;
+              loop {
+                if (x >= 0) { workgroupBarrier(); }
+                x = lid;
+                if (false) { break; }
+              }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformLoop6() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              var y = 0;
+              loop {
+                x = lid;
+                if (y == 3) { break; }
+                x = 5;
+              }
+              if (x == 1) {
+                workgroupBarrier();
+              }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformLoop7() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x: u32 = 0;
+              var y = 0;
+              loop {
+                x = lid;
+                if (y == 3) { break; }
+                x = 5;
+                if (y == 3) { break; }
+              }
+              if (x == 1) {
+                workgroupBarrier();
+              }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformLoop8() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              loop {
+                if (lid >= 0) { continue; }
+                x = x;
+                break;
+              }
+
+              if (x >= 0) { workgroupBarrier(); }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformNestedLoop1() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x: u32 = 0;
+              var y: u32 = 0;
+              loop {
+                if (x == 0) { break; }
+                loop {
+                  x = lid;  
+                  if (y >= 0) { break; }
+                }
+              }
+              if (x == 0) {
+                workgroupBarrier();
+              }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformNestedLoop2() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              loop {
+                loop {
+                  if (lid >= 0) { return; }
+                  break;
+                }
+                break;
+              }
+              workgroupBarrier();
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformNestedLoop3() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              loop {
+                workgroupBarrier();
+                loop {
+                  if (lid >= 0) { return; }
+                }
+              }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformNestedLoop4() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              loop {
+                if (x >= 0) {
+                  workgroupBarrier();
+                }
+
+                loop {
+                  if (lid >= 0) {
+                    continue;
+                  } 
+
+                  x = 1;
+                  break;
+                }
+
+                if (false) { break; }
+              }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+    @Test
+    fun nonUniformScope() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x = 0;
+              { 
+                if (lid >= 0) {
+                  return; 
+                } 
+              }
+              workgroupBarrier();
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+
+    @Test
+    fun nonUniformFunctionCall1() {
+        val input =
+            """
+            fn barrier() -> bool {
+              workgroupBarrier();
+              return true;
+            }
+
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              if ((lid >= 0) && barrier()) {}
             }
             """.trimIndent()
         checkNonUniform(input)

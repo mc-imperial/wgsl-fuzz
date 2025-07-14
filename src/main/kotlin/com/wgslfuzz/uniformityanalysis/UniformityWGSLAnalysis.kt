@@ -18,7 +18,7 @@ import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.isStatementFunctionCallBuiltin
+import com.wgslfuzz.core.isFunctionCallBuiltin
 import com.wgslfuzz.core.traverse
 import com.wgslfuzz.uniformityanalysis.UniformityNode.Companion.createUniformityNode
 
@@ -250,6 +250,14 @@ private class FunctionInfo(
 
     // TODO(JLJ): Add support for pointer parameters
 
+    fun callSiteTagToUniformityNode(callSiteTag: CallSiteTag): UniformityNode? =
+        when (callSiteTag) {
+            CallSiteTag.CallSiteRequiredToBeUniformError -> requiredToBeUniformError
+            CallSiteTag.CallSiteRequiredToBeUniformWarning -> requiredToBeUniformWarning
+            CallSiteTag.CallSiteRequiredToBeUniformInfo -> requiredToBeUniformError
+            CallSiteTag.CallSiteNoRestriction -> null
+        }
+
     fun requiredToBeUniform(severity: Severity) =
         when (severity) {
             Severity.Error -> requiredToBeUniformError
@@ -445,6 +453,7 @@ private fun analyseStatement(
                     cf,
                     statement.initializer,
                     functionInfo,
+                    functionInfoMap,
                     environment.scopeAvailableBefore(statement),
                     environment,
                 )
@@ -478,6 +487,7 @@ private fun analyseStatement(
                         cf,
                         statement.initializer,
                         functionInfo,
+                        functionInfoMap,
                         environment.scopeAvailableBefore(statement),
                         environment,
                     )
@@ -502,7 +512,15 @@ private fun analyseStatement(
 
         is Statement.If -> {
             // Uniformity Rules for Statements: Analyse the if condition.
-            val (_, v) = analyseExpression(cf, statement.condition, functionInfo, environment.scopeAvailableBefore(statement), environment)
+            val (_, v) =
+                analyseExpression(
+                    cf,
+                    statement.condition,
+                    functionInfo,
+                    functionInfoMap,
+                    environment.scopeAvailableBefore(statement),
+                    environment,
+                )
 
             // Variable Value Analysis (Not in spec): Push on a new scope for analysing the if branch.
             functionInfo.variableNodes.push()
@@ -536,7 +554,7 @@ private fun analyseStatement(
                 val newNode = createUniformityNode("${variable}_after_if")
 
                 // Determine the node representing the uniformity of the variable before the if statement.
-                val previousNode = functionInfo.variableNodes.get(variable)
+                val previousNode = functionInfo.variableNodes.get(variable)!!
 
                 // If the 'if' branch contains behaviour next, i.e it may continue, then determine what node
                 // represents the uniformity of the variable after the if.
@@ -549,7 +567,7 @@ private fun analyseStatement(
                     } else {
                         // Otherwise, the variable was not updated in the if branch and the uniformity of the variable
                         // will be the same as before the if statement.
-                        newNode.addEdges(previousNode!!)
+                        newNode.addEdges(previousNode)
                     }
                 }
 
@@ -558,7 +576,7 @@ private fun analyseStatement(
                     if (elseAssignments[variable] != null && elseAssignments[variable] != previousNode) {
                         newNode.addEdges(elseAssignments[variable]!!)
                     } else {
-                        newNode.addEdges(previousNode!!)
+                        newNode.addEdges(previousNode)
                     }
                 }
 
@@ -578,6 +596,11 @@ private fun analyseStatement(
         // `loop {s1 continuing {s2}}` are identical and so can be collapsed into one, as is done here.
         is Statement.Loop -> {
             val previousLoopInfo = functionInfo.swapOutLoopInfo()
+
+            val variableNodesAtLoopEntry = mutableMapOf<String, UniformityNode>()
+            for (variable in functionInfo.variablesInScope) {
+                variableNodesAtLoopEntry[variable] = functionInfo.variableNodes.get(variable)!!
+            }
 
             val newCf = createUniformityNode("CF'_loop_start")
             val cf1 = analyseStatement(newCf, statement.body, functionInfo, functionInfoMap, behaviourMap, environment)
@@ -615,6 +638,7 @@ private fun analyseStatement(
                         cf2,
                         statement.continuingStatement.breakIfExpr,
                         functionInfo,
+                        functionInfoMap,
                         environment.scopeAvailableBefore(statement),
                         environment,
                     )
@@ -623,9 +647,15 @@ private fun analyseStatement(
                 newCf.addEdges(cf, cf2)
             }
 
+            // Statement Behaviour Analysis: Connect any variable nodes at loop entry to their value at the end
+            // of the continuing construct.
+            for ((variable, node) in variableNodesAtLoopEntry) {
+                node.addEdges(functionInfo.variableNodes.get(variable)!!)
+            }
+
             // Statement Behaviour Analysis: create new nodes for any variables that may break.
             for ((variable, nodes) in nodesBreaking) {
-                val newNode = createUniformityNode(variable)
+                val newNode = createUniformityNode("${variable}_after_loop")
                 // Connect the new node to the nodes representing the variable at any breaks.
                 nodes.forEach { newNode.addEdges(it) }
                 // Connect the new node to the node representing the variable at the end of the continuing body.
@@ -663,6 +693,7 @@ private fun analyseStatement(
                         cf,
                         statement.lhsExpression,
                         functionInfo,
+                        functionInfoMap,
                         environment.scopeAvailableBefore(statement),
                         environment,
                     )
@@ -672,22 +703,33 @@ private fun analyseStatement(
                         cf1,
                         statement.rhs,
                         functionInfo,
+                        functionInfoMap,
                         environment.scopeAvailableBefore(statement),
                         environment,
                     )
                 // Uniformity Rules for Statements: The uniformity of the lhs depends on the uniformity of the rhs
                 lv.addEdges(rv)
 
-                // Variable Value Analysis: Use rv as the node representing the uniformity of the variable being assigned
+                // Variable Value Analysis: Use lv as the node representing the uniformity of the variable being assigned
                 // to on the lhs going forward.
+                // TODO: I don't think it is that clear that this should be lv instead of rv. The statement rules say that
+                // lv is the result of the value analysis, but the variable value analysis rules don't seem to clarify, they
+                // just say Vin(next).
                 if (statement.lhsExpression is LhsExpression.Identifier) {
-                    functionInfo.variableNodes.set(statement.lhsExpression.name, rv)
+                    functionInfo.variableNodes.set(statement.lhsExpression.name, lv)
                 }
 
                 // Uniformity Rules for Statements: Continue analysis with the control flow after analysis of the lhs
                 cf2
             } else {
-                analyseExpression(cf, statement.rhs, functionInfo, environment.scopeAvailableBefore(statement), environment).cfNode
+                analyseExpression(
+                    cf,
+                    statement.rhs,
+                    functionInfo,
+                    functionInfoMap,
+                    environment.scopeAvailableBefore(statement),
+                    environment,
+                ).cfNode
             }
         }
 
@@ -703,6 +745,7 @@ private fun analyseStatement(
                         lastCf,
                         expr,
                         functionInfo,
+                        functionInfoMap,
                         environment.scopeAvailableBefore(statement),
                         environment,
                     ).cfNode
@@ -711,7 +754,7 @@ private fun analyseStatement(
             val result = createUniformityNode("Result_function_call")
             val cfAfter = createUniformityNode("CF_after_function_call")
 
-            if (isStatementFunctionCallBuiltin(statement)) {
+            if (isFunctionCallBuiltin(statement.callee)) {
                 if (statement.callee == "atomic_store" || statement.callee == "texture_store") {
                     TODO()
                 } else {
@@ -744,7 +787,14 @@ private fun analyseStatement(
             ) {
                 cf
             } else {
-                analyseExpression(cf, statement.expression, functionInfo, environment.scopeAvailableBefore(statement), environment).cfNode
+                analyseExpression(
+                    cf,
+                    statement.expression,
+                    functionInfo,
+                    functionInfoMap,
+                    environment.scopeAvailableBefore(statement),
+                    environment,
+                ).cfNode
             }
         }
 
@@ -754,6 +804,7 @@ private fun analyseStatement(
                     cf,
                     statement.expression,
                     functionInfo,
+                    functionInfoMap,
                     environment.scopeAvailableBefore(statement),
                     environment,
                 )
@@ -776,6 +827,7 @@ private fun analyseLhsExpression(
     cf: UniformityNode,
     lhsExpression: LhsExpression,
     functionInfo: FunctionInfo,
+    functionInfoMap: FunctionInfoMap,
     scope: Scope,
     environment: ResolvedEnvironment,
 ): ExpressionAnalysisResult =
@@ -785,47 +837,51 @@ private fun analyseLhsExpression(
 
             if (resolvedScope is ScopeEntry.LocalVariable) {
                 val result = createUniformityNode("Result_lhs_ident")
-                // TODO(JLJ): The statement behaviour analysis says there should be an edge here. I find the rules
-                // confusing and am not entirely sure what 'X' is.
-                // result.addEdges(cf, x)
+                // Get the node representing this variable produced by statement behaviour analysis.
+                val statementBehaviourAnalysisNode = functionInfo.variableNodes.get(lhsExpression.name)!!
+
+                result.addEdges(cf, statementBehaviourAnalysisNode)
                 ExpressionAnalysisResult(cf, result)
             } else if (resolvedScope is ScopeEntry.GlobalVariable) {
                 ExpressionAnalysisResult(cf, functionInfo.mayBeNonUniform)
             } else {
+                // TODO(JLJ): Add other identifier rule.
                 TODO()
             }
         }
 
         is LhsExpression.IndexLookup -> {
-            val (cf1, l1) = analyseLhsExpression(cf, lhsExpression.target, functionInfo, scope, environment)
-            val (cf2, v2) = analyseExpression(cf1, lhsExpression.index, functionInfo, scope, environment)
+            val (cf1, l1) = analyseLhsExpression(cf, lhsExpression.target, functionInfo, functionInfoMap, scope, environment)
+            val (cf2, v2) = analyseExpression(cf1, lhsExpression.index, functionInfo, functionInfoMap, scope, environment)
             l1.addEdges(v2)
             ExpressionAnalysisResult(cf2, l1)
         }
 
-        is LhsExpression.AddressOf -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, scope, environment)
-        is LhsExpression.Dereference -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, scope, environment)
-        is LhsExpression.MemberLookup -> analyseLhsExpression(cf, lhsExpression.receiver, functionInfo, scope, environment)
+        is LhsExpression.AddressOf -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, functionInfoMap, scope, environment)
+        is LhsExpression.Dereference -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, functionInfoMap, scope, environment)
+        is LhsExpression.MemberLookup -> analyseLhsExpression(cf, lhsExpression.receiver, functionInfo, functionInfoMap, scope, environment)
 
         // NOTE: This rule is not given in the language specification, but seems obvious
-        is LhsExpression.Paren -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, scope, environment)
+        is LhsExpression.Paren -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, functionInfoMap, scope, environment)
     }
 
 private fun analyseExpression(
     cf: UniformityNode,
     expression: Expression,
     functionInfo: FunctionInfo,
+    functionInfoMap: FunctionInfoMap,
     scope: Scope,
     environment: ResolvedEnvironment,
 ): ExpressionAnalysisResult =
     when (expression) {
         is Expression.Binary -> {
-            val (cf1, v1) = analyseExpression(cf, expression.lhs, functionInfo, scope, environment)
+            val (cf1, v1) = analyseExpression(cf, expression.lhs, functionInfo, functionInfoMap, scope, environment)
 
-            if (expression.operator == BinaryOperator.BINARY_AND || expression.operator == BinaryOperator.BINARY_OR) {
-                analyseExpression(v1, expression.rhs, functionInfo, scope, environment)
+            if (expression.operator == BinaryOperator.SHORT_CIRCUIT_AND || expression.operator == BinaryOperator.SHORT_CIRCUIT_OR) {
+                val (cf2, v2) = analyseExpression(v1, expression.rhs, functionInfo, functionInfoMap, scope, environment)
+                ExpressionAnalysisResult(cf, v2)
             } else {
-                val (cf2, v2) = analyseExpression(cf1, expression.rhs, functionInfo, scope, environment)
+                val (cf2, v2) = analyseExpression(cf1, expression.rhs, functionInfo, functionInfoMap, scope, environment)
                 val resultNode = createUniformityNode("Result_binary")
                 resultNode.addEdges(v1, v2)
                 ExpressionAnalysisResult(cf2, resultNode)
@@ -834,8 +890,8 @@ private fun analyseExpression(
 
         is Expression.IndexLookup -> {
             // This rule is the same as the rule for a binary operator that is not && or ||.
-            val (cf1, v1) = analyseExpression(cf, expression.target, functionInfo, scope, environment)
-            val (cf2, v2) = analyseExpression(cf1, expression.index, functionInfo, scope, environment)
+            val (cf1, v1) = analyseExpression(cf, expression.target, functionInfo, functionInfoMap, scope, environment)
+            val (cf2, v2) = analyseExpression(cf1, expression.index, functionInfo, functionInfoMap, scope, environment)
             val resultNode = createUniformityNode("Result_index_lookup")
             resultNode.addEdges(v1, v2)
             ExpressionAnalysisResult(cf2, resultNode)
@@ -845,12 +901,12 @@ private fun analyseExpression(
         is Expression.FloatLiteral -> ExpressionAnalysisResult(cf, cf)
         is Expression.IntLiteral -> ExpressionAnalysisResult(cf, cf)
 
-        is Expression.Unary -> analyseExpression(cf, expression.target, functionInfo, scope, environment)
-        is Expression.MemberLookup -> analyseExpression(cf, expression.receiver, functionInfo, scope, environment)
+        is Expression.Unary -> analyseExpression(cf, expression.target, functionInfo, functionInfoMap, scope, environment)
+        is Expression.MemberLookup -> analyseExpression(cf, expression.receiver, functionInfo, functionInfoMap, scope, environment)
 
         // NOTE: There are no rules given for these in the language specification.
         // It seems sensible that parenthesis should have no effect on this uniformity of an expression.
-        is Expression.Paren -> analyseExpression(cf, expression.target, functionInfo, scope, environment)
+        is Expression.Paren -> analyseExpression(cf, expression.target, functionInfo, functionInfoMap, scope, environment)
 
         is Expression.Identifier ->
             when (val entry = scope.getEntry(expression.name)) {
@@ -886,7 +942,57 @@ private fun analyseExpression(
                 else -> TODO()
             }
 
-        is Expression.FunctionCall -> TODO()
+        // TODO(JLJ): Reduce duplication with statement function calls
+        is Expression.FunctionCall -> {
+            val lastCfi =
+                expression.args.fold(
+                    cf,
+                ) { lastCf, expr ->
+                    analyseExpression(
+                        lastCf,
+                        expr,
+                        functionInfo,
+                        functionInfoMap,
+                        scope,
+                        environment,
+                    ).cfNode
+                }
+
+            // TODO(JLJ) Handle argument expressions
+
+            val result = createUniformityNode("Result_function_call")
+            val cfAfter = createUniformityNode("CF_after_function_call")
+
+            if (isFunctionCallBuiltin(expression.callee)) {
+                if (expression.callee == "atomic_store" || expression.callee == "texture_store") {
+                    TODO()
+                } else {
+                    // The remaining builtin statement function calls are barriers.
+                    // Add an edge from Required to be uniform to the last CF_i
+                    functionInfo.requiredToBeUniformError.addEdges(lastCfi)
+                    // TODO(JLJ): Potential trigger set additions
+                }
+            } else {
+                val calleeFunctionInfo = functionInfoMap[expression.callee]!!
+                if (CallSiteTag.isRequiredToBeUniform(calleeFunctionInfo.callSiteTag)) {
+                    val uniformityNode = functionInfo.callSiteTagToUniformityNode(calleeFunctionInfo.callSiteTag)!!
+                    uniformityNode.addEdges(lastCfi)
+                    // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
+                }
+                if (functionInfo.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
+                    result.addEdges(functionInfo.mayBeNonUniform)
+                }
+            }
+
+            // Add edge from CF_after to the last CF_i
+            cfAfter.addEdges(lastCfi)
+            result.addEdges(cfAfter)
+
+            expression.args.forEach { TODO() }
+
+            // NOTE: The spec doesn't explicitly say to use this node going forward, but it seems sensible
+            ExpressionAnalysisResult(cfAfter, result)
+        }
 
         is AugmentedExpression.FalseByConstruction -> TODO()
         is AugmentedExpression.AddZero -> TODO()

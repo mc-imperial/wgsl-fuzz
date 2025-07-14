@@ -53,7 +53,7 @@ fun TranslationUnit.getUniformDeclaration(
     return uniformDeclaration
 }
 
-fun isStatementFunctionCallBuiltin(functionCall: Statement.FunctionCall): Boolean {
+fun isFunctionCallBuiltin(functionCall: String): Boolean {
     // This set should contain the names of all builtin functions that do not have the 'must_use' attribute
     val statementFunctionCallBuiltins =
         hashSetOf(
@@ -63,5 +63,5 @@ fun isStatementFunctionCallBuiltin(functionCall: Statement.FunctionCall): Boolea
             "textureStore",
             "workgroupBarrier",
         )
-    return functionCall.callee in statementFunctionCallBuiltins
+    return functionCall in statementFunctionCallBuiltins
 }
