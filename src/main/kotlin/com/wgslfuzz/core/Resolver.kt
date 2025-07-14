@@ -17,9 +17,7 @@
 package com.wgslfuzz.core
 
 sealed interface ScopeEntry {
-    val astNode: NamedAstNode
-    val declName: String
-        get() = astNode.name
+    val astNode: AstNode
 
     class Function(
         override val astNode: GlobalDecl.Function,
