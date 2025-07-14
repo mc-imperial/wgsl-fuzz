@@ -18,6 +18,19 @@ package com.wgslfuzz.core
 
 sealed interface ScopeEntry {
     val astNode: AstNode
+    val declName: String
+        get() =
+            when (this) {
+                is GlobalConstant -> this.astNode.name
+                is GlobalOverride -> this.astNode.name
+                is GlobalVariable -> this.astNode.name
+                is LocalValue -> this.astNode.name
+                is LocalVariable -> this.astNode.name
+                is Parameter -> this.astNode.name
+                is Struct -> this.astNode.name
+                is TypeAlias -> this.astNode.name
+                is Function -> this.astNode.name
+            }
 
     class Function(
         override val astNode: GlobalDecl.Function,
