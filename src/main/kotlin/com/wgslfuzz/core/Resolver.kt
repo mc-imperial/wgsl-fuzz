@@ -171,12 +171,11 @@ private class ImmutableScope(
     // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
     private val level: Int = 0,
     private val scopeEntry: Pair<String, ScopeEntry>? = null,
-) : Scope,
-    Iterable<Pair<String, ScopeEntry>> {
+) : Scope {
     override val parent: ImmutableScope?
         get() = scopeSequence().firstOrNull { it.level != this.level }
 
-    override fun getEntry(name: String): ScopeEntry? = this.firstOrNull { it.first == name }?.second
+    override fun getEntry(name: String): ScopeEntry? = entriesSequence().firstOrNull { it.first == name }?.second
 
     fun createNewScopeLevel(): ImmutableScope = ImmutableScope(previous = this, level = level + 1)
 
@@ -201,7 +200,7 @@ private class ImmutableScope(
 
     fun toFastScope(): Scope {
         val scopeEntryMap = mutableMapOf<String, ScopeEntry>()
-        for ((key, scopeEntry) in this) {
+        for ((key, scopeEntry) in entriesSequence()) {
             if (key !in scopeEntryMap.keys) {
                 scopeEntryMap[key] = scopeEntry
             }
@@ -209,11 +208,10 @@ private class ImmutableScope(
         return FastScope(parent, scopeEntryMap)
     }
 
-    override fun iterator(): Iterator<Pair<String, ScopeEntry>> =
+    fun entriesSequence(): Sequence<Pair<String, ScopeEntry>> =
         scopeSequence()
             .map { it.scopeEntry }
             .filterNotNull()
-            .iterator()
 
     private fun scopeSequence(): Sequence<ImmutableScope> = generateSequence(this) { it.previous }
 }
