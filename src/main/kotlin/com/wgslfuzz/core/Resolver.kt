@@ -156,6 +156,8 @@ private class ImmutableScopeWrapper(
 
     fun copy(): Scope = immutableScope
 
+    fun toFastScope(): Scope = immutableScope.toFastScope()
+
     fun addEntry(
         name: String,
         scopeEntry: ScopeEntry,
@@ -169,23 +171,12 @@ private class ImmutableScope(
     // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
     private val level: Int = 0,
     private val scopeEntry: Pair<String, ScopeEntry>? = null,
-) : Scope {
+) : Scope,
+    Iterable<Pair<String, ScopeEntry>> {
     override val parent: ImmutableScope?
-        get() =
-            if (previous == null) {
-                null
-            } else if (previous.level != this.level) {
-                previous
-            } else {
-                previous.parent
-            }
+        get() = scopeSequence().firstOrNull { it.level != this.level }
 
-    override fun getEntry(name: String): ScopeEntry? =
-        if (scopeEntry != null && scopeEntry.first == name) {
-            scopeEntry.second
-        } else {
-            previous?.getEntry(name)
-        }
+    override fun getEntry(name: String): ScopeEntry? = this.firstOrNull { it.first == name }?.second
 
     fun createNewScopeLevel(): ImmutableScope = ImmutableScope(previous = this, level = level + 1)
 
@@ -204,13 +195,34 @@ private class ImmutableScope(
         }
 
     private fun existInLocalScope(name: String): Boolean =
-        if (scopeEntry != null && scopeEntry.first == name) {
-            true
-        } else if (previous == null || level != previous.level) {
-            false
-        } else {
-            previous.existInLocalScope(name)
+        scopeSequence()
+            .takeWhile { it.level == this.level }
+            .any { it.scopeEntry != null && it.scopeEntry.first == name }
+
+    fun toFastScope(): Scope {
+        val scopeEntryMap = mutableMapOf<String, ScopeEntry>()
+        for ((key, scopeEntry) in this) {
+            if (key !in scopeEntryMap.keys) {
+                scopeEntryMap[key] = scopeEntry
+            }
         }
+        return FastScope(parent, scopeEntryMap)
+    }
+
+    override fun iterator(): Iterator<Pair<String, ScopeEntry>> =
+        scopeSequence()
+            .map { it.scopeEntry }
+            .filterNotNull()
+            .iterator()
+
+    private fun scopeSequence(): Sequence<ImmutableScope> = generateSequence(this) { it.previous }
+}
+
+private class FastScope(
+    override val parent: Scope?,
+    private val scopeEntryMap: Map<String, ScopeEntry>,
+) : Scope {
+    override fun getEntry(name: String): ScopeEntry? = scopeEntryMap[name]
 }
 
 private class ResolvedEnvironmentImpl(
@@ -436,12 +448,10 @@ private fun resolveAstNode(
     }
 
     if (node is Statement) {
-        // Creating a shallow copy of the current scope and associating the shallow copy with this statement ensures that:
-        // - all statements in the current compound statement will share all enclosing scopes
-        // - this statement will have its own view of what is in scope at this point in the current compound statement,
-        //   so that if local variables/values are declared in sequence, only those that have already been declared
-        //   this statement will be in scope for the statement.
-        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(node, resolverState.currentScope.copy())
+        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(
+            node,
+            resolverState.currentScope.toFastScope(),
+        )
     }
 
     val parentNode = resolverState.ancestorsStack.firstOrNull()
@@ -449,7 +459,10 @@ private fun resolveAstNode(
         resolverState.ancestorsStack.addFirst(node)
         traverse(::resolveAstNode, node, resolverState)
         if (node is Statement.Compound) {
-            resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(node, resolverState.currentScope.copy())
+            resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
+                node,
+                resolverState.currentScope.toFastScope(),
+            )
         }
         resolverState.ancestorsStack.removeFirst()
     }
@@ -2090,7 +2103,7 @@ private fun resolveFunctionBody(
             functionDecl.body,
             resolverState
                 .currentScope
-                .copy(),
+                .toFastScope(),
         )
     }
 }
