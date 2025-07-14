@@ -140,13 +140,11 @@ fun randomVariableFromScope(
     fuzzerSettings: FuzzerSettings,
 ): Expression? {
     val scopeEntries =
-        scope
-            .getAllEntries()
-            .filter {
-                it is ScopeEntry.TypedDecl &&
-                    it !is ScopeEntry.TypeAlias &&
-                    it.type == type
-            }
+        scope.getAllEntries().filter {
+            it is ScopeEntry.TypedDecl &&
+                it !is ScopeEntry.TypeAlias &&
+                it.type == type
+        }
 
     if (scopeEntries.isEmpty()) return null
 
