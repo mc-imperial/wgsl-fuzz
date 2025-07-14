@@ -145,6 +145,74 @@ private class ScopeImpl(
     override fun getEntry(name: String): ScopeEntry? = entries[name] ?: parent?.getEntry(name)
 }
 
+private class ImmutableScopeWrapper(
+    private var immutableScope: ImmutableScope = ImmutableScope(),
+) : Scope {
+    override val parent = immutableScope.parent?.let { ImmutableScopeWrapper(it) }
+
+    override fun getEntry(name: String): ScopeEntry? = immutableScope.getEntry(name)
+
+    fun createNewScopeLevel(): ImmutableScopeWrapper = ImmutableScopeWrapper(immutableScope.createNewScopeLevel())
+
+    fun copy(): Scope = immutableScope
+
+    fun addEntry(
+        name: String,
+        scopeEntry: ScopeEntry,
+    ) {
+        immutableScope = immutableScope.addEntry(name, scopeEntry)
+    }
+}
+
+private class ImmutableScope(
+    private val previous: ImmutableScope? = null,
+    // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
+    private val level: Int = 0,
+    private val scopeEntry: Pair<String, ScopeEntry>? = null,
+) : Scope {
+    override val parent: ImmutableScope?
+        get() =
+            if (previous == null) {
+                null
+            } else if (previous.level != this.level) {
+                previous
+            } else {
+                previous.parent
+            }
+
+    override fun getEntry(name: String): ScopeEntry? =
+        if (scopeEntry != null && scopeEntry.first == name) {
+            scopeEntry.second
+        } else {
+            previous?.getEntry(name)
+        }
+
+    fun createNewScopeLevel(): ImmutableScope = ImmutableScope(previous = this, level = level + 1)
+
+    fun addEntry(
+        name: String,
+        scopeEntry: ScopeEntry,
+    ): ImmutableScope =
+        if (existInLocalScope(name)) {
+            throw IllegalArgumentException("An entry for $name already exists in the current scope.")
+        } else {
+            ImmutableScope(
+                previous = this,
+                level = level,
+                scopeEntry = name to scopeEntry,
+            )
+        }
+
+    private fun existInLocalScope(name: String): Boolean =
+        if (scopeEntry != null && scopeEntry.first == name) {
+            true
+        } else if (previous == null || level != previous.level) {
+            false
+        } else {
+            previous.existInLocalScope(name)
+        }
+}
+
 private class ResolvedEnvironmentImpl(
     override val globalScope: Scope,
 ) : ResolvedEnvironment {
@@ -337,7 +405,7 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
 }
 
 private class ResolverState {
-    var currentScope: ScopeImpl = ScopeImpl(null)
+    var currentScope: ImmutableScopeWrapper = ImmutableScopeWrapper()
         private set
 
     val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(currentScope)
@@ -349,10 +417,7 @@ private class ResolverState {
         action: () -> Unit,
     ) {
         if (newScopeRequired) {
-            currentScope =
-                ScopeImpl(
-                    parent = currentScope,
-                )
+            currentScope = currentScope.createNewScopeLevel()
         }
         action()
         if (newScopeRequired) {
@@ -376,7 +441,7 @@ private fun resolveAstNode(
         // - this statement will have its own view of what is in scope at this point in the current compound statement,
         //   so that if local variables/values are declared in sequence, only those that have already been declared
         //   this statement will be in scope for the statement.
-        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(node, resolverState.currentScope.shallowCopy())
+        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(node, resolverState.currentScope.copy())
     }
 
     val parentNode = resolverState.ancestorsStack.firstOrNull()
@@ -384,7 +449,7 @@ private fun resolveAstNode(
         resolverState.ancestorsStack.addFirst(node)
         traverse(::resolveAstNode, node, resolverState)
         if (node is Statement.Compound) {
-            resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(node, resolverState.currentScope.shallowCopy())
+            resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(node, resolverState.currentScope.copy())
         }
         resolverState.ancestorsStack.removeFirst()
     }
@@ -988,7 +1053,7 @@ private fun resolveTypeOfMatrixValueConstructor(
                     }
                 }
                 if (candidateElementType == null || candidateElementType.isAbstractionOf(elementTypeForArg)) {
-                    candidateElementType = (elementTypeForArg as Type.Scalar) // Kotlin typechecker bug? This "as" should not be needed.
+                    candidateElementType = elementTypeForArg
                 } else if (!elementTypeForArg.isAbstractionOf(candidateElementType)) {
                     throw RuntimeException("Matrix constructed from incompatible mix of element types")
                 }
@@ -2021,7 +2086,12 @@ private fun resolveFunctionBody(
         functionDecl.body.statements.forEach {
             resolveAstNode(it, resolverState)
         }
-        resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(functionDecl.body, resolverState.currentScope.shallowCopy())
+        resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
+            functionDecl.body,
+            resolverState
+                .currentScope
+                .copy(),
+        )
     }
 }
 
