@@ -95,6 +95,21 @@ sealed interface ResolvedEnvironment {
      * statement - i.e., right before its closing curly brace.
      */
     fun scopeAvailableAtEnd(compound: Statement.Compound): Scope
+
+    /**
+     * Yields a scope corresponding to the given index into the given compound statement.
+     */
+    fun scopeAtIndex(
+        compound: Statement.Compound,
+        index: Int,
+    ): Scope {
+        check(index in 0..compound.statements.size)
+        return if (index < compound.statements.size) {
+            scopeAvailableBefore(compound.statements[index])
+        } else {
+            scopeAvailableAtEnd(compound)
+        }
+    }
 }
 
 private data class ScopeImpl(
