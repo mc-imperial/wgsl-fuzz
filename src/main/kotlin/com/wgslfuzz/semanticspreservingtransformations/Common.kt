@@ -41,7 +41,10 @@ interface FuzzerSettings {
 
     fun randomBool(): Boolean
 
-    fun <T> randomElement(list: List<T>) = list[randomInt(list.size)]
+    fun <T> randomElement(list: List<T>): T {
+        require(list.isNotEmpty()) { "Cannot get random element of an empty list" }
+        return list [randomInt(list.size)]
+    }
 
     data class FalseByConstructionWeights(
         val plainFalse: (depth: Int) -> Int = { 1 },
@@ -135,20 +138,24 @@ fun randomVariableFromScope(
     scope: Scope,
     type: Type,
     fuzzerSettings: FuzzerSettings,
-): Expression =
-    scopeEntryTypedDeclToExpression(
+): Expression? {
+    val scopeEntries =
+        scope
+            .getAllEntries()
+            .filter {
+                it is ScopeEntry.TypedDecl &&
+                    it !is ScopeEntry.TypeAlias &&
+                    it.type == type
+            }
+
+    if (scopeEntries.isEmpty()) return null
+
+    return scopeEntryTypedDeclToExpression(
         fuzzerSettings.randomElement(
-            scope
-                .getAllEntries()
-                .filter {
-                    it is ScopeEntry.TypedDecl &&
-                        it !is ScopeEntry.LocalValue &&
-                        it !is ScopeEntry.GlobalConstant &&
-                        it !is ScopeEntry.TypeAlias &&
-                        it.type == type
-                },
+            scopeEntries,
         ) as ScopeEntry.TypedDecl,
     )
+}
 
 fun scopeEntryTypedDeclToExpression(scopeEntry: ScopeEntry.TypedDecl): Expression =
     Expression.Identifier(
@@ -390,114 +397,6 @@ fun generateTrueByConstructionExpression(
     shaderJob: ShaderJob,
     scope: Scope,
 ): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, shaderJob, scope)
-
-fun generateArbitraryExpression(
-    depth: Int,
-    type: Type,
-    sideEffectsAllowed: Boolean,
-    fuzzerSettings: FuzzerSettings,
-    shaderJob: ShaderJob,
-    scope: Scope,
-): Expression =
-    if (depth == fuzzerSettings.maxDepth) {
-        constantWithSameValueEverywhere(1, type)
-    } else {
-        when (type) {
-            Type.Bool -> generateArbitraryBool(depth, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
-            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
-            else -> constantWithSameValueEverywhere(1, type)
-        }
-    }
-
-private fun generateArbitraryBool(
-    depth: Int,
-    sideEffectsAllowed: Boolean,
-    fuzzerSettings: FuzzerSettings,
-    shaderJob: ShaderJob,
-    scope: Scope,
-): Expression {
-    if (depth == fuzzerSettings.maxDepth) {
-        return constantWithSameValueEverywhere(1, Type.Bool)
-    }
-
-    val choices: List<Pair<Int, () -> AugmentedExpression.ArbitraryExpression>> =
-        listOf(
-            fuzzerSettings.arbitraryBooleanExpressionWeights.not(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.Unary(
-                        operator = UnaryOperator.LOGICAL_NOT,
-                        target =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                    ),
-                )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.or(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.Binary(
-                        operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                        lhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                        rhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                    ),
-                )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.and(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.Binary(
-                        operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                        lhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                        rhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                    ),
-                )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.literal(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.BoolLiteral(
-                        text = fuzzerSettings.randomElement(listOf("true", "false")),
-                    ),
-                )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.variableFromScope(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    randomVariableFromScope(scope, type = Type.Bool, fuzzerSettings),
-                )
-            },
-        )
-    return choose(fuzzerSettings, choices)
-}
 
 fun generateKnownValueExpression(
     depth: Int,

@@ -97,11 +97,10 @@ sealed interface ResolvedEnvironment {
     fun scopeAvailableAtEnd(compound: Statement.Compound): Scope
 }
 
-private class ScopeImpl(
+private data class ScopeImpl(
     override val parent: ScopeImpl?,
+    private val entries: MutableMap<String, ScopeEntry> = mutableMapOf(),
 ) : Scope {
-    private val entries: MutableMap<String, ScopeEntry> = mutableMapOf()
-
     fun addEntry(
         name: String,
         node: ScopeEntry,
@@ -978,7 +977,7 @@ private fun resolveTypeOfMatrixValueConstructor(
                     }
                 }
                 if (candidateElementType == null || candidateElementType.isAbstractionOf(elementTypeForArg)) {
-                    candidateElementType = (elementTypeForArg as Type.Scalar) // Kotlin typechecker bug? This "as" should not be needed.
+                    candidateElementType = elementTypeForArg
                 } else if (!elementTypeForArg.isAbstractionOf(candidateElementType)) {
                     throw RuntimeException("Matrix constructed from incompatible mix of element types")
                 }
