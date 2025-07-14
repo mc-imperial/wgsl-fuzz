@@ -1536,7 +1536,13 @@ private fun resolveTypeOfFunctionCallExpression(
                                 Type.F32,
                             )
                         else -> {
-                            when (val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()) {
+                            when (
+                                val arg2Type =
+                                    resolverState.resolvedEnvironment
+                                        .typeOf(
+                                            functionCallExpression.args[1],
+                                        ).asStoreTypeIfReference()
+                            ) {
                                 is Type.Texture.Sampled -> Type.Vector(4, arg2Type.sampledType)
                                 else -> throw RuntimeException("$calleeName requires a suitable texture as its first or second argument")
                             }
