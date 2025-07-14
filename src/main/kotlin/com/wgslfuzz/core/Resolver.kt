@@ -112,10 +112,11 @@ sealed interface ResolvedEnvironment {
     }
 }
 
-private data class ScopeImpl(
+private class ScopeImpl(
     override val parent: ScopeImpl?,
-    private val entries: MutableMap<String, ScopeEntry> = mutableMapOf(),
 ) : Scope {
+    private val entries: MutableMap<String, ScopeEntry> = mutableMapOf()
+
     fun addEntry(
         name: String,
         node: ScopeEntry,

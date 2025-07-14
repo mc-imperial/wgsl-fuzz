@@ -48,88 +48,83 @@ private fun generateArbitraryBool(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
     scope: Scope,
-): Expression {
-    if (depth == fuzzerSettings.maxDepth) {
-        return constantWithSameValueEverywhere(1, Type.Bool)
-    }
-
-    val choices: List<Pair<Int, () -> AugmentedExpression.ArbitraryExpression>> =
-        listOf(
-            fuzzerSettings.arbitraryBooleanExpressionWeights.not(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.Unary(
-                        operator = UnaryOperator.LOGICAL_NOT,
-                        target =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                    ),
+): AugmentedExpression.ArbitraryExpression =
+    AugmentedExpression.ArbitraryExpression(
+        if (depth == fuzzerSettings.maxDepth) {
+            constantWithSameValueEverywhere(1, Type.Bool)
+        } else {
+            val choices: List<Pair<Int, () -> Expression>> =
+                listOf(
+                    fuzzerSettings.arbitraryBooleanExpressionWeights.not(depth) to {
+                        Expression.Unary(
+                            operator = UnaryOperator.LOGICAL_NOT,
+                            target =
+                                generateArbitraryBool(
+                                    depth = depth + 1,
+                                    sideEffectsAllowed,
+                                    fuzzerSettings,
+                                    shaderJob,
+                                    scope,
+                                ),
+                        )
+                    },
+                    fuzzerSettings.arbitraryBooleanExpressionWeights.or(depth) to {
+                        Expression.Binary(
+                            operator = BinaryOperator.SHORT_CIRCUIT_OR,
+                            lhs =
+                                generateArbitraryBool(
+                                    depth = depth + 1,
+                                    sideEffectsAllowed,
+                                    fuzzerSettings,
+                                    shaderJob,
+                                    scope,
+                                ),
+                            rhs =
+                                generateArbitraryBool(
+                                    depth = depth + 1,
+                                    sideEffectsAllowed,
+                                    fuzzerSettings,
+                                    shaderJob,
+                                    scope,
+                                ),
+                        )
+                    },
+                    fuzzerSettings.arbitraryBooleanExpressionWeights.and(depth) to {
+                        Expression.Binary(
+                            operator = BinaryOperator.SHORT_CIRCUIT_AND,
+                            lhs =
+                                generateArbitraryBool(
+                                    depth = depth + 1,
+                                    sideEffectsAllowed,
+                                    fuzzerSettings,
+                                    shaderJob,
+                                    scope,
+                                ),
+                            rhs =
+                                generateArbitraryBool(
+                                    depth = depth + 1,
+                                    sideEffectsAllowed,
+                                    fuzzerSettings,
+                                    shaderJob,
+                                    scope,
+                                ),
+                        )
+                    },
+                    fuzzerSettings.arbitraryBooleanExpressionWeights.literal(depth) to {
+                        Expression.BoolLiteral(
+                            text = fuzzerSettings.randomElement(listOf("true", "false")),
+                        )
+                    },
+                    fuzzerSettings.arbitraryBooleanExpressionWeights.variableFromScope(depth) to {
+                        randomVariableFromScope(scope, type = Type.Bool, fuzzerSettings) ?: generateArbitraryBool(
+                            depth,
+                            sideEffectsAllowed,
+                            fuzzerSettings,
+                            shaderJob,
+                            scope,
+                        )
+                    },
                 )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.or(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.Binary(
-                        operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                        lhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                        rhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                    ),
-                )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.and(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.Binary(
-                        operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                        lhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                        rhs =
-                            generateArbitraryBool(
-                                depth = depth + 1,
-                                sideEffectsAllowed,
-                                fuzzerSettings,
-                                shaderJob,
-                                scope,
-                            ),
-                    ),
-                )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.literal(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    Expression.BoolLiteral(
-                        text = fuzzerSettings.randomElement(listOf("true", "false")),
-                    ),
-                )
-            },
-            fuzzerSettings.arbitraryBooleanExpressionWeights.variableFromScope(depth) to {
-                AugmentedExpression.ArbitraryExpression(
-                    expression =
-                        randomVariableFromScope(scope, type = Type.Bool, fuzzerSettings)
-                            ?: throw IllegalStateException("Could not find a variable within scope: $scope"),
-                )
-            },
-        )
-    return choose(fuzzerSettings, choices)
-}
+            choose(fuzzerSettings, choices)
+        },
+    )
