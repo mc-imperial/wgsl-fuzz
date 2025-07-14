@@ -33,7 +33,7 @@ class UniformityWGSLAnalysisTests {
 
         val message =
             assertThrows(IllegalArgumentException::class.java) {
-                runUniformityGraphAnalysis(tu, environment)
+                runWGSLUniformityGraphAnalysis(tu, environment)
             }
         println(message.message.toString())
         assertContains("Uniformity Error", message.message.toString())
@@ -42,7 +42,7 @@ class UniformityWGSLAnalysisTests {
     fun checkUniform(shader: String) {
         val tu = parseFromString(shader, LoggingParseErrorListener()).desugar()
         val environment = resolve(tu)
-        assertDoesNotThrow {runUniformityGraphAnalysis(tu, environment)}
+        assertDoesNotThrow {runWGSLUniformityGraphAnalysis(tu, environment)}
     }
 
     @Test
@@ -247,7 +247,7 @@ class UniformityWGSLAnalysisTests {
               var x5 = 0;
               var result: u32 = 0;
               loop {
-                if (x5 == 1) { result = lid; }
+                if (x5 == 1) { result = lid; break; }
                 if (x4 == 1) { x5 = 1; }
                 if (x3 == 1) { x4 = 1; }
                 if (x2 == 1) { x3 = 1; }

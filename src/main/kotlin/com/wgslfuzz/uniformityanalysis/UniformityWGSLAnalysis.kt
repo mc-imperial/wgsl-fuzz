@@ -220,6 +220,34 @@ private class FunctionInfo(
     // been modified in branching control flow and so must be merged.
     val variablesInScope: HashSet<String> = HashSet()
 
+    var loopInfo: LoopInfo? = null
+
+    // TODO(JLJ): Change param name
+    private fun updateNodesReaching(map: MutableMap<String, MutableSet<UniformityNode>>) {
+        for (variable in variablesInScope) {
+            val variableNode = variableNodes.get(variable)!!
+            if (variable !in loopInfo!!.nodesReachingContinue) {
+                map.put(variable, mutableSetOf(variableNode))
+            } else {
+                map[variable]?.add(variableNode)
+            }
+        }
+    }
+
+    fun updateNodesReachingContinuing() {
+        updateNodesReaching(loopInfo!!.nodesReachingContinue)
+    }
+
+    fun updateNodesExitingLoop() {
+        updateNodesReaching(loopInfo!!.nodesBreaking)
+    }
+
+    fun swapOutLoopInfo(): LoopInfo? {
+        val result = loopInfo
+        loopInfo = LoopInfo()
+        return result
+    }
+
     // TODO(JLJ): Add support for pointer parameters
 
     fun requiredToBeUniform(severity: Severity) =
@@ -230,8 +258,16 @@ private class FunctionInfo(
         }
 }
 
+// This class stores information used for the variable value analysis of loops.
+// We need to know which variable nodes may continue to the next loop iteration due to a continue
+// and which may exit the loop due to a break.
+private class LoopInfo {
+    val nodesReachingContinue: MutableMap<String, MutableSet<UniformityNode>> = mutableMapOf()
+    val nodesBreaking: MutableMap<String, MutableSet<UniformityNode>> = mutableMapOf()
+}
+
 // NOTE: Must be run on the desugared translation unit.
-fun runUniformityGraphAnalysis(
+fun runWGSLUniformityGraphAnalysis(
     tu: TranslationUnit,
     environment: ResolvedEnvironment,
 ) {
@@ -370,7 +406,7 @@ private fun analyseStatements(
     for (statement in statements) {
         cfNode = analyseStatement(cfNode, statement, functionInfo, functionInfoMap, behaviourMap, environment)
 
-        if (behaviourMap[statement] != setOf(StatementBehaviour.NEXT)) {
+        if (!behaviourMap[statement]!!.contains(StatementBehaviour.NEXT)) {
             break
         }
     }
@@ -404,13 +440,14 @@ private fun analyseStatement(
 
         is Statement.Value -> {
             // Continue analysis with the control flow node produced
-            val (newCf, valueNode) = analyseExpression(
-                cf,
-                statement.initializer,
-                functionInfo,
-                environment.scopeAvailableBefore(statement),
-                environment
-            )
+            val (newCf, valueNode) =
+                analyseExpression(
+                    cf,
+                    statement.initializer,
+                    functionInfo,
+                    environment.scopeAvailableBefore(statement),
+                    environment,
+                )
 
             functionInfo.variablesInScope.add(statement.name)
             functionInfo.variableNodes.set(statement.name, valueNode)
@@ -452,8 +489,16 @@ private fun analyseStatement(
             }
         }
 
-        is Statement.Break -> cf
-        is Statement.Continue -> cf
+        is Statement.Break -> {
+            // Statement Behaviour Analysis: Keep track of the variable uniformity nodes that may exit the loop.
+            functionInfo.updateNodesExitingLoop()
+            cf
+        }
+        is Statement.Continue -> {
+            // Statement Behaviour Analysis: Keep track of the variable uniformity nodes that may enter the continuing construct.
+            functionInfo.updateNodesReachingContinuing()
+            cf
+        }
 
         is Statement.If -> {
             // Uniformity Rules for Statements: Analyse the if condition.
@@ -532,8 +577,25 @@ private fun analyseStatement(
         // Since uniformity analysis is performed on the desugared AST, the rules for `loop {s1}` and
         // `loop {s1 continuing {s2}}` are identical and so can be collapsed into one, as is done here.
         is Statement.Loop -> {
+            val previousLoopInfo = functionInfo.swapOutLoopInfo()
+
             val newCf = createUniformityNode("CF'_loop_start")
             val cf1 = analyseStatement(newCf, statement.body, functionInfo, functionInfoMap, behaviourMap, environment)
+
+            // Statement Behaviour Analysis: create new nodes for any variables that may continue.
+            for ((variable, nodes) in functionInfo.loopInfo!!.nodesReachingContinue.iterator()) {
+                val newNode = createUniformityNode(variable)
+                // Connect the new node to the nodes representing the variable at any continues.
+                nodes.forEach { newNode.addEdges(it) }
+                // Connect the new node to the node representing the variable at the end of the loop body.
+                // This is connecting to Vout(cf1)
+                newNode.addEdges(functionInfo.variableNodes.get(variable)!!)
+                functionInfo.variableNodes.set(variable, newNode)
+            }
+
+            // Statement Behaviour Analysis: Delay creating new nodes for these until after the continuing has been
+            // processes. They should only feed into Vin(next) (https://www.w3.org/TR/WGSL/#func-var-value-analysis)
+            val nodesBreaking = functionInfo.loopInfo!!.nodesBreaking
 
             // The continuing statement is guaranteed to be non-null because we are operating on the desugared AST.
             val cf2 =
@@ -560,6 +622,19 @@ private fun analyseStatement(
             } else {
                 newCf.addEdges(cf, cf2)
             }
+
+            // Statement Behaviour Analysis: create new nodes for any variables that may break.
+            for ((variable, nodes) in nodesBreaking) {
+                val newNode = createUniformityNode(variable)
+                // Connect the new node to the nodes representing the variable at any breaks.
+                nodes.forEach { newNode.addEdges(it) }
+                // Connect the new node to the node representing the variable at the end of the continuing body.
+                newNode.addEdges(functionInfo.variableNodes.get(variable)!!)
+                functionInfo.variableNodes.set(variable, newNode)
+            }
+
+            // Rest loop info to previous value incase we are inside a nested loop.
+            functionInfo.loopInfo = previousLoopInfo
 
             if (behaviourMap[statement] == setOf(StatementBehaviour.NEXT)) cf else newCf
         }
