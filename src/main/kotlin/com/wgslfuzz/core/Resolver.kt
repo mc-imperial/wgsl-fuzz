@@ -145,14 +145,15 @@ private class ScopeImpl(
     override fun getEntry(name: String): ScopeEntry? = entries[name] ?: parent?.getEntry(name)
 }
 
-private class ImmutableScopeWrapper(
-    private var immutableScope: ImmutableScope = ImmutableScope(),
-) : Scope {
-    override val parent = immutableScope.parent?.let { ImmutableScopeWrapper(it) }
+private class ImmutableScopeWrapper : Scope {
+    private var immutableScope: ImmutableScope = ImmutableScope()
+
+    override val parent: ImmutableScopeWrapper?
+        get() = immutableScope.parent?.let { newImmutableScopeWrapper(it) }
 
     override fun getEntry(name: String): ScopeEntry? = immutableScope.getEntry(name)
 
-    fun createNewScopeLevel(): ImmutableScopeWrapper = ImmutableScopeWrapper(immutableScope.createNewScopeLevel())
+    fun createNewScopeLevel(): ImmutableScopeWrapper = newImmutableScopeWrapper(immutableScope.createNewScopeLevel())
 
     fun copy(): Scope = immutableScope
 
@@ -163,6 +164,12 @@ private class ImmutableScopeWrapper(
         scopeEntry: ScopeEntry,
     ) {
         immutableScope = immutableScope.addEntry(name, scopeEntry)
+    }
+
+    private fun newImmutableScopeWrapper(scope: ImmutableScope): ImmutableScopeWrapper {
+        val result = ImmutableScopeWrapper()
+        result.immutableScope = scope
+        return result
     }
 }
 
