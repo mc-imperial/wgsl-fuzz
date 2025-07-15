@@ -155,8 +155,6 @@ private class ImmutableScopeWrapper : Scope {
 
     fun copy(): Scope = immutableScope
 
-    fun toFastScope(): Scope = immutableScope.toFastScope()
-
     fun addEntry(
         name: String,
         scopeEntry: ScopeEntry,
@@ -202,29 +200,12 @@ private class ImmutableScopeWrapper : Scope {
                 .takeWhile { it.level == this.level }
                 .any { it.scopeEntry != null && it.scopeEntry.first == name }
 
-        fun toFastScope(): Scope {
-            val scopeEntryMap = mutableMapOf<String, ScopeEntry>()
-            for ((key, scopeEntry) in entriesSequence()) {
-                if (key !in scopeEntryMap.keys) {
-                    scopeEntryMap[key] = scopeEntry
-                }
-            }
-            return FastScope(parent, scopeEntryMap)
-        }
-
         fun entriesSequence(): Sequence<Pair<String, ScopeEntry>> =
             scopeSequence()
                 .map { it.scopeEntry }
                 .filterNotNull()
 
         private fun scopeSequence(): Sequence<ImmutableScope> = generateSequence(this) { it.previous }
-    }
-
-    private class FastScope(
-        val parent: Scope?,
-        private val scopeEntryMap: Map<String, ScopeEntry>,
-    ) : Scope {
-        override fun getEntry(name: String): ScopeEntry? = scopeEntryMap[name]
     }
 }
 
@@ -453,7 +434,7 @@ private fun resolveAstNode(
     if (node is Statement) {
         resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(
             node,
-            resolverState.currentScope.toFastScope(),
+            resolverState.currentScope.copy(),
         )
     }
 
@@ -464,7 +445,7 @@ private fun resolveAstNode(
         if (node is Statement.Compound) {
             resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
                 node,
-                resolverState.currentScope.toFastScope(),
+                resolverState.currentScope.copy(),
             )
         }
         resolverState.ancestorsStack.removeFirst()
@@ -2106,7 +2087,7 @@ private fun resolveFunctionBody(
             functionDecl.body,
             resolverState
                 .currentScope
-                .toFastScope(),
+                .copy(),
         )
     }
 }
