@@ -167,46 +167,46 @@ private class ImmutableScopeWrapper : Scope {
         result.immutableScope = scope
         return result
     }
+}
 
-    private class ImmutableScope(
-        private val previous: ImmutableScope? = null,
-        // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
-        private val level: Int = 0,
-        private val scopeEntry: Pair<String, ScopeEntry>? = null,
-    ) : Scope {
-        val parent: ImmutableScope?
-            get() = scopeSequence().firstOrNull { it.level != this.level }
+private class ImmutableScope(
+    private val previous: ImmutableScope? = null,
+    // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
+    private val level: Int = 0,
+    private val scopeEntry: Pair<String, ScopeEntry>? = null,
+) : Scope {
+    val parent: ImmutableScope?
+        get() = scopeSequence().firstOrNull { it.level != this.level }
 
-        override fun getEntry(name: String): ScopeEntry? = entriesSequence().firstOrNull { it.first == name }?.second
+    override fun getEntry(name: String): ScopeEntry? = entriesSequence().firstOrNull { it.first == name }?.second
 
-        fun createNewScopeLevel(): ImmutableScope = ImmutableScope(previous = this, level = level + 1)
+    fun createNewScopeLevel(): ImmutableScope = ImmutableScope(previous = this, level = level + 1)
 
-        fun addEntry(
-            name: String,
-            scopeEntry: ScopeEntry,
-        ): ImmutableScope =
-            if (existInLocalScope(name)) {
-                throw IllegalArgumentException("An entry for $name already exists in the current scope.")
-            } else {
-                ImmutableScope(
-                    previous = this,
-                    level = level,
-                    scopeEntry = name to scopeEntry,
-                )
-            }
+    fun addEntry(
+        name: String,
+        scopeEntry: ScopeEntry,
+    ): ImmutableScope =
+        if (existInLocalScope(name)) {
+            throw IllegalArgumentException("An entry for $name already exists in the current scope.")
+        } else {
+            ImmutableScope(
+                previous = this,
+                level = level,
+                scopeEntry = name to scopeEntry,
+            )
+        }
 
-        private fun existInLocalScope(name: String): Boolean =
-            scopeSequence()
-                .takeWhile { it.level == this.level }
-                .any { it.scopeEntry != null && it.scopeEntry.first == name }
+    private fun existInLocalScope(name: String): Boolean =
+        scopeSequence()
+            .takeWhile { it.level == this.level }
+            .any { it.scopeEntry != null && it.scopeEntry.first == name }
 
-        fun entriesSequence(): Sequence<Pair<String, ScopeEntry>> =
-            scopeSequence()
-                .map { it.scopeEntry }
-                .filterNotNull()
+    fun entriesSequence(): Sequence<Pair<String, ScopeEntry>> =
+        scopeSequence()
+            .map { it.scopeEntry }
+            .filterNotNull()
 
-        private fun scopeSequence(): Sequence<ImmutableScope> = generateSequence(this) { it.previous }
-    }
+    private fun scopeSequence(): Sequence<ImmutableScope> = generateSequence(this) { it.previous }
 }
 
 private class ResolvedEnvironmentImpl(
