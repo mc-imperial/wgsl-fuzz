@@ -143,33 +143,6 @@ private class ScopeImpl(
     override fun getEntry(name: String): ScopeEntry? = entries[name] ?: parent?.getEntry(name)
 }
 
-private class ImmutableScopeWrapper : Scope {
-    private var immutableScope: ImmutableScope = ImmutableScope()
-
-    val parent: ImmutableScopeWrapper?
-        get() = immutableScope.parent?.let { newImmutableScopeWrapper(it) }
-
-    override fun getEntry(name: String): ScopeEntry? = immutableScope.getEntry(name)
-
-    fun createNewScopeLevel(): ImmutableScopeWrapper = newImmutableScopeWrapper(immutableScope.createNewScopeLevel())
-
-    fun copy(): Scope = immutableScope
-
-    fun addEntry(
-        name: String,
-        scopeEntry: ScopeEntry,
-    ): ImmutableScopeWrapper {
-        immutableScope = immutableScope.addEntry(name, scopeEntry)
-        return this
-    }
-
-    private fun newImmutableScopeWrapper(scope: ImmutableScope): ImmutableScopeWrapper {
-        val result = ImmutableScopeWrapper()
-        result.immutableScope = scope
-        return result
-    }
-}
-
 private class ImmutableScope(
     private val previous: ImmutableScope? = null,
     // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
