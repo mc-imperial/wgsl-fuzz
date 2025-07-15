@@ -72,7 +72,7 @@ class ShaderJob(
                         binding = binding,
                         data =
                             getBytesForExpression(
-                                type = getUniformType(environment, tu.getUniformDeclaration(group, binding)),
+                                type = getUniformStoreType(environment, tu.getUniformDeclaration(group, binding)),
                                 value = pipelineState.getUniformValue(group, binding),
                                 offset = 0,
                             ),
@@ -176,7 +176,8 @@ fun createShaderJob(
         val binding: Int = uniformBuffer.binding
         val bufferBytes: List<UByte> = uniformBuffer.data.map(Int::toUByte)
 
-        val uniformType: Type = getUniformType(environment, tu.getUniformDeclaration(group, binding))
+        val uniformType: Type = getUniformStoreType(environment, tu.getUniformDeclaration(group, binding))
+        println(uniformType)
 
         val (literalExpr, newBufferByteIndex) =
             literalExprFromBytes(
@@ -190,19 +191,19 @@ fun createShaderJob(
     return ShaderJob(tu, PipelineState(uniformValues))
 }
 
-private fun getUniformType(
+private fun getUniformStoreType(
     environment: ResolvedEnvironment,
     uniformDeclaration: GlobalDecl.Variable,
 ) = if (uniformDeclaration.typeDecl is TypeDecl.NamedType) {
-    getUniformTypeByName(environment, uniformDeclaration.typeDecl.name)
+    getUniformStoreTypeByName(environment, uniformDeclaration.typeDecl.name)
 } else {
-    getUniformTypeByName(environment, uniformDeclaration.name)
+    getUniformStoreTypeByName(environment, uniformDeclaration.name)
 }
 
-private fun getUniformTypeByName(
+private fun getUniformStoreTypeByName(
     environment: ResolvedEnvironment,
     uniformName: String,
-) = (environment.globalScope.getEntry(uniformName) as ScopeEntry.TypedDecl).type
+) = (environment.globalScope.getEntry(uniformName) as ScopeEntry.TypedDecl).type.asStoreTypeIfReference()
 
 private fun literalExprFromBytes(
     type: Type,
