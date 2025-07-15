@@ -114,7 +114,12 @@ private class ScopeImpl(
     private val level: Int = 0,
     private val scopeEntry: Pair<String, ScopeEntry>? = null,
 ) : Scope {
-    override fun getEntry(name: String): ScopeEntry? = entriesSequence().firstOrNull { it.first == name }?.second
+    override fun getEntry(name: String): ScopeEntry? =
+        scopeSequence()
+            .map { it.scopeEntry }
+            .filterNotNull()
+            .firstOrNull { it.first == name }
+            ?.second
 
     fun pushScopeLevel(): ScopeImpl = ScopeImpl(previous = this, level = level + 1)
 
@@ -138,11 +143,6 @@ private class ScopeImpl(
         scopeSequence()
             .takeWhile { it.level == this.level }
             .any { it.scopeEntry != null && it.scopeEntry.first == name }
-
-    fun entriesSequence(): Sequence<Pair<String, ScopeEntry>> =
-        scopeSequence()
-            .map { it.scopeEntry }
-            .filterNotNull()
 
     private fun scopeSequence(): Sequence<ScopeImpl> = generateSequence(this) { it.previous }
 }
