@@ -16,6 +16,7 @@
 
 /*
  * Reimplementation in WGSL of the GLSL shader from https://github.com/google/graphicsfuzz
+ * Modified so that dp is passed in as an uniform
  * Original shader: https://github.com/google/graphicsfuzz/blob/master/shaders/src/main/glsl/samples/320es/stable_pillars.frag
  */
 
