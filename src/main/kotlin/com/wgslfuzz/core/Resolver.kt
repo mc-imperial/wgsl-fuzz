@@ -183,6 +183,8 @@ private class ImmutableScope(
 
     fun createNewScopeLevel(): ImmutableScope = ImmutableScope(previous = this, level = level + 1)
 
+    fun copy(): Scope = this
+
     fun addEntry(
         name: String,
         scopeEntry: ScopeEntry,
@@ -211,7 +213,7 @@ private class ImmutableScope(
 }
 
 private class ResolvedEnvironmentImpl(
-    override val globalScope: Scope,
+    override var globalScope: Scope,
 ) : ResolvedEnvironment {
     // The resolving process gives a type to _every_ expression in the AST.
     private val expressionTypes: MutableMap<Expression, Type> = mutableMapOf()
@@ -402,7 +404,13 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
 }
 
 private class ResolverState {
-    var currentScope: ImmutableScopeWrapper = ImmutableScopeWrapper()
+    var currentScope: ImmutableScope = ImmutableScope()
+        set(newCurrentScope) {
+            // This line is necessary since the last thing currentScope is set to is the final global scope.
+            // If not set here the global scope of ResolvedEnvironmentImpl is empty
+            resolvedEnvironment.globalScope = newCurrentScope
+            field = newCurrentScope
+        }
 
     val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(currentScope)
 
