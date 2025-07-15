@@ -109,63 +109,25 @@ sealed interface ResolvedEnvironment {
 }
 
 private class ScopeImpl(
-    val parent: ScopeImpl?,
-) : Scope {
-    private val entries: MutableMap<String, ScopeEntry> = mutableMapOf()
-
-    fun addEntry(
-        name: String,
-        node: ScopeEntry,
-    ) {
-        if (name in entries.keys) {
-            throw IllegalArgumentException("An entry for $name already exists in the current scope.")
-        }
-        entries[name] = node
-    }
-
-    /**
-     * Creates a new scope based on this scope. The parent of the resulting scope is referentially equal to the parent
-     * of this scope (so that parent scopes are not copied), but the immediate contents of this scope are captured via
-     * a fresh map in the newly-created scope. The point of this is to allow each statement in a compound to have its
-     * own view of what is in scope so far in the compound.
-     */
-    fun shallowCopy(): Scope {
-        val result =
-            ScopeImpl(
-                parent = parent,
-            )
-        for (nameEntryPair: Map.Entry<String, ScopeEntry> in entries) {
-            result.entries[nameEntryPair.key] = nameEntryPair.value
-        }
-        return result
-    }
-
-    override fun getEntry(name: String): ScopeEntry? = entries[name] ?: parent?.getEntry(name)
-}
-
-private class ImmutableScope(
-    private val previous: ImmutableScope? = null,
+    private val previous: ScopeImpl? = null,
     // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
     private val level: Int = 0,
     private val scopeEntry: Pair<String, ScopeEntry>? = null,
 ) : Scope {
-    val parent: ImmutableScope?
-        get() = scopeSequence().firstOrNull { it.level != this.level }
-
     override fun getEntry(name: String): ScopeEntry? = entriesSequence().firstOrNull { it.first == name }?.second
 
-    fun createNewScopeLevel(): ImmutableScope = ImmutableScope(previous = this, level = level + 1)
+    fun pushScopeLevel(): ScopeImpl = ScopeImpl(previous = this, level = level + 1)
 
-    fun copy(): Scope = this
+    fun popScopeLevel(): ScopeImpl? = scopeSequence().firstOrNull { it.level != this.level }
 
     fun addEntry(
         name: String,
         scopeEntry: ScopeEntry,
-    ): ImmutableScope =
+    ): ScopeImpl =
         if (existInLocalScope(name)) {
             throw IllegalArgumentException("An entry for $name already exists in the current scope.")
         } else {
-            ImmutableScope(
+            ScopeImpl(
                 previous = this,
                 level = level,
                 scopeEntry = name to scopeEntry,
@@ -182,7 +144,7 @@ private class ImmutableScope(
             .map { it.scopeEntry }
             .filterNotNull()
 
-    private fun scopeSequence(): Sequence<ImmutableScope> = generateSequence(this) { it.previous }
+    private fun scopeSequence(): Sequence<ScopeImpl> = generateSequence(this) { it.previous }
 }
 
 private class ResolvedEnvironmentImpl(
@@ -377,7 +339,7 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
 }
 
 private class ResolverState {
-    var currentScope: ImmutableScope = ImmutableScope()
+    var currentScope: ScopeImpl = ScopeImpl()
         set(newCurrentScope) {
             // This line is necessary since the last thing currentScope is set to is the final global scope.
             // If not set here the global scope of ResolvedEnvironmentImpl is empty
@@ -394,11 +356,11 @@ private class ResolverState {
         action: () -> Unit,
     ) {
         if (newScopeRequired) {
-            currentScope = currentScope.createNewScopeLevel()
+            currentScope = currentScope.pushScopeLevel()
         }
         action()
         if (newScopeRequired) {
-            currentScope = currentScope.parent!!
+            currentScope = currentScope.popScopeLevel()!!
         }
     }
 }
@@ -415,7 +377,7 @@ private fun resolveAstNode(
     if (node is Statement) {
         resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(
             node,
-            resolverState.currentScope.copy(),
+            resolverState.currentScope,
         )
     }
 
@@ -426,7 +388,7 @@ private fun resolveAstNode(
         if (node is Statement.Compound) {
             resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
                 node,
-                resolverState.currentScope.copy(),
+                resolverState.currentScope,
             )
         }
         resolverState.ancestorsStack.removeFirst()
@@ -2075,9 +2037,7 @@ private fun resolveFunctionBody(
         }
         resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
             functionDecl.body,
-            resolverState
-                .currentScope
-                .copy(),
+            resolverState.currentScope,
         )
     }
 }
