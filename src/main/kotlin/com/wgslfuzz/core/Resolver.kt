@@ -158,8 +158,9 @@ private class ImmutableScopeWrapper : Scope {
     fun addEntry(
         name: String,
         scopeEntry: ScopeEntry,
-    ) {
+    ): ImmutableScopeWrapper {
         immutableScope = immutableScope.addEntry(name, scopeEntry)
+        return this
     }
 
     private fun newImmutableScopeWrapper(scope: ImmutableScope): ImmutableScopeWrapper {
@@ -402,7 +403,6 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
 
 private class ResolverState {
     var currentScope: ImmutableScopeWrapper = ImmutableScopeWrapper()
-        private set
 
     val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(currentScope)
 
@@ -453,13 +453,14 @@ private fun resolveAstNode(
 
     when (node) {
         is GlobalDecl.TypeAlias -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.TypeAlias(
-                    node,
-                    resolveTypeDecl(node.typeDecl, resolverState),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.TypeAlias(
+                        node,
+                        resolveTypeDecl(node.typeDecl, resolverState),
+                    ),
+                )
         }
         is GlobalDecl.Variable -> {
             val type: Type =
@@ -468,50 +469,54 @@ private fun resolveAstNode(
                         resolveTypeDecl(node.typeDecl, resolverState)
                     } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
                 )
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.GlobalVariable(node, type),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.GlobalVariable(node, type),
+                )
         }
         is GlobalDecl.Constant -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.GlobalConstant(
-                    astNode = node,
-                    type =
-                        node.typeDecl?.let {
-                            resolveTypeDecl(it, resolverState)
-                        } ?: resolverState.resolvedEnvironment.typeOf(node.initializer),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.GlobalConstant(
+                        astNode = node,
+                        type =
+                            node.typeDecl?.let {
+                                resolveTypeDecl(it, resolverState)
+                            } ?: resolverState.resolvedEnvironment.typeOf(node.initializer),
+                    ),
+                )
         }
         is GlobalDecl.Override -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.GlobalOverride(
-                    astNode = node,
-                    type =
-                        node.typeDecl?.let {
-                            resolveTypeDecl(it, resolverState)
-                        } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.GlobalOverride(
+                        astNode = node,
+                        type =
+                            node.typeDecl?.let {
+                                resolveTypeDecl(it, resolverState)
+                            } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
+                    ),
+                )
         }
         is GlobalDecl.Struct -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.Struct(
-                    astNode = node,
-                    type =
-                        Type.Struct(
-                            name = node.name,
-                            members =
-                                node.members.map {
-                                    it.name to resolveTypeDecl(it.typeDecl, resolverState)
-                                },
-                        ),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.Struct(
+                        astNode = node,
+                        type =
+                            Type.Struct(
+                                name = node.name,
+                                members =
+                                    node.members.map {
+                                        it.name to resolveTypeDecl(it.typeDecl, resolverState)
+                                    },
+                            ),
+                    ),
+                )
         }
         is Statement.FunctionCall -> {
             when (val entry = resolverState.currentScope.getEntry(node.callee)) {
@@ -540,10 +545,11 @@ private fun resolveAstNode(
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
             }
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.LocalValue(node, type),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.LocalValue(node, type),
+                )
         }
         is Statement.Variable -> {
             var type: Type =
@@ -553,10 +559,11 @@ private fun resolveAstNode(
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
             }
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.LocalVariable(node, type),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.LocalVariable(node, type),
+                )
         }
         is Expression -> resolverState.resolvedEnvironment.recordType(node, resolveExpressionType(node, resolverState))
         is LhsExpression -> resolverState.resolvedEnvironment.recordType(node, resolveLhsExpressionType(node, resolverState))
@@ -2055,13 +2062,14 @@ private fun resolveFunctionHeader(
                 resolveTypeDecl(it, resolverState)
             },
         )
-    resolverState.currentScope.addEntry(
-        functionDecl.name,
-        ScopeEntry.Function(
-            astNode = functionDecl,
-            type = functionType,
-        ),
-    )
+    resolverState.currentScope =
+        resolverState.currentScope.addEntry(
+            functionDecl.name,
+            ScopeEntry.Function(
+                astNode = functionDecl,
+                type = functionType,
+            ),
+        )
 }
 
 private fun resolveFunctionBody(
@@ -2072,13 +2080,14 @@ private fun resolveFunctionBody(
     assert(functionScopeEntry.astNode == functionDecl)
     resolverState.maybeWithScope(true) {
         functionDecl.parameters.forEachIndexed { index, parameterDecl ->
-            resolverState.currentScope.addEntry(
-                parameterDecl.name,
-                ScopeEntry.Parameter(
-                    astNode = parameterDecl,
-                    type = functionScopeEntry.type.argTypes[index],
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    parameterDecl.name,
+                    ScopeEntry.Parameter(
+                        astNode = parameterDecl,
+                        type = functionScopeEntry.type.argTypes[index],
+                    ),
+                )
         }
         functionDecl.body.statements.forEach {
             resolveAstNode(it, resolverState)
