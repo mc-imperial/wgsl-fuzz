@@ -20,19 +20,18 @@
  * Original shader: https://github.com/google/graphicsfuzz/blob/master/shaders/src/main/glsl/samples/320es/stable_pillars.frag
  */
 
-struct Number {
-   value: i32,
-   unusedPadding: vec2<i32>
-}
+const DP_LENGTH = 256;
 
 @group(0) @binding(0) var<uniform> resolution: vec2<i32>;
-@group(0) @binding(1) var<uniform> dp: array<Number, 256>;
+@group(0) @binding(1) var<uniform> dpInput: array<vec4<i32>, DP_LENGTH / 4>;
+
+var<private> dp: array<i32, DP_LENGTH>;
 
 fn trace(posInitial: vec2i) -> vec4f {
   var pos: vec2i = posInitial;
    while (pos.y != 256) {
-    if (pos.x < dp[pos.y].value + 15 && pos.x > dp[pos.y].value - 15) {
-      let p = (15.0 - abs(f32(pos.x - dp[pos.y].value))) / 15.0;
+    if (pos.x < dp[pos.y] + 15 && pos.x > dp[pos.y] - 15) {
+      let p = (15.0 - abs(f32(pos.x - dp[pos.y]))) / 15.0;
       return vec4(p, p, p, 1);
     }
     pos.y++;
@@ -47,6 +46,14 @@ fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
 
 @fragment
 fn fragmentMain(@builtin(position) gl_FragCoord: vec4f) -> @location(0) vec4f {
+  for (var i = 0; i < DP_LENGTH / 4; i++) {
+    let index = 4 * i;
+    dp[index] = dpInput[i].x;
+    dp[index + 1] = dpInput[i].y;
+    dp[index + 2] = dpInput[i].z;
+    dp[index + 3] = dpInput[i].w;
+  }
+
   let pos = gl_FragCoord.xy / vec2<f32>(resolution);
   let ipos: vec2i = vec2i(pos * vec2(256, 256));
 
