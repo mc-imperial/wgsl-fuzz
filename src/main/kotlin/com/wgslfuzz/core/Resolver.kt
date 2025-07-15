@@ -70,8 +70,6 @@ sealed interface ScopeEntry {
 }
 
 sealed interface Scope {
-    val parent: Scope?
-
     fun getEntry(name: String): ScopeEntry?
 }
 
@@ -111,7 +109,7 @@ sealed interface ResolvedEnvironment {
 }
 
 private class ScopeImpl(
-    override val parent: ScopeImpl?,
+    val parent: ScopeImpl?,
 ) : Scope {
     private val entries: MutableMap<String, ScopeEntry> = mutableMapOf()
 
@@ -148,7 +146,7 @@ private class ScopeImpl(
 private class ImmutableScopeWrapper : Scope {
     private var immutableScope: ImmutableScope = ImmutableScope()
 
-    override val parent: ImmutableScopeWrapper?
+    val parent: ImmutableScopeWrapper?
         get() = immutableScope.parent?.let { newImmutableScopeWrapper(it) }
 
     override fun getEntry(name: String): ScopeEntry? = immutableScope.getEntry(name)
@@ -178,7 +176,7 @@ private class ImmutableScopeWrapper : Scope {
         private val level: Int = 0,
         private val scopeEntry: Pair<String, ScopeEntry>? = null,
     ) : Scope {
-        override val parent: ImmutableScope?
+        val parent: ImmutableScope?
             get() = scopeSequence().firstOrNull { it.level != this.level }
 
         override fun getEntry(name: String): ScopeEntry? = entriesSequence().firstOrNull { it.first == name }?.second
@@ -223,7 +221,7 @@ private class ImmutableScopeWrapper : Scope {
     }
 
     private class FastScope(
-        override val parent: Scope?,
+        val parent: Scope?,
         private val scopeEntryMap: Map<String, ScopeEntry>,
     ) : Scope {
         override fun getEntry(name: String): ScopeEntry? = scopeEntryMap[name]
