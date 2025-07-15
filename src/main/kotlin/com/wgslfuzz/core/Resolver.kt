@@ -353,12 +353,6 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
 
 private class ResolverState {
     var currentScope: ScopeImpl = ScopeImpl()
-        set(newCurrentScope) {
-            // This line is necessary since the last thing currentScope is set to is the final global scope.
-            // If not set here the global scope of ResolvedEnvironmentImpl is empty
-            resolvedEnvironment.globalScope = newCurrentScope
-            field = newCurrentScope
-        }
 
     val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(currentScope)
 
@@ -2180,5 +2174,6 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
             }
         }
     }
+    resolverState.resolvedEnvironment.globalScope = resolverState.currentScope
     return resolverState.resolvedEnvironment
 }
