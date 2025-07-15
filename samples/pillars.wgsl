@@ -23,7 +23,7 @@
 const DP_LENGTH = 256;
 
 @group(0) @binding(0) var<uniform> resolution: vec2<i32>;
-@group(0) @binding(1) var<uniform> dpInput: array<vec4<i32>, DP_LENGTH / 4>;
+@group(0) @binding(1) var<uniform> dpInput: array<vec4<i32>, DP_LENGTH / 8>;
 
 var<private> dp: array<i32, DP_LENGTH>;
 
@@ -44,14 +44,30 @@ fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
   return vec4f(pos, 0, 1);
 }
 
+fn getBottomHalf(num: i32) -> i32 {
+  return num & 0xFFFF;
+}
+
+fn getTopHalf(num: i32) -> i32 {
+  return (num >> 16) & 0xFFFF;
+}
+
 @fragment
 fn fragmentMain(@builtin(position) gl_FragCoord: vec4f) -> @location(0) vec4f {
-  for (var i = 0; i < DP_LENGTH / 4; i++) {
-    let index = 4 * i;
-    dp[index] = dpInput[i].x;
-    dp[index + 1] = dpInput[i].y;
-    dp[index + 2] = dpInput[i].z;
-    dp[index + 3] = dpInput[i].w;
+  for (var i = 0; i < DP_LENGTH / 8; i++) {
+    let index = 8 * i;
+
+    dp[index] = getBottomHalf(dpInput[i].x);
+    dp[index + 1] = getTopHalf(dpInput[i].x);
+
+    dp[index + 2] = getBottomHalf(dpInput[i].y);
+    dp[index + 3] = getTopHalf(dpInput[i].y);
+
+    dp[index + 4] = getBottomHalf(dpInput[i].z);
+    dp[index + 5] = getTopHalf(dpInput[i].z);
+
+    dp[index + 6] = getBottomHalf(dpInput[i].w);
+    dp[index + 7] = getTopHalf(dpInput[i].w);
   }
 
   let pos = gl_FragCoord.xy / vec2<f32>(resolution);
