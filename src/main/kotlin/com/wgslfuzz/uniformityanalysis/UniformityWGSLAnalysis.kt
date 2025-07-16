@@ -599,7 +599,6 @@ private fun analyseStatement(
                 val newNode = createUniformityNode("${variable}_after_if")
 
                 // Determine the node representing the uniformity of the variable before the if statement.
-                println(variable)
                 val previousNode = functionInfo.variableNodes.get(variable)!!
 
                 // If the 'if' branch contains behaviour next, i.e it may continue, then determine what node
@@ -1022,7 +1021,7 @@ private fun analyseFunctionCall(
         // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
     }
 
-    if (functionInfo.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
+    if (calleeFunctionTags.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
         result.addEdges(functionInfo.mayBeNonUniform)
     }
 
