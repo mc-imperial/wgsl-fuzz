@@ -879,7 +879,7 @@ private fun analyseLhsExpression(
 private fun builtinFunctionInfo(
     functionName: String,
     args: List<Expression>,
-    environment: ResolvedEnvironment
+    environment: ResolvedEnvironment,
 ): FunctionTags =
     when (functionName) {
         "storageBarrier", "textureBarrier", "workgroupBarrier" ->
@@ -908,11 +908,12 @@ private fun builtinFunctionInfo(
         "textureLoad" -> {
             // NOTE: The spec doesn't say what the parameter tags should be here, I assumed then there are no requirements
             val arg1Type = environment.typeOf(args[0]).asStoreTypeIfReference()
-            val functionTag = if (arg1Type is Type.Texture.Storage && arg1Type.accessMode == AccessMode.READ_WRITE) {
-                FunctionTag.ReturnValueMayBeNonUniform
-            } else {
-                FunctionTag.NoRestriction
-            }
+            val functionTag =
+                if (arg1Type is Type.Texture.Storage && arg1Type.accessMode == AccessMode.READ_WRITE) {
+                    FunctionTag.ReturnValueMayBeNonUniform
+                } else {
+                    FunctionTag.NoRestriction
+                }
             FunctionTags(
                 functionTag,
                 CallSiteTag.CallSiteNoRestriction,
@@ -1013,7 +1014,14 @@ private fun analyseFunctionCall(
     val result = createUniformityNode("Result_function_call")
     val cfAfter = createUniformityNode("CF_after_function_call")
 
-    val calleeFunctionTags = if (callee in functionInfoMap) functionInfoMap[callee]!!.functionTags() else builtinFunctionInfo(callee, args, environment)
+    val calleeFunctionTags =
+        if (callee in
+            functionInfoMap
+        ) {
+            functionInfoMap[callee]!!.functionTags()
+        } else {
+            builtinFunctionInfo(callee, args, environment)
+        }
 
     if (CallSiteTag.isRequiredToBeUniform(calleeFunctionTags.callSiteTag)) {
         val uniformityNode = functionInfo.requiredToBeUniform(calleeFunctionTags.callSiteTag.severity()!!)
