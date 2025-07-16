@@ -157,17 +157,7 @@ fun randomVariableFromScope(
 
 fun scopeEntryTypedDeclToExpression(scopeEntry: ScopeEntry.TypedDecl): Expression =
     Expression.Identifier(
-        name =
-            when (scopeEntry) {
-                is ScopeEntry.GlobalConstant -> scopeEntry.astNode.name
-                is ScopeEntry.GlobalOverride -> scopeEntry.astNode.name
-                is ScopeEntry.GlobalVariable -> scopeEntry.astNode.name
-                is ScopeEntry.LocalValue -> scopeEntry.astNode.name
-                is ScopeEntry.LocalVariable -> scopeEntry.astNode.name
-                is ScopeEntry.Parameter -> scopeEntry.astNode.name
-                is ScopeEntry.Struct -> scopeEntry.astNode.name
-                is ScopeEntry.TypeAlias -> scopeEntry.astNode.name
-            },
+        name = scopeEntry.declName,
     )
 
 fun randomUniformScalarWithValue(
