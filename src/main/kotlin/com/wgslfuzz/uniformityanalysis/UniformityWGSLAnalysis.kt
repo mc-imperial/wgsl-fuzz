@@ -19,6 +19,7 @@ import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.asStoreTypeIfReference
+import com.wgslfuzz.core.targetIdentifier
 import com.wgslfuzz.core.traverse
 import com.wgslfuzz.uniformityanalysis.CallSiteTag.CallSiteRequiredToBeUniformError
 import com.wgslfuzz.uniformityanalysis.CallSiteTag.Companion.severity
@@ -758,9 +759,7 @@ private fun analyseStatement(
                 // TODO: I don't think it is that clear that this should be lv instead of rv. The statement rules say that
                 // lv is the result of the value analysis, but the variable value analysis rules don't seem to clarify, they
                 // just say Vin(next).
-                if (statement.lhsExpression is LhsExpression.Identifier) {
-                    functionInfo.variableNodes.set(statement.lhsExpression.name, lv)
-                }
+                functionInfo.variableNodes.set(statement.lhsExpression.targetIdentifier().name, lv)
 
                 // Uniformity Rules for Statements: Continue analysis with the control flow after analysis of the lhs
                 cf2
@@ -1008,11 +1007,6 @@ private fun analyseFunctionCall(
             result
         }
     val lastCf = if (argsAndCfs.isNotEmpty()) argsAndCfs.last().cfNode else cf
-    println(callee)
-    println(args)
-    println(argsAndCfs)
-    println(cf)
-    println(lastCf)
 
     val result = createUniformityNode("Result_function_call_${callee}")
     val cfAfter = createUniformityNode("CF_after_function_call_${callee}")
