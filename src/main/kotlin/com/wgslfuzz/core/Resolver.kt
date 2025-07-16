@@ -355,7 +355,7 @@ private class ResolverState {
         expression: Expression,
         type: Type,
     ) {
-        require(resolvedEnvironment != null) {
+        require(resolvedEnvironment == null) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(expression !in expressionTypes.keys)
@@ -366,7 +366,7 @@ private class ResolverState {
         lhsExpression: LhsExpression,
         type: Type,
     ) {
-        require(resolvedEnvironment != null) {
+        require(resolvedEnvironment == null) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(lhsExpression !in lhsExpressionTypes.keys)
@@ -377,7 +377,7 @@ private class ResolverState {
         statement: Statement,
         scope: Scope,
     ) {
-        require(resolvedEnvironment != null) {
+        require(resolvedEnvironment == null) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(statement !in scopeAvailableBeforeEachStatement.keys)
@@ -388,7 +388,7 @@ private class ResolverState {
         compound: Statement.Compound,
         scope: Scope,
     ) {
-        require(resolvedEnvironment != null) {
+        require(resolvedEnvironment == null) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(compound !in scopeAvailableAtEndOfEachCompound.keys)
