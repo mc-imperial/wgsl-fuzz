@@ -701,7 +701,6 @@ private fun resolveTypeOfIndexLookupExpression(
     // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/94): This is not really strict enough.
     val indexType = resolverState.resolvedEnvironment.typeOf(indexLookup.index).asStoreTypeIfReference()
     if (!indexType.isAbstractionOf(Type.I32) && !indexType.isAbstractionOf(Type.U32)) {
-        println(resolverState.resolvedEnvironment.typeOf(indexLookup.index))
         throw IllegalArgumentException("Array index expression must be of type i32 or u32.")
     }
 
