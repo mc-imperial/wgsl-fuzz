@@ -1593,7 +1593,8 @@ private fun resolveTypeOfFunctionCallExpression(
                     } else {
                         when (
                             val textureType =
-                                resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0])
+                                resolverState.resolvedEnvironment
+                                    .typeOf(functionCallExpression.args[0])
                                     .asStoreTypeIfReference()
                         ) {
                             is Type.Texture.Sampled ->
@@ -1657,20 +1658,26 @@ private fun resolveTypeOfFunctionCallExpression(
                 }
                 "subgroupAdd", "subgroupExclusiveAdd", "subgroupInclusiveAdd", "subgroupBroadcastFirst", "subgroupMax", "subgroupMin", "subgroupMul", "subgroupExclusiveMul", "subgroupInclusiveMul", "quadSwapDiagonal", "quadSwapX", "quadSwapY" -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.")
+                        throw RuntimeException(
+                            "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
+                        )
                     }
                     // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
                     // Since we are not type checking, we don't check if the type is concrete.
                     val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (!argType.isNumericScalar() && !argType.isNumericVector()) {
-                        throw RuntimeException("${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.")
+                        throw RuntimeException(
+                            "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
+                        )
                     }
 
                     argType
                 }
                 "subgroupAll", "subgroupAny" -> {
                     if (functionCallExpression.args.size != 1) {
-                        throw RuntimeException("${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.")
+                        throw RuntimeException(
+                            "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
+                        )
                     }
                     val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (argType !is Type.Bool) {
@@ -1684,7 +1691,10 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("${functionCallExpression.callee} requires one of type i32, u32, vecN<i32>, or vecN<u32>")
                     }
                     val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
-                    if (argType !is Type.I32 && argType !is Type.U32 && !(argType is Type.Vector && (argType.elementType is Type.I32 || argType.elementType is Type.U32))) {
+                    if (argType !is Type.I32 &&
+                        argType !is Type.U32 &&
+                        !(argType is Type.Vector && (argType.elementType is Type.I32 || argType.elementType is Type.U32))
+                    ) {
                         throw RuntimeException("${functionCallExpression.callee} requires one of type i32, u32, vecN<i32>, or vecN<u32>")
                     }
 
@@ -1718,7 +1728,9 @@ private fun resolveTypeOfFunctionCallExpression(
                     // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
                     // Since we are not type checking, we don't check if the type is concrete.
                     if (!arg1Type.isNumericScalar() && !arg1Type.isNumericVector()) {
-                        throw RuntimeException("The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector")
+                        throw RuntimeException(
+                            "The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector",
+                        )
                     }
                     if (arg2Type !is Type.U32 && arg2Type !is Type.I32) {
                         println(arg2Type)
@@ -1739,7 +1751,9 @@ private fun resolveTypeOfFunctionCallExpression(
                     // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
                     // Since we are not type checking, we don't check if the type is concrete.
                     if (!arg1Type.isNumericScalar() && !arg1Type.isNumericVector()) {
-                        throw RuntimeException("The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector")
+                        throw RuntimeException(
+                            "The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector",
+                        )
                     }
                     if (arg2Type !is Type.U32) {
                         throw RuntimeException("The second argument to ${functionCallExpression.callee} must be u32")
