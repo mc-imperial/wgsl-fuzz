@@ -168,6 +168,14 @@ private class ScopeImpl(
             .firstOrNull { it.first == name }
             ?.second
 
+    override fun getAllEntries(): List<ScopeEntry> =
+        scopeSequence()
+            .map { it.scopeEntry }
+            .filterNotNull()
+            .distinctBy { it.first }
+            .map { it.second }
+            .toList()
+
     fun pushScopeLevel(): ScopeImpl = ScopeImpl(previous = this, level = level + 1)
 
     fun popScopeLevel(): ScopeImpl? = scopeSequence().firstOrNull { it.level != this.level }
