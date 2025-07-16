@@ -1656,7 +1656,10 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                     argType.pointeeType
                 }
-                "subgroupAdd", "subgroupExclusiveAdd", "subgroupInclusiveAdd", "subgroupBroadcastFirst", "subgroupMax", "subgroupMin", "subgroupMul", "subgroupExclusiveMul", "subgroupInclusiveMul", "quadSwapDiagonal", "quadSwapX", "quadSwapY" -> {
+                "subgroupAdd", "subgroupExclusiveAdd", "subgroupInclusiveAdd", "subgroupBroadcastFirst", "subgroupMax",
+                "subgroupMin", "subgroupMul", "subgroupExclusiveMul", "subgroupInclusiveMul", "quadSwapDiagonal",
+                "quadSwapX", "quadSwapY",
+                -> {
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException(
                             "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
