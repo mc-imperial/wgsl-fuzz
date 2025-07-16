@@ -72,7 +72,7 @@ class ShaderJob(
                         binding = binding,
                         data =
                             getBytesForExpression(
-                                type = getStructType(environment, tu.getUniformDeclaration(group, binding)),
+                                type = getUniformStoreType(environment, tu.getUniformDeclaration(group, binding)),
                                 value = pipelineState.getUniformValue(group, binding),
                                 offset = 0,
                             ),
@@ -176,12 +176,12 @@ fun createShaderJob(
         val binding: Int = uniformBuffer.binding
         val bufferBytes: List<UByte> = uniformBuffer.data.map(Int::toUByte)
 
-        val structType =
-            getStructType(environment, tu.getUniformDeclaration(group, binding))
+        val uniformType: Type = getUniformStoreType(environment, tu.getUniformDeclaration(group, binding))
+        println(uniformType)
 
         val (literalExpr, newBufferByteIndex) =
             literalExprFromBytes(
-                structType,
+                uniformType,
                 bufferBytes,
                 0,
             )
@@ -191,13 +191,19 @@ fun createShaderJob(
     return ShaderJob(tu, PipelineState(uniformValues))
 }
 
-private fun getStructType(
+private fun getUniformStoreType(
     environment: ResolvedEnvironment,
     uniformDeclaration: GlobalDecl.Variable,
-) = (
-    environment.globalScope
-        .getEntry((uniformDeclaration.typeDecl as TypeDecl.NamedType).name) as ScopeEntry.Struct
-).type
+) = if (uniformDeclaration.typeDecl is TypeDecl.NamedType) {
+    getUniformStoreTypeByName(environment, uniformDeclaration.typeDecl.name)
+} else {
+    getUniformStoreTypeByName(environment, uniformDeclaration.name)
+}
+
+private fun getUniformStoreTypeByName(
+    environment: ResolvedEnvironment,
+    uniformName: String,
+) = (environment.globalScope.getEntry(uniformName) as ScopeEntry.TypedDecl).type.asStoreTypeIfReference()
 
 private fun literalExprFromBytes(
     type: Type,

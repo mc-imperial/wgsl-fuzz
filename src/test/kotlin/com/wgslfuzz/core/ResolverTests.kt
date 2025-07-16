@@ -69,7 +69,10 @@ class ResolverTests {
         assertEquals(Type.Bool, environment.typeOf(whileCondition))
         val whileConditionInner = whileCondition.target as Expression.Binary
         assertEquals(Type.Bool, environment.typeOf(whileConditionInner))
-        assertEquals(Type.I32, environment.typeOf(whileConditionInner.lhs))
+        assertEquals(
+            Type.Reference(storeType = Type.I32, addressSpace = AddressSpace.FUNCTION, accessMode = AccessMode.READ_WRITE),
+            environment.typeOf(whileConditionInner.lhs),
+        )
         assertEquals(Type.AbstractInteger, environment.typeOf(whileConditionInner.rhs))
     }
 
@@ -208,7 +211,7 @@ class ResolverTests {
             assertEquals(Type.F32, outerEntryX.type)
             val outerEntryV = scopeAtEndOfFunctionBody.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, outerEntryV.astNode)
-            assertEquals(Type.I32, outerEntryV.type)
+            assertEquals(Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), outerEntryV.type)
             val outerEntryY = scopeAtEndOfFunctionBody.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, outerEntryY.astNode)
             assertEquals(Type.I32, outerEntryY.type)
@@ -224,13 +227,13 @@ class ResolverTests {
             assertEquals(Type.F32, inner1EntryX.type)
             val inner1EntryV = scopeAtEndOfThenBranch.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, inner1EntryV.astNode)
-            assertEquals(Type.I32, inner1EntryV.type)
+            assertEquals(Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner1EntryV.type)
             val inner1EntryY = scopeAtEndOfThenBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner1EntryY.astNode)
             assertEquals(Type.I32, inner1EntryY.type)
             val inner1EntryC = scopeAtEndOfThenBranch.getEntry("c") as ScopeEntry.LocalVariable
             assertSame(b1, inner1EntryC.astNode)
-            assertEquals(Type.F32, inner1EntryC.type)
+            assertEquals(Type.Reference(Type.F32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner1EntryC.type)
         }
 
         run {
@@ -240,7 +243,7 @@ class ResolverTests {
             assertEquals(Type.F32, inner2EntryX.type)
             val inner2EntryV = scopeAtEndOfElseIfBranch.getEntry("v") as ScopeEntry.LocalVariable
             assertSame(c1, inner2EntryV.astNode)
-            assertEquals(Type.F32, inner2EntryV.type)
+            assertEquals(Type.Reference(Type.F32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner2EntryV.type)
             val inner2EntryY = scopeAtEndOfElseIfBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner2EntryY.astNode)
             assertEquals(Type.I32, inner2EntryY.type)
@@ -256,13 +259,13 @@ class ResolverTests {
             assertEquals(Type.F32, inner3EntryX.type)
             val inner3EntryV = scopeAtEndOfElseBranch.getEntry("v") as ScopeEntry.GlobalVariable
             assertSame(vGlobal, inner3EntryV.astNode)
-            assertEquals(Type.I32, inner3EntryV.type)
+            assertEquals(Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner3EntryV.type)
             val inner3EntryY = scopeAtEndOfElseBranch.getEntry("y") as ScopeEntry.Parameter
             assertSame(yParam, inner3EntryY.astNode)
             assertEquals(Type.I32, inner3EntryY.type)
             val inner3EntryC = scopeAtEndOfElseBranch.getEntry("c") as ScopeEntry.LocalVariable
             assertSame(d1, inner3EntryC.astNode)
-            assertEquals(Type.Bool, inner3EntryC.type)
+            assertEquals(Type.Reference(Type.Bool, AddressSpace.FUNCTION, AccessMode.READ_WRITE), inner3EntryC.type)
         }
     }
 
@@ -439,5 +442,230 @@ class ResolverTests {
         assertEquals(1, expressions.size)
         val workgroupSize = expressions.toList()[0] as Expression.IntLiteral
         assertEquals(Type.AbstractInteger, environment.typeOf(workgroupSize))
+    }
+
+    @Test
+    fun testArrayRefDeref() {
+        val input =
+            """
+            fn f() {
+                var arr1 = array<i32, 3>(0, 1, 2);
+                let arr1_pointer = &(arr1);
+                var arr1_elem = arr1[0];
+                var arr1_pointer_elem = arr1_pointer[1];
+                var arr2 = *(&(arr1));
+                let arr2_elem = &((&arr1)[0]);
+                
+                var mat = mat2x3<f32>(vec3<f32>(0,1,2), vec3<f32>(3,4,5));
+                let mat_pointer = &mat;
+                var col = mat[0];
+                var col_from_pointer = mat_pointer[0];
+                let col_pointer = &(mat[0]);
+                var col_elem = col_from_pointer[0];
+            }
+            """.trimIndent()
+        val errorListener = LoggingParseErrorListener()
+        val tu = parseFromString(input, errorListener)
+        val environment = resolve(tu)
+
+        val fn = tu.globalDecls[0] as GlobalDecl.Function
+
+        var statementIndex = 0
+
+        fun nextStatement(): Statement = fn.body.statements[statementIndex++]
+
+        run {
+            val arr1 = nextStatement() as Statement.Variable
+            val arr1Pointer = nextStatement() as Statement.Value
+            val arr1Elem = nextStatement() as Statement.Variable
+            val arr1PointerElem = nextStatement() as Statement.Variable
+            val arr2 = nextStatement() as Statement.Variable
+            val arr2Elem = nextStatement() as Statement.Value
+
+            val scopeAtEndOfFunctionBody = environment.scopeAvailableAtEnd(fn.body)
+
+            val entryArr1 = scopeAtEndOfFunctionBody.getEntry("arr1") as ScopeEntry.LocalVariable
+            assertSame(arr1, entryArr1.astNode)
+            assertEquals(
+                Type.Reference(Type.Array(Type.I32, 3), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryArr1.type,
+            )
+
+            val entryArr1Pointer = scopeAtEndOfFunctionBody.getEntry("arr1_pointer") as ScopeEntry.LocalValue
+            assertSame(arr1Pointer, entryArr1Pointer.astNode)
+            assertEquals(
+                Type.Pointer(Type.Array(Type.I32, 3), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryArr1Pointer.type,
+            )
+
+            val entryArr1Elem = scopeAtEndOfFunctionBody.getEntry("arr1_elem") as ScopeEntry.LocalVariable
+            assertSame(arr1Elem, entryArr1Elem.astNode)
+            assertEquals(Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), entryArr1Elem.type)
+
+            val entryArr1PointerElem =
+                scopeAtEndOfFunctionBody.getEntry("arr1_pointer_elem") as ScopeEntry.LocalVariable
+            assertSame(arr1PointerElem, entryArr1PointerElem.astNode)
+            assertEquals(
+                Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryArr1PointerElem.type,
+            )
+
+            val entryArr2 = scopeAtEndOfFunctionBody.getEntry("arr2") as ScopeEntry.LocalVariable
+            assertSame(arr2, entryArr2.astNode)
+            assertEquals(
+                Type.Reference(Type.Array(Type.I32, 3), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryArr2.type,
+            )
+
+            val entryArr2Elem = scopeAtEndOfFunctionBody.getEntry("arr2_elem") as ScopeEntry.LocalValue
+            assertSame(arr2Elem, entryArr2Elem.astNode)
+            assertEquals(Type.Pointer(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE), entryArr2Elem.type)
+        }
+
+        run {
+            val mat = nextStatement() as Statement.Variable
+            val matPointer = nextStatement() as Statement.Value
+            val col = nextStatement() as Statement.Variable
+            val colFromPointer = nextStatement() as Statement.Variable
+            val colPointer = nextStatement() as Statement.Value
+            val colElem = nextStatement() as Statement.Variable
+
+            val scopeAtEndOfFunctionBody = environment.scopeAvailableAtEnd(fn.body)
+
+            val entryMat = scopeAtEndOfFunctionBody.getEntry("mat") as ScopeEntry.LocalVariable
+            assertSame(mat, entryMat.astNode)
+            assertEquals(
+                Type.Reference(Type.Matrix(2, 3, Type.F32), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryMat.type,
+            )
+
+            val entryMatPointer = scopeAtEndOfFunctionBody.getEntry("mat_pointer") as ScopeEntry.LocalValue
+            assertSame(matPointer, entryMatPointer.astNode)
+            assertEquals(
+                Type.Pointer(Type.Matrix(2, 3, Type.F32), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryMatPointer.type,
+            )
+
+            val entryCol = scopeAtEndOfFunctionBody.getEntry("col") as ScopeEntry.LocalVariable
+            assertSame(col, entryCol.astNode)
+            assertEquals(
+                Type.Reference(Type.Vector(3, Type.F32), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryCol.type,
+            )
+
+            val entryColFromPointer = scopeAtEndOfFunctionBody.getEntry("col_from_pointer") as ScopeEntry.LocalVariable
+            assertSame(colFromPointer, entryColFromPointer.astNode)
+            assertEquals(
+                Type.Reference(Type.Vector(3, Type.F32), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryColFromPointer.type,
+            )
+
+            val entryColPointer = scopeAtEndOfFunctionBody.getEntry("col_pointer") as ScopeEntry.LocalValue
+            assertSame(colPointer, entryColPointer.astNode)
+            assertEquals(
+                Type.Pointer(Type.Vector(3, Type.F32), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryColPointer.type,
+            )
+
+            val entryColElem = scopeAtEndOfFunctionBody.getEntry("col_elem") as ScopeEntry.LocalVariable
+            assertSame(colElem, entryColElem.astNode)
+            assertEquals(
+                Type.Reference(Type.F32, AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryColElem.type,
+            )
+        }
+    }
+
+    @Test
+    fun testMemberLookupRefDeref() {
+        val input =
+            """
+            struct S {
+                elem: i32,
+            }
+            
+            fn f() {
+                var s: S;
+                var e = s.elem;
+                let s_pointer = &(*(&s));
+                var e_from_pointer = s_pointer.elem;
+                
+                var vec = vec3<i32>(0,1,2);
+                var vec_x = vec.x;
+                var vec_y_from_pointer = (&vec).y;
+            }
+            """.trimIndent()
+        val errorListener = LoggingParseErrorListener()
+        val tu = parseFromString(input, errorListener)
+        val environment = resolve(tu)
+
+        val fn = tu.globalDecls[1] as GlobalDecl.Function
+        val scopeAtEndOfFunctionBody = environment.scopeAvailableAtEnd(fn.body)
+
+        var statementIndex = 0
+
+        fun nextStatement(): Statement = fn.body.statements[statementIndex++]
+
+        run {
+            val s = nextStatement() as Statement.Variable
+            val e = nextStatement() as Statement.Variable
+            val sPointer = nextStatement() as Statement.Value
+            val eFromPointer = nextStatement() as Statement.Variable
+
+            val entryS = scopeAtEndOfFunctionBody.getEntry("s") as ScopeEntry.LocalVariable
+            assertSame(s, entryS.astNode)
+            assertEquals(
+                Type.Reference(Type.Struct("S", listOf(Pair("elem", Type.I32))), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryS.type,
+            )
+
+            val entryE = scopeAtEndOfFunctionBody.getEntry("e") as ScopeEntry.LocalVariable
+            assertSame(e, entryE.astNode)
+            assertEquals(
+                Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryE.type,
+            )
+
+            val entrySPointer = scopeAtEndOfFunctionBody.getEntry("s_pointer") as ScopeEntry.LocalValue
+            assertSame(sPointer, entrySPointer.astNode)
+            assertEquals(
+                Type.Pointer(Type.Struct("S", listOf(Pair("elem", Type.I32))), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entrySPointer.type,
+            )
+
+            val entryEFromPointer = scopeAtEndOfFunctionBody.getEntry("e_from_pointer") as ScopeEntry.LocalVariable
+            assertSame(eFromPointer, entryEFromPointer.astNode)
+            assertEquals(
+                Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryEFromPointer.type,
+            )
+        }
+
+        run {
+            val vec = nextStatement() as Statement.Variable
+            val vecX = nextStatement() as Statement.Variable
+            val vecXFromPointer = nextStatement() as Statement.Variable
+
+            val entryVec = scopeAtEndOfFunctionBody.getEntry("vec") as ScopeEntry.LocalVariable
+            assertSame(vec, entryVec.astNode)
+            assertEquals(
+                Type.Reference(Type.Vector(3, Type.I32), AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryVec.type,
+            )
+
+            val entryVecX = scopeAtEndOfFunctionBody.getEntry("vec_x") as ScopeEntry.LocalVariable
+            assertSame(vecX, entryVecX.astNode)
+            assertEquals(
+                Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryVecX.type,
+            )
+
+            val entryVecXFromPointer = scopeAtEndOfFunctionBody.getEntry("vec_y_from_pointer") as ScopeEntry.LocalVariable
+            assertSame(vecXFromPointer, entryVecXFromPointer.astNode)
+            assertEquals(
+                Type.Reference(Type.I32, AddressSpace.FUNCTION, AccessMode.READ_WRITE),
+                entryVecXFromPointer.type,
+            )
+        }
     }
 }
