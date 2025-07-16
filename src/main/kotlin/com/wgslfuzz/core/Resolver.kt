@@ -121,9 +121,38 @@ sealed interface ResolvedEnvironment {
     }
 }
 
+/*
+ * The arrows in the diagram are the previous pointers in the class
+ * Each node is the line: level: <lexical graphic scope>, <scope entry>
+ * +----------------------+--------------------------------------------------------------------------------------------+
+ * |                      |         null                                                                               |
+ * |                      |          ^                                                                                 |
+ * |                      |          |                                                                                 |
+ * |                      |   level: 0, null                                                                           |
+ * |                      |          ^                                                                                 |
+ * |                      |          |                                                                                 |
+ * | var x = 0;           |   level: 0, x: i32                                                                         |
+ * |                      |          ^                                                                                 |
+ * |                      |          |                                                                                 |
+ * | let y = 0;           |   level: 0, y: i32 <-----------+--------------------------------+                          |
+ * |                      |          ^                     |                                |                          |
+ * | if (x == 1) {        |          |              level: 1, null                          |                          |
+ * |    x = 0;            |          |     (Corresponds to if statement scope)              |                          |
+ * | } else {             |          |                                               level: 1, null                    |
+ * |                      |          |                                    (Corresponds to else statement scope)        |
+ * |                      |          |                                                      ^                          |
+ * |                      |          |                                                      |                          |
+ * |    let y = 1;        |          |                                               level: 1, y: i32                  |
+ * |    x += y;           |          |                                                                                 |
+ * | }                    |          |                                                                                 |
+ * | let z: f32 = 0;      |    level 0: z: f32                                                                         |
+ * +----------------------+--------------------------------------------------------------------------------------------+
+ */
 private class ScopeImpl(
     private val previous: ScopeImpl? = null,
-    // This is from the top global level of scope. 0 is the top level. 1 is one level below and so on
+    // Levels corresponds to the lexical scope of the scopeEntry
+    // 0 is the global scope. 1 is a level below global scope and so on.
+    // Note: name shadowing is allowed at different levels but is not allowed at the same level.
     private val level: Int = 0,
     private val scopeEntry: Pair<String, ScopeEntry>? = null,
 ) : Scope {
