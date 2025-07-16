@@ -1736,7 +1736,6 @@ private fun resolveTypeOfFunctionCallExpression(
                         )
                     }
                     if (arg2Type !is Type.U32 && arg2Type !is Type.I32) {
-                        println(arg2Type)
                         throw RuntimeException("The second argument to ${functionCallExpression.callee} must be i32 or u32")
                     }
                     // TODO: This doesn't check that the second argument is a const expr in the correct range (which differs by function)
