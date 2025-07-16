@@ -30,7 +30,7 @@ abstract class TransformReduceTests {
     protected abstract val filenameNoExtension: String
 
     @Test
-    fun testAddDeadReturns() {
+    open fun testAddDeadReturns() {
         testTransformationAndReduction(
             42,
             filenameNoExtension,
@@ -39,7 +39,7 @@ abstract class TransformReduceTests {
     }
 
     @Test
-    fun testAddDeadBreaks() {
+    open fun testAddDeadBreaks() {
         testTransformationAndReduction(
             43,
             filenameNoExtension,
@@ -48,7 +48,7 @@ abstract class TransformReduceTests {
     }
 
     @Test
-    fun testAddDeadContinues() {
+    open fun testAddDeadContinues() {
         testTransformationAndReduction(
             44,
             filenameNoExtension,
@@ -57,7 +57,7 @@ abstract class TransformReduceTests {
     }
 
     @Test
-    fun testAddIdentityOperations() {
+    open fun testAddIdentityOperations() {
         testTransformationAndReduction(
             45,
             filenameNoExtension,
@@ -66,7 +66,7 @@ abstract class TransformReduceTests {
     }
 
     @Test
-    fun testMultipleTransformations() {
+    open fun testMultipleTransformations() {
         testTransformationAndReduction(
             45,
             filenameNoExtension,
