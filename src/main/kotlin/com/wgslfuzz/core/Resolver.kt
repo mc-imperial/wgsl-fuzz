@@ -83,8 +83,6 @@ sealed interface ScopeEntry {
 }
 
 sealed interface Scope {
-    val parent: Scope?
-
     fun getEntry(name: String): ScopeEntry?
 }
 
@@ -123,43 +121,79 @@ sealed interface ResolvedEnvironment {
     }
 }
 
+/*
+ * The arrows in the diagram are the previous pointers in the class
+ * Each node is the line: level: <lexical graphic scope>, <scope entry>
+ * +----------------------+--------------------------------------------------------------------------------------------+
+ * |                      |         null                                                                               |
+ * |                      |          ^                                                                                 |
+ * |                      |          |                                                                                 |
+ * |                      |   level: 0, null                                                                           |
+ * |                      |          ^                                                                                 |
+ * |                      |          |                                                                                 |
+ * | var x = 0;           |   level: 0, x: i32                                                                         |
+ * |                      |          ^                                                                                 |
+ * |                      |          |                                                                                 |
+ * | let y = 0;           |   level: 0, y: i32 <-----------+--------------------------------+                          |
+ * |                      |          ^                     |                                |                          |
+ * | if (x == 1) {        |          |              level: 1, null                          |                          |
+ * |    x = 0;            |          |     (Corresponds to if statement scope)              |                          |
+ * | } else {             |          |                                               level: 1, null                    |
+ * |                      |          |                                    (Corresponds to else statement scope)        |
+ * |                      |          |                                                      ^                          |
+ * |                      |          |                                                      |                          |
+ * |    let y = 1;        |          |                                               level: 1, y: i32                  |
+ * |    x += y;           |          |                                                                                 |
+ * | }                    |          |                                                                                 |
+ * | let z: f32 = 0;      |    level 0: z: f32                                                                         |
+ * +----------------------+--------------------------------------------------------------------------------------------+
+ */
 private class ScopeImpl(
-    override val parent: ScopeImpl?,
+    private val previous: ScopeImpl? = null,
+    // Levels corresponds to the lexical scope of the scopeEntry
+    // 0 is the global scope. 1 is a level below global scope and so on.
+    // Note: name shadowing is allowed at different levels but is not allowed at the same level.
+    private val level: Int = 0,
+    // scopeEntry is nullable as we need a way of describing an empty scope at a particular level. Hence, the need
+    // for the ability to create a "dud" scope. An example can be seen in the above diagram with the node representing
+    // if (x == 1) scope having nothing in its level
+    private val scopeEntry: Pair<String, ScopeEntry>? = null,
 ) : Scope {
-    private val entries: MutableMap<String, ScopeEntry> = mutableMapOf()
+    override fun getEntry(name: String): ScopeEntry? =
+        scopeSequence()
+            .map { it.scopeEntry }
+            .filterNotNull()
+            .firstOrNull { it.first == name }
+            ?.second
+
+    fun pushScopeLevel(): ScopeImpl = ScopeImpl(previous = this, level = level + 1)
+
+    fun popScopeLevel(): ScopeImpl? = scopeSequence().firstOrNull { it.level != this.level }
 
     fun addEntry(
         name: String,
-        node: ScopeEntry,
-    ) {
-        if (name in entries.keys) {
+        scopeEntry: ScopeEntry,
+    ): ScopeImpl =
+        if (existInLocalScope(name)) {
             throw IllegalArgumentException("An entry for $name already exists in the current scope.")
-        }
-        entries[name] = node
-    }
-
-    /**
-     * Creates a new scope based on this scope. The parent of the resulting scope is referentially equal to the parent
-     * of this scope (so that parent scopes are not copied), but the immediate contents of this scope are captured via
-     * a fresh map in the newly-created scope. The point of this is to allow each statement in a compound to have its
-     * own view of what is in scope so far in the compound.
-     */
-    fun shallowCopy(): Scope {
-        val result =
+        } else {
             ScopeImpl(
-                parent = parent,
+                previous = this,
+                level = level,
+                scopeEntry = name to scopeEntry,
             )
-        for (nameEntryPair: Map.Entry<String, ScopeEntry> in entries) {
-            result.entries[nameEntryPair.key] = nameEntryPair.value
         }
-        return result
-    }
 
-    override fun getEntry(name: String): ScopeEntry? = entries[name] ?: parent?.getEntry(name)
+    private fun existInLocalScope(name: String): Boolean =
+        scopeSequence()
+            .takeWhile { it.level == this.level }
+            .any { it.scopeEntry != null && it.scopeEntry.first == name }
+
+    private fun scopeSequence(): Sequence<ScopeImpl> = generateSequence(this) { it.previous }
 }
 
 private class ResolvedEnvironmentImpl(
-    override val globalScope: Scope,
+    override var globalScope: Scope,
 ) : ResolvedEnvironment {
     // The resolving process gives a type to _every_ expression in the AST.
     private val expressionTypes: MutableMap<Expression, Type> = mutableMapOf()
@@ -350,8 +384,7 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
 }
 
 private class ResolverState {
-    var currentScope: ScopeImpl = ScopeImpl(null)
-        private set
+    var currentScope: ScopeImpl = ScopeImpl()
 
     val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(currentScope)
 
@@ -362,14 +395,11 @@ private class ResolverState {
         action: () -> Unit,
     ) {
         if (newScopeRequired) {
-            currentScope =
-                ScopeImpl(
-                    parent = currentScope,
-                )
+            currentScope = currentScope.pushScopeLevel()
         }
         action()
         if (newScopeRequired) {
-            currentScope = currentScope.parent!!
+            currentScope = currentScope.popScopeLevel()!!
         }
     }
 }
@@ -384,12 +414,10 @@ private fun resolveAstNode(
     }
 
     if (node is Statement) {
-        // Creating a shallow copy of the current scope and associating the shallow copy with this statement ensures that:
-        // - all statements in the current compound statement will share all enclosing scopes
-        // - this statement will have its own view of what is in scope at this point in the current compound statement,
-        //   so that if local variables/values are declared in sequence, only those that have already been declared
-        //   this statement will be in scope for the statement.
-        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(node, resolverState.currentScope.shallowCopy())
+        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(
+            node,
+            resolverState.currentScope,
+        )
     }
 
     val parentNode = resolverState.ancestorsStack.firstOrNull()
@@ -397,61 +425,68 @@ private fun resolveAstNode(
         resolverState.ancestorsStack.addFirst(node)
         traverse(::resolveAstNode, node, resolverState)
         if (node is Statement.Compound) {
-            resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(node, resolverState.currentScope.shallowCopy())
+            resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
+                node,
+                resolverState.currentScope,
+            )
         }
         resolverState.ancestorsStack.removeFirst()
     }
 
     when (node) {
         is GlobalDecl.TypeAlias -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.TypeAlias(
-                    node,
-                    resolveTypeDecl(node.typeDecl, resolverState),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.TypeAlias(
+                        node,
+                        resolveTypeDecl(node.typeDecl, resolverState),
+                    ),
+                )
         }
         is GlobalDecl.Variable -> resolveGlobalVariable(node, resolverState)
         is GlobalDecl.Constant -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.GlobalConstant(
-                    astNode = node,
-                    type =
-                        node.typeDecl?.let {
-                            resolveTypeDecl(it, resolverState)
-                        } ?: resolverState.resolvedEnvironment.typeOf(node.initializer),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.GlobalConstant(
+                        astNode = node,
+                        type =
+                            node.typeDecl?.let {
+                                resolveTypeDecl(it, resolverState)
+                            } ?: resolverState.resolvedEnvironment.typeOf(node.initializer),
+                    ),
+                )
         }
         is GlobalDecl.Override -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.GlobalOverride(
-                    astNode = node,
-                    type =
-                        node.typeDecl?.let {
-                            resolveTypeDecl(it, resolverState)
-                        } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.GlobalOverride(
+                        astNode = node,
+                        type =
+                            node.typeDecl?.let {
+                                resolveTypeDecl(it, resolverState)
+                            } ?: resolverState.resolvedEnvironment.typeOf(node.initializer!!),
+                    ),
+                )
         }
         is GlobalDecl.Struct -> {
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.Struct(
-                    astNode = node,
-                    type =
-                        Type.Struct(
-                            name = node.name,
-                            members =
-                                node.members.map {
-                                    it.name to resolveTypeDecl(it.typeDecl, resolverState)
-                                },
-                        ),
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.Struct(
+                        astNode = node,
+                        type =
+                            Type.Struct(
+                                name = node.name,
+                                members =
+                                    node.members.map {
+                                        it.name to resolveTypeDecl(it.typeDecl, resolverState)
+                                    },
+                            ),
+                    ),
+                )
         }
         is Statement.FunctionCall -> {
             when (val entry = resolverState.currentScope.getEntry(node.callee)) {
@@ -480,10 +515,11 @@ private fun resolveAstNode(
             if (type.isAbstract()) {
                 type = defaultConcretizationOf(type)
             }
-            resolverState.currentScope.addEntry(
-                node.name,
-                ScopeEntry.LocalValue(node, type),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    node.name,
+                    ScopeEntry.LocalValue(node, type),
+                )
         }
         is Statement.Variable -> resolveLocalVariable(node, resolverState)
         is Expression -> resolverState.resolvedEnvironment.recordType(node, resolveExpressionType(node, resolverState))
@@ -534,11 +570,11 @@ private fun resolveGlobalVariable(
             val accessMode = node.accessMode ?: defaultAccessModeOf(addressSpace)
             type as? Type.Reference ?: Type.Reference(type, addressSpace, accessMode)
         }
-
-    resolverState.currentScope.addEntry(
-        node.name,
-        ScopeEntry.GlobalVariable(node, refType),
-    )
+    resolverState.currentScope =
+        resolverState.currentScope.addEntry(
+            node.name,
+            ScopeEntry.GlobalVariable(node, refType),
+        )
 }
 
 private fun resolveLocalVariable(
@@ -572,10 +608,11 @@ private fun resolveLocalVariable(
     val accessMode = defaultAccessModeOf(addressSpace)
     type = type as? Type.Reference ?: Type.Reference(type, addressSpace, accessMode)
 
-    resolverState.currentScope.addEntry(
-        node.name,
-        ScopeEntry.LocalVariable(node, type),
-    )
+    resolverState.currentScope =
+        resolverState.currentScope.addEntry(
+            node.name,
+            ScopeEntry.LocalVariable(node, type),
+        )
 }
 
 /**
@@ -1146,7 +1183,7 @@ private fun resolveTypeOfMatrixValueConstructor(
                     }
                 }
                 if (candidateElementType == null || candidateElementType.isAbstractionOf(elementTypeForArg)) {
-                    candidateElementType = (elementTypeForArg as Type.Scalar) // Kotlin typechecker bug? This "as" should not be needed.
+                    candidateElementType = elementTypeForArg
                 } else if (!elementTypeForArg.isAbstractionOf(candidateElementType)) {
                     throw RuntimeException("Matrix constructed from incompatible mix of element types")
                 }
@@ -2107,13 +2144,14 @@ private fun resolveFunctionHeader(
                 resolveTypeDecl(it, resolverState)
             },
         )
-    resolverState.currentScope.addEntry(
-        functionDecl.name,
-        ScopeEntry.Function(
-            astNode = functionDecl,
-            type = functionType,
-        ),
-    )
+    resolverState.currentScope =
+        resolverState.currentScope.addEntry(
+            functionDecl.name,
+            ScopeEntry.Function(
+                astNode = functionDecl,
+                type = functionType,
+            ),
+        )
 }
 
 private fun resolveFunctionBody(
@@ -2124,18 +2162,22 @@ private fun resolveFunctionBody(
     assert(functionScopeEntry.astNode == functionDecl)
     resolverState.maybeWithScope(true) {
         functionDecl.parameters.forEachIndexed { index, parameterDecl ->
-            resolverState.currentScope.addEntry(
-                parameterDecl.name,
-                ScopeEntry.Parameter(
-                    astNode = parameterDecl,
-                    type = functionScopeEntry.type.argTypes[index],
-                ),
-            )
+            resolverState.currentScope =
+                resolverState.currentScope.addEntry(
+                    parameterDecl.name,
+                    ScopeEntry.Parameter(
+                        astNode = parameterDecl,
+                        type = functionScopeEntry.type.argTypes[index],
+                    ),
+                )
         }
         functionDecl.body.statements.forEach {
             resolveAstNode(it, resolverState)
         }
-        resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(functionDecl.body, resolverState.currentScope.shallowCopy())
+        resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
+            functionDecl.body,
+            resolverState.currentScope,
+        )
     }
 }
 
@@ -2164,5 +2206,6 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
             }
         }
     }
+    resolverState.resolvedEnvironment.globalScope = resolverState.currentScope
     return resolverState.resolvedEnvironment
 }
