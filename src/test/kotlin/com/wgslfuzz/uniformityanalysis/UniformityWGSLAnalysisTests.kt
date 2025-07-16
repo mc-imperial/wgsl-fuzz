@@ -17,6 +17,7 @@
 package com.wgslfuzz.uniformityanalysis
 
 import com.wgslfuzz.analysis.desugar
+import com.wgslfuzz.analysis.reorderFunctions
 import com.wgslfuzz.core.LoggingParseErrorListener
 import com.wgslfuzz.core.parseFromString
 import com.wgslfuzz.core.resolve
@@ -28,7 +29,7 @@ import kotlin.test.assertContains
 
 class UniformityWGSLAnalysisTests {
     fun checkNonUniform(shader: String) {
-        val tu = parseFromString(shader, LoggingParseErrorListener()).desugar()
+        val tu = parseFromString(shader, LoggingParseErrorListener()).desugar().reorderFunctions()
         val environment = resolve(tu)
 
         val message =
@@ -40,9 +41,10 @@ class UniformityWGSLAnalysisTests {
     }
 
     fun checkUniform(shader: String) {
-        val tu = parseFromString(shader, LoggingParseErrorListener()).desugar()
+        val tu = parseFromString(shader, LoggingParseErrorListener()).desugar().reorderFunctions()
         val environment = resolve(tu)
-        assertDoesNotThrow { runWGSLUniformityGraphAnalysis(tu, environment) }
+        val message = assertDoesNotThrow { runWGSLUniformityGraphAnalysis(tu, environment) }
+        println(message.toString())
     }
 
     @Test
@@ -456,6 +458,42 @@ class UniformityWGSLAnalysisTests {
             @compute @workgroup_size(16,1,1)
             fn main(@builtin(local_invocation_index) lid: u32) {
               if ((lid >= 0) && barrier()) {}
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+
+    @Test
+    fun nonUniformFunctionCall2() {
+        val input =
+            """
+            fn barrier() {
+              workgroupBarrier();
+            }
+
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              if (lid >= 0) { barrier(); }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
+
+
+    @Test
+    fun nonUniformFunctionCall3() {
+        val input =
+            """
+            fn conditionalBarrier(cond: bool) {
+              if (cond) {
+                workgroupBarrier();
+              }
+            }
+
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              conditionalBarrier(lid >= 0);
             }
             """.trimIndent()
         checkNonUniform(input)

@@ -18,8 +18,12 @@ import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.isFunctionCallBuiltin
 import com.wgslfuzz.core.traverse
+import com.wgslfuzz.uniformityanalysis.CallSiteTag.CallSiteRequiredToBeUniformError
+import com.wgslfuzz.uniformityanalysis.CallSiteTag.CallSiteRequiredToBeUniformInfo
+import com.wgslfuzz.uniformityanalysis.CallSiteTag.CallSiteRequiredToBeUniformWarning
+import com.wgslfuzz.uniformityanalysis.CallSiteTag.Companion.severity
+import com.wgslfuzz.uniformityanalysis.ParameterTag.Companion.severity
 import com.wgslfuzz.uniformityanalysis.UniformityNode.Companion.createUniformityNode
 
 private val INITIAL_PARAMETER_TAG = ParameterTag.ParameterNoRestriction
@@ -150,6 +154,14 @@ private enum class CallSiteTag {
             callSiteTag == CallSiteRequiredToBeUniformInfo ||
                 callSiteTag == CallSiteRequiredToBeUniformWarning ||
                 callSiteTag == CallSiteRequiredToBeUniformError
+
+        fun CallSiteTag.severity(): Severity? =
+            when (this) {
+                CallSiteRequiredToBeUniformError -> Severity.Error
+                CallSiteRequiredToBeUniformWarning -> Severity.Warning
+                CallSiteRequiredToBeUniformInfo -> Severity.Info
+                CallSiteNoRestriction -> null
+            }
     }
 }
 
@@ -182,6 +194,25 @@ private enum class ParameterTag {
                 Severity.Warning -> ParameterContentsRequiredToBeUniformWarning
                 Severity.Info -> ParameterContentsRequiredToBeUniformInfo
             }
+
+        fun isRequiredToBeUniform(parameterTag: ParameterTag): Boolean =
+            parameterTag == ParameterRequiredToBeUniformInfo ||
+                parameterTag == ParameterRequiredToBeUniformWarning ||
+                parameterTag == ParameterRequiredToBeUniformError
+
+        fun ParameterTag.severity(): Severity? =
+            when (this) {
+                ParameterContentsRequiredToBeUniformError,
+                ParameterRequiredToBeUniformError,
+                -> Severity.Error
+                ParameterContentsRequiredToBeUniformWarning,
+                ParameterRequiredToBeUniformWarning,
+                -> Severity.Warning
+                ParameterContentsRequiredToBeUniformInfo,
+                ParameterRequiredToBeUniformInfo,
+                -> Severity.Info
+                ParameterNoRestriction -> null
+            }
     }
 }
 
@@ -195,32 +226,52 @@ private enum class PointerParameterTag {
     PointerParameterNoRestriction,
 }
 
+// TODO(JLJ): Think about how to combine this with functionInfo
+private data class FunctionTags(
+    val functionTag: FunctionTag,
+    val callSiteTag: CallSiteTag,
+    val paramInfo: List<Pair<ParameterTag, ParameterReturnTag>>,
+)
+
 private class FunctionInfo(
     val function: GlobalDecl.Function,
 ) {
+    data class ParamInfo(
+        val uniformityNode: UniformityNode,
+        val parameterTag: ParameterTag,
+        val parameterReturnTag: ParameterReturnTag,
+    )
+
+    // The modifiable variables in scope at any point in the program. These are the set of variables that could have
+    // been modified in branching control flow and so must be merged.
+    val variablesInScope: HashSet<String> = HashSet()
+
+    // Keep track of the node currently representing the uniformity of a variable
+    val variableNodes: ScopeStack = ScopeStack()
+
     // Create special nodes.
     val requiredToBeUniformError = createUniformityNode("RequiredToBeUniformError")
     val requiredToBeUniformWarning = createUniformityNode("RequiredToBeUniformWarning")
     val requiredToBeUniformInfo = createUniformityNode("RequiredToBeUniformInfo")
     val mayBeNonUniform = createUniformityNode("MayBeNonUniform")
     val cfStart = createUniformityNode("CF_start")
-    var params: List<UniformityNode> = function.parameters.map { param -> createUniformityNode(param.name) }
+    var paramsInfo: List<ParamInfo> =
+        function.parameters.map { param ->
+            val paramNode = createUniformityNode(param.name)
+            variablesInScope.add(param.name)
+            variableNodes.set(param.name, paramNode)
+            ParamInfo(paramNode, INITIAL_PARAMETER_TAG, ParameterReturnTag.ParameterReturnNoRestriction)
+        }
     var valueReturn: UniformityNode? = function.returnType?.let { createUniformityNode("Value_return") }
 
     // Initialise tags
     var functionTag = FunctionTag.NoRestriction
     var callSiteTag: CallSiteTag = INITIAL_CALL_SITE_TAG
-    var parameterTags = params.map { _ -> INITIAL_PARAMETER_TAG }
-    var parameterReturnTags = params.map { _ -> ParameterReturnTag.ParameterReturnNoRestriction }
-
-    // Keep track of the node currently representing the uniformity of a variable
-    val variableNodes: ScopeStack = ScopeStack()
-
-    // The modifiable variables in scope at any point in the program. These are the set of variables that could have
-    // been modified in branching control flow and so must be merged.
-    val variablesInScope: HashSet<String> = HashSet()
 
     var loopInfo: LoopInfo? = null
+
+    fun functionTags(): FunctionTags =
+        FunctionTags(functionTag, callSiteTag, paramsInfo.map { paramInfo -> Pair(paramInfo.parameterTag, paramInfo.parameterReturnTag) })
 
     // TODO(JLJ): Change param name
     private fun updateNodesReaching(map: MutableMap<String, MutableSet<UniformityNode>>) {
@@ -249,14 +300,6 @@ private class FunctionInfo(
     }
 
     // TODO(JLJ): Add support for pointer parameters
-
-    fun callSiteTagToUniformityNode(callSiteTag: CallSiteTag): UniformityNode? =
-        when (callSiteTag) {
-            CallSiteTag.CallSiteRequiredToBeUniformError -> requiredToBeUniformError
-            CallSiteTag.CallSiteRequiredToBeUniformWarning -> requiredToBeUniformWarning
-            CallSiteTag.CallSiteRequiredToBeUniformInfo -> requiredToBeUniformError
-            CallSiteTag.CallSiteNoRestriction -> null
-        }
 
     fun requiredToBeUniform(severity: Severity) =
         when (severity) {
@@ -358,14 +401,14 @@ private fun traverseGraph(functionInfo: FunctionInfo): Boolean {
             functionInfo.callSiteTag = CallSiteTag.callSiteRequiredToBeUniform(severity)
         }
 
-        functionInfo.parameterTags =
-            functionInfo.parameterTags.map { parameterTag ->
-                if (parameterTag ==
+        functionInfo.paramsInfo =
+            functionInfo.paramsInfo.map { paramInfo ->
+                if (paramInfo.parameterTag ==
                     INITIAL_PARAMETER_TAG
                 ) {
-                    ParameterTag.parameterRequiredToBeUniform(severity)
+                    paramInfo.copy(parameterTag = ParameterTag.parameterRequiredToBeUniform(severity))
                 } else {
-                    parameterTag
+                    paramInfo
                 }
             }
 
@@ -391,8 +434,10 @@ private fun traverseGraph(functionInfo: FunctionInfo): Boolean {
         }
 
         // TODO(JLJ): It is not clear from the spec if this should be in the above if, check
-        functionInfo.parameterReturnTags =
-            functionInfo.parameterTags.map { _ -> ParameterReturnTag.ParameterReturnContentsRequiredToBeUniform }
+        functionInfo.paramsInfo =
+            functionInfo.paramsInfo.map { paramInfo ->
+                paramInfo.copy(parameterReturnTag = ParameterReturnTag.ParameterReturnContentsRequiredToBeUniform)
+            }
     }
 
     // TODO(JLJ): Add Value_return_i_contents
@@ -458,7 +503,6 @@ private fun analyseStatement(
                     environment,
                 )
 
-            functionInfo.variablesInScope.add(statement.name)
             functionInfo.variableNodes.set(statement.name, valueNode)
 
             newCf
@@ -554,6 +598,7 @@ private fun analyseStatement(
                 val newNode = createUniformityNode("${variable}_after_if")
 
                 // Determine the node representing the uniformity of the variable before the if statement.
+                println(variable)
                 val previousNode = functionInfo.variableNodes.get(variable)!!
 
                 // If the 'if' branch contains behaviour next, i.e it may continue, then determine what node
@@ -735,7 +780,6 @@ private fun analyseStatement(
 
         is Statement.Decrement -> TODO()
 
-        // Implement the rules for function calls described in: https://www.w3.org/TR/WGSL/#uniformity-function-calls
         is Statement.FunctionCall ->
             analyseFunctionCall(
                 cf,
@@ -832,6 +876,51 @@ private fun analyseLhsExpression(
         is LhsExpression.Paren -> analyseLhsExpression(cf, lhsExpression.target, functionInfo, functionInfoMap, scope, environment)
     }
 
+private fun builtinFunctionInfo(
+    functionName: String,
+    args: List<Expression>,
+): FunctionTags =
+    when (functionName) {
+        "storageBarrier", "textureBarrier", "workgroupBarrier" ->
+            FunctionTags(functionTag = FunctionTag.NoRestriction, callSiteTag = CallSiteRequiredToBeUniformError, listOf())
+        "workgroupUniformLoad" ->
+            FunctionTags(
+                functionTag = FunctionTag.NoRestriction,
+                callSiteTag = CallSiteRequiredToBeUniformError,
+                listOf(
+                    // TODO: The parameter return tag isn't actually specified in the langauges specification, but should be.
+                    Pair(ParameterTag.ParameterRequiredToBeUniformError, ParameterReturnTag.ParameterReturnNoRestriction),
+                ),
+            )
+        "dpdx", "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "fwidth",
+        "fwidthCoarse", "fwidthFine", "textureSample", "textureSampleBias", "textureSampleCompare",
+        ->
+            // TODO(JLJ): This doesn't support diagnostic filtering. See https://www.w3.org/TR/WGSL/#uniformity-function-calls
+            FunctionTags(FunctionTag.ReturnValueMayBeNonUniform, CallSiteRequiredToBeUniformError, listOf())
+        "textureLoad" -> {
+            FunctionTags(FunctionTag.NoRestriction, CallSiteTag.CallSiteNoRestriction, listOf())
+            // TODO(JLJ): Determine function tag based on parameter type.
+            TODO()
+        }
+        "subgroupAdd", "subgroupExclusiveAdd", "subgroupInclusiveAdd", "subgroupAll", "subgroupAnd",
+        "subgroupAny", "subgroupBallot", "subgroupBroadcast", "subgroupBroadcastFirst", "subgroupElect",
+        "subgroupMax", "subgroupMin", "subgroupMul", "subgroupExclusiveMul", "subgroupInclusiveMul", "subgroupOr",
+        "subgroupShuffle", "subgroupShuffleDown", "subgroupShuffleUp", "subgroupShuffleXor", "subgroupXor",
+        "quadBroadcast", "quadSwapDiagonal", "quadSwapX", "quadSwapY",
+        ->
+            TODO()
+        // Since the program parsed and resolve, we can assume anything else must still be a built-in
+        else ->
+            FunctionTags(
+                FunctionTag.NoRestriction,
+                CallSiteTag.CallSiteNoRestriction,
+                args.map {
+                    Pair(ParameterTag.ParameterNoRestriction, ParameterReturnTag.ParameterReturnContentsRequiredToBeUniform)
+                },
+            )
+    }
+
+// Implement the rules for function calls described in: https://www.w3.org/TR/WGSL/#uniformity-function-calls
 private fun analyseFunctionCall(
     cf: UniformityNode,
     astNode: AstNode,
@@ -847,55 +936,69 @@ private fun analyseFunctionCall(
             else -> throw IllegalArgumentException("The argument to analyseFunctionCall must be a FunctionCall Ast Node.")
         }
 
-    val lastCfi =
-        args.fold(
-            cf,
-        ) { lastCf, expr ->
-            analyseExpression(
-                lastCf,
-                expr,
-                functionInfo,
-                functionInfoMap,
-                scope,
-                environment,
-            ).cfNode
+    // TODO(JLJ): This could be done by writing a mapAccum function.
+    var currentCf = cf
+    val argsAndCfi: List<ExpressionAnalysisResult> =
+        args.map { expr ->
+            val result =
+                analyseExpression(
+                    currentCf,
+                    expr,
+                    functionInfo,
+                    functionInfoMap,
+                    scope,
+                    environment,
+                )
+            currentCf = result.cfNode
+            result
         }
-
-    // TODO(JLJ) Handle argument expressions
+    val lastCfi = if (argsAndCfi.isNotEmpty()) argsAndCfi.last().cfNode else cf
 
     val result = createUniformityNode("Result_function_call")
     val cfAfter = createUniformityNode("CF_after_function_call")
 
-    if (isFunctionCallBuiltin(callee)) {
-        if (callee == "atomic_store" || callee == "texture_store") {
-            TODO()
-        } else {
-            // The remaining builtin statement function calls are barriers.
-            // Add an edge from Required to be uniform to the last CF_i
-            functionInfo.requiredToBeUniformError.addEdges(lastCfi)
-            // TODO(JLJ): Potential trigger set additions
-        }
-    } else {
-        val calleeFunctionInfo = functionInfoMap[callee]!!
-        if (CallSiteTag.isRequiredToBeUniform(calleeFunctionInfo.callSiteTag)) {
-            val uniformityNode = functionInfo.callSiteTagToUniformityNode(calleeFunctionInfo.callSiteTag)!!
-            uniformityNode.addEdges(lastCfi)
-            // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
-        }
-        if (functionInfo.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
-            result.addEdges(functionInfo.mayBeNonUniform)
-        }
+    val calleeFunctionTags = if (callee in functionInfoMap) functionInfoMap[callee]!!.functionTags() else builtinFunctionInfo(callee, args)
+
+    if (CallSiteTag.isRequiredToBeUniform(calleeFunctionTags.callSiteTag)) {
+        val uniformityNode = functionInfo.requiredToBeUniform(calleeFunctionTags.callSiteTag.severity()!!)
+        uniformityNode.addEdges(lastCfi)
+        // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
+    }
+
+    if (functionInfo.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
+        result.addEdges(functionInfo.mayBeNonUniform)
     }
 
     // Add edge from CF_after to the last CF_i
     cfAfter.addEdges(lastCfi)
     result.addEdges(cfAfter)
 
-    args.forEach { TODO() }
+    // TODO(JLJ): The argument related rules need implementing
+//    val argNodes = argsAndCfi.map { (cfI, argI) -> argI }
+//    argNodes.zip(calleeFunctionInfo.paramsInfo).forEach { (argNode, paramInfo) ->
+//        if (ParameterTag.isRequiredToBeUniform(paramInfo.parameterTag)) {
+//            val uniformityNode = functionInfo.requiredToBeUniform(paramInfo.parameterTag.severity()!!)
+//            uniformityNode.addEdges(argNode)
+//            // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
+//        }
+//
+//        if (paramInfo.parameterReturnTag == ParameterReturnTag.ParameterReturnContentsRequiredToBeUniform) {
+//            result.addEdges(argNode)
+//        }
+//
+//        // TODO(JLJ): This doesn't handle pointer arguments.
+//    }
 
     // NOTE: The spec doesn't explicitly say to use this node going forward, but it seems sensible
     return ExpressionAnalysisResult(cfAfter, result)
 }
+
+// TODO(JLJ): This load rule condition isn't quite right. It doesn't check if the only matching type
+private fun isLoadRuleInvoked(type: Type): Boolean =
+    when (type) {
+        is Type.Reference -> type.accessMode == AccessMode.READ || type.accessMode == AccessMode.READ_WRITE
+        else -> false
+    }
 
 private fun analyseExpression(
     cf: UniformityNode,
@@ -945,18 +1048,20 @@ private fun analyseExpression(
                 is ScopeEntry.Parameter ->
                     if (isNonUniformBuiltin(entry)) {
                         ExpressionAnalysisResult(cf, functionInfo.mayBeNonUniform)
-                    } else if (isNonUniformBuiltin(entry)) {
+                    } else if (isUniformBuiltin(entry)) {
                         ExpressionAnalysisResult(cf, cf)
+                    } else if (entry.type !is Type.Pointer) {
+                        // Expression Uniformity Analysis: non-built-in parameter of non-pointer type.
+                        val resultNode = createUniformityNode("Result")
+                        resultNode.addEdges(cf, functionInfo.variableNodes.get(entry.astNode.name)!!)
+                        ExpressionAnalysisResult(cf, resultNode)
                     } else {
                         TODO()
                     }
                 is ScopeEntry.LocalVariable ->
                     // If Load Rule applies: https://www.w3.org/TR/WGSL/#load-rule
-                    // TODO(JLJ): This load rule condition isn't quite right. It doesn't check if the only matching type
                     // rule requires the type to be the references store type.
-                    if (entry.type is Type.Reference &&
-                        (entry.type.accessMode == AccessMode.READ || entry.type.accessMode == AccessMode.READ_WRITE)
-                    ) {
+                    if (isLoadRuleInvoked(entry.type)) {
                         val resultNode = createUniformityNode("Result_ident_expr")
                         resultNode.addEdges(cf)
                         resultNode.addEdges(functionInfo.variableNodes.get(expression.name)!!)
@@ -971,7 +1076,29 @@ private fun analyseExpression(
                     resultNode.addEdges(functionInfo.variableNodes.get(expression.name)!!)
                     ExpressionAnalysisResult(cf, resultNode)
                 }
-                else -> TODO()
+
+                is ScopeEntry.Function -> TODO()
+                is ScopeEntry.GlobalConstant -> ExpressionAnalysisResult(cf, cf)
+                is ScopeEntry.GlobalOverride -> TODO()
+                is ScopeEntry.GlobalVariable -> {
+                    if (entry.type is Type.Reference && entry.type.accessMode != AccessMode.READ) {
+                        if (isLoadRuleInvoked(entry.type)) {
+                            ExpressionAnalysisResult(cf, functionInfo.mayBeNonUniform)
+                        } else {
+                            ExpressionAnalysisResult(cf, cf)
+                        }
+                    } else if (entry.type is Type.Reference && entry.type.accessMode == AccessMode.READ) {
+                        // This is a read-only module-scope variable, even though it's a varible
+                        ExpressionAnalysisResult(cf, cf)
+                    } else {
+                        // This shouldn't be reachable because all global variables should have reference type.
+                        TODO()
+                    }
+                }
+
+                is ScopeEntry.Struct -> TODO()
+                is ScopeEntry.TypeAlias -> TODO()
+                null -> TODO()
             }
 
         // TODO(JLJ): Reduce duplication with statement function calls
