@@ -193,8 +193,11 @@ private class ScopeImpl(
 }
 
 private class ResolvedEnvironmentImpl(
-    override var globalScope: Scope,
+    private val resolverState: ResolverState,
 ) : ResolvedEnvironment {
+    override val globalScope: Scope
+        get() = resolverState.currentScope
+
     // The resolving process gives a type to _every_ expression in the AST.
     private val expressionTypes: MutableMap<Expression, Type> = mutableMapOf()
 
@@ -386,7 +389,7 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
 private class ResolverState {
     var currentScope: ScopeImpl = ScopeImpl()
 
-    val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(currentScope)
+    val resolvedEnvironment: ResolvedEnvironmentImpl = ResolvedEnvironmentImpl(this)
 
     val ancestorsStack: MutableList<AstNode> = mutableListOf()
 
@@ -2206,6 +2209,5 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
             }
         }
     }
-    resolverState.resolvedEnvironment.globalScope = resolverState.currentScope
     return resolverState.resolvedEnvironment
 }
