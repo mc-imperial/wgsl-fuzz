@@ -21,8 +21,6 @@ import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.traverse
 import com.wgslfuzz.uniformityanalysis.CallSiteTag.CallSiteRequiredToBeUniformError
-import com.wgslfuzz.uniformityanalysis.CallSiteTag.CallSiteRequiredToBeUniformInfo
-import com.wgslfuzz.uniformityanalysis.CallSiteTag.CallSiteRequiredToBeUniformWarning
 import com.wgslfuzz.uniformityanalysis.CallSiteTag.Companion.severity
 import com.wgslfuzz.uniformityanalysis.ParameterTag.Companion.severity
 import com.wgslfuzz.uniformityanalysis.UniformityNode.Companion.createUniformityNode
@@ -995,7 +993,7 @@ private fun analyseFunctionCall(
 
     // TODO(JLJ): This could be done by writing a mapAccum function.
     var currentCf = cf
-    val argsAndCfi: List<ExpressionAnalysisResult> =
+    val argsAndCfs: List<ExpressionAnalysisResult> =
         args.map { expr ->
             val result =
                 analyseExpression(
@@ -1009,10 +1007,15 @@ private fun analyseFunctionCall(
             currentCf = result.cfNode
             result
         }
-    val lastCfi = if (argsAndCfi.isNotEmpty()) argsAndCfi.last().cfNode else cf
+    val lastCf = if (argsAndCfs.isNotEmpty()) argsAndCfs.last().cfNode else cf
+    println(callee)
+    println(args)
+    println(argsAndCfs)
+    println(cf)
+    println(lastCf)
 
-    val result = createUniformityNode("Result_function_call")
-    val cfAfter = createUniformityNode("CF_after_function_call")
+    val result = createUniformityNode("Result_function_call_${callee}")
+    val cfAfter = createUniformityNode("CF_after_function_call_${callee}")
 
     val calleeFunctionTags =
         if (callee in
@@ -1025,33 +1028,35 @@ private fun analyseFunctionCall(
 
     if (CallSiteTag.isRequiredToBeUniform(calleeFunctionTags.callSiteTag)) {
         val uniformityNode = functionInfo.requiredToBeUniform(calleeFunctionTags.callSiteTag.severity()!!)
-        uniformityNode.addEdges(lastCfi)
+        uniformityNode.addEdges(lastCf)
         // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
     }
+
+    cfAfter.addEdges(lastCf)
 
     if (calleeFunctionTags.functionTag == FunctionTag.ReturnValueMayBeNonUniform) {
         result.addEdges(functionInfo.mayBeNonUniform)
     }
 
-    // Add edge from CF_after to the last CF_i
-    cfAfter.addEdges(lastCfi)
     result.addEdges(cfAfter)
 
     // TODO(JLJ): The argument related rules need implementing
-//    val argNodes = argsAndCfi.map { (cfI, argI) -> argI }
-//    argNodes.zip(calleeFunctionInfo.paramsInfo).forEach { (argNode, paramInfo) ->
-//        if (ParameterTag.isRequiredToBeUniform(paramInfo.parameterTag)) {
-//            val uniformityNode = functionInfo.requiredToBeUniform(paramInfo.parameterTag.severity()!!)
-//            uniformityNode.addEdges(argNode)
-//            // TODO(JLJ): This ignore potential trigger set, but shouldn't matter for functionality
-//        }
-//
-//        if (paramInfo.parameterReturnTag == ParameterReturnTag.ParameterReturnContentsRequiredToBeUniform) {
-//            result.addEdges(argNode)
-//        }
-//
-//        // TODO(JLJ): This doesn't handle pointer arguments.
-//    }
+    assert(argsAndCfs.size == calleeFunctionTags.paramInfo.size)
+    for (i in 0..argsAndCfs.lastIndex) {
+        val (cfI, argI) = argsAndCfs[i]
+        val (parameterTag, parameterReturnTag) = calleeFunctionTags.paramInfo[i]
+
+        if (ParameterTag.isRequiredToBeUniform(parameterTag)) {
+            val requiredToBeUniformNode = functionInfo.requiredToBeUniform(parameterTag.severity()!!)
+            requiredToBeUniformNode.addEdges(argI)
+        }
+
+        if (parameterReturnTag == ParameterReturnTag.ParameterReturnContentsRequiredToBeUniform) {
+            result.addEdges(argI)
+        }
+
+        // TODO(JLJ): This doesn't handle pointer parameters
+    }
 
     // NOTE: The spec doesn't explicitly say to use this node going forward, but it seems sensible
     return ExpressionAnalysisResult(cfAfter, result)
