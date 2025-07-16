@@ -938,7 +938,7 @@ private fun builtinFunctionInfo(
                 listOf(
                     Pair(ParameterTag.ParameterNoRestriction, ParameterReturnTag.ParameterReturnNoRestriction),
                     Pair(ParameterTag.ParameterRequiredToBeUniformError, ParameterReturnTag.ParameterReturnNoRestriction),
-                )
+                ),
             )
         // Since the program parsed and resolve, we can assume anything else must still be a built-in
         else ->
@@ -964,6 +964,26 @@ private fun analyseFunctionCall(
         when (astNode) {
             is Statement.FunctionCall -> Pair(astNode.args, astNode.callee)
             is Expression.FunctionCall -> Pair(astNode.args, astNode.callee)
+            is Expression.ArrayValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat2x2ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat2x3ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat2x4ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat3x2ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat3x3ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat3x4ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat4x2ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat4x3ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Mat4x4ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.BoolValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.F16ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.F32ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.I32ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.U32ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.StructValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.TypeAliasValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Vec2ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Vec3ValueConstructor -> Pair(astNode.args, astNode.constructorName)
+            is Expression.Vec4ValueConstructor -> Pair(astNode.args, astNode.constructorName)
             else -> throw IllegalArgumentException("The argument to analyseFunctionCall must be a FunctionCall Ast Node.")
         }
 
@@ -1143,27 +1163,32 @@ private fun analyseExpression(
         is AugmentedExpression.KnownValue -> TODO()
         is AugmentedExpression.TrueByConstruction -> TODO()
 
-        is Expression.ArrayValueConstructor -> TODO()
-        is Expression.Mat2x2ValueConstructor -> TODO()
-        is Expression.Mat2x3ValueConstructor -> TODO()
-        is Expression.Mat2x4ValueConstructor -> TODO()
-        is Expression.Mat3x2ValueConstructor -> TODO()
-        is Expression.Mat3x3ValueConstructor -> TODO()
-        is Expression.Mat3x4ValueConstructor -> TODO()
-        is Expression.Mat4x2ValueConstructor -> TODO()
-        is Expression.Mat4x3ValueConstructor -> TODO()
-        is Expression.Mat4x4ValueConstructor -> TODO()
-        is Expression.BoolValueConstructor -> TODO()
-        is Expression.F16ValueConstructor -> TODO()
-        is Expression.F32ValueConstructor -> TODO()
-        is Expression.I32ValueConstructor -> TODO()
-        is Expression.U32ValueConstructor -> TODO()
-        is Expression.StructValueConstructor -> TODO()
-        is Expression.TypeAliasValueConstructor -> TODO()
-        is Expression.Vec2ValueConstructor -> TODO()
-        is Expression.Vec3ValueConstructor -> TODO()
-        is Expression.Vec4ValueConstructor -> TODO()
+        is Expression.ArrayValueConstructor,
+        is Expression.Mat2x2ValueConstructor,
+        is Expression.Mat2x3ValueConstructor,
+        is Expression.Mat2x4ValueConstructor,
+        is Expression.Mat3x2ValueConstructor,
+        is Expression.Mat3x3ValueConstructor,
+        is Expression.Mat3x4ValueConstructor,
+        is Expression.Mat4x2ValueConstructor,
+        is Expression.Mat4x3ValueConstructor,
+        is Expression.Mat4x4ValueConstructor,
+        is Expression.BoolValueConstructor,
+        is Expression.F16ValueConstructor,
+        is Expression.F32ValueConstructor,
+        is Expression.I32ValueConstructor,
+        is Expression.U32ValueConstructor,
+        is Expression.StructValueConstructor,
+        is Expression.TypeAliasValueConstructor,
+        is Expression.Vec2ValueConstructor,
+        is Expression.Vec3ValueConstructor,
+        is Expression.Vec4ValueConstructor,
+        -> analyseFunctionCall(cf, expression, functionInfo, functionInfoMap, scope, environment)
     }
+
+// WGSL treats these as normal function calls.
+private fun analyseValueConstructorExpression(expression: Expression.ValueConstructor) {
+}
 
 private fun isNonUniformBuiltinValue(builtinValue: BuiltinValue): Boolean {
     // Builtins from: https://www.w3.org/TR/WGSL/#built-in-values
