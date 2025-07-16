@@ -154,6 +154,9 @@ private class ScopeImpl(
     // 0 is the global scope. 1 is a level below global scope and so on.
     // Note: name shadowing is allowed at different levels but is not allowed at the same level.
     private val level: Int = 0,
+    // scopeEntry is nullable as we need a way of describing an empty scope at a particular level. Hence, the need
+    // for the ability to create a "dud" scope. An example can be seen in the above diagram with the node representing
+    // if (x == 1) scope having nothing in its level
     private val scopeEntry: Pair<String, ScopeEntry>? = null,
 ) : Scope {
     override fun getEntry(name: String): ScopeEntry? =
