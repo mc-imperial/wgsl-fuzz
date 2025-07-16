@@ -896,19 +896,50 @@ private fun builtinFunctionInfo(
         "fwidthCoarse", "fwidthFine", "textureSample", "textureSampleBias", "textureSampleCompare",
         ->
             // TODO(JLJ): This doesn't support diagnostic filtering. See https://www.w3.org/TR/WGSL/#uniformity-function-calls
-            FunctionTags(FunctionTag.ReturnValueMayBeNonUniform, CallSiteRequiredToBeUniformError, listOf())
+            // NOTE: The spec doesn't say what the parameter tags should be here, I assumed then there are no requirements
+            FunctionTags(
+                FunctionTag.ReturnValueMayBeNonUniform,
+                CallSiteRequiredToBeUniformError,
+                args.map {
+                    Pair(ParameterTag.ParameterNoRestriction, ParameterReturnTag.ParameterReturnNoRestriction)
+                },
+            )
         "textureLoad" -> {
-            FunctionTags(FunctionTag.NoRestriction, CallSiteTag.CallSiteNoRestriction, listOf())
+            // NOTE: The spec doesn't say what the parameter tags should be here, I assumed then there are no requirements
+            FunctionTags(
+                FunctionTag.NoRestriction,
+                CallSiteTag.CallSiteNoRestriction,
+                args.map {
+                    Pair(ParameterTag.ParameterNoRestriction, ParameterReturnTag.ParameterReturnNoRestriction)
+                },
+            )
             // TODO(JLJ): Determine function tag based on parameter type.
             TODO()
         }
         "subgroupAdd", "subgroupExclusiveAdd", "subgroupInclusiveAdd", "subgroupAll", "subgroupAnd",
         "subgroupAny", "subgroupBallot", "subgroupBroadcast", "subgroupBroadcastFirst", "subgroupElect",
         "subgroupMax", "subgroupMin", "subgroupMul", "subgroupExclusiveMul", "subgroupInclusiveMul", "subgroupOr",
-        "subgroupShuffle", "subgroupShuffleDown", "subgroupShuffleUp", "subgroupShuffleXor", "subgroupXor",
-        "quadBroadcast", "quadSwapDiagonal", "quadSwapX", "quadSwapY",
+        "subgroupShuffle", "subgroupXor", "quadBroadcast", "quadSwapDiagonal", "quadSwapX", "quadSwapY",
         ->
-            TODO()
+            // TODO(JLJ): This doesn't handle diagnostics
+            // NOTE: The spec doesn't say what the parameter tags should be here, I assumed then there are no requirements
+            FunctionTags(
+                FunctionTag.ReturnValueMayBeNonUniform,
+                CallSiteRequiredToBeUniformError,
+                args.map {
+                    Pair(ParameterTag.ParameterNoRestriction, ParameterReturnTag.ParameterReturnNoRestriction)
+                },
+            )
+        "subgroupShuffleUp", "subgroupShuffleDown", "subgroupShuffleXor" ->
+            // TODO(JLJ): This doesn't handle diagnostics
+            FunctionTags(
+                FunctionTag.ReturnValueMayBeNonUniform,
+                CallSiteRequiredToBeUniformError,
+                listOf(
+                    Pair(ParameterTag.ParameterNoRestriction, ParameterReturnTag.ParameterReturnNoRestriction),
+                    Pair(ParameterTag.ParameterRequiredToBeUniformError, ParameterReturnTag.ParameterReturnNoRestriction),
+                )
+            )
         // Since the program parsed and resolve, we can assume anything else must still be a built-in
         else ->
             FunctionTags(
