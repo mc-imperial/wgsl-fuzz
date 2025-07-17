@@ -16,6 +16,8 @@
 
 package com.wgslfuzz.core
 
+import com.wgslfuzz.core.TypeDecl.*
+
 /**
  * Interfaces and classes representing the types associated with AST nodes after resolving has taken place.
  * This hierarchy of interfaces and classes is deliberately entirely separate from those that represent type declarations
@@ -215,6 +217,81 @@ data class FunctionType(
     val argTypes: List<Type>,
     val returnType: Type?,
 )
+
+fun Type.alignOf(): Int =
+    when (this) {
+        Type.F16 -> 2
+        Type.Bool, Type.I32, Type.U32, Type.F32, is Type.Atomic -> 4
+        is Type.Vector ->
+            when (this.width) {
+                2 ->
+                    when (this.elementType) {
+                        Type.F16 -> 4
+                        Type.Bool, Type.I32, Type.U32, Type.F32 -> 8
+                        Type.AbstractFloat -> TODO()
+                        Type.AbstractInteger -> TODO()
+                    }
+                3 ->
+                    when (this.elementType) {
+                        Type.F16 -> 8
+                        Type.Bool, Type.I32, Type.U32, Type.F32 -> 16
+                        Type.AbstractFloat -> TODO()
+                        Type.AbstractInteger -> TODO()
+                    }
+                4 ->
+                    when (this.elementType) {
+                        Type.F16 -> 8
+                        Type.Bool, Type.I32, Type.U32, Type.F32 -> 16
+                        Type.AbstractFloat -> TODO()
+                        Type.AbstractInteger -> TODO()
+                    }
+                else -> throw IllegalArgumentException("Bad vector size.")
+            }
+        is Type.Matrix -> Type.Vector(this.numRows, this.elementType).alignOf()
+        is Type.Struct -> this.members.maxOf { it.second.alignOf() }
+        is Type.Array -> this.elementType.alignOf()
+
+        else -> TODO()
+    }
+
+private fun Type.Scalar.toTypeDecl(): ScalarTypeDecl =
+    when (this) {
+        Type.Bool -> Bool
+        Type.I32 -> I32
+        Type.U32 -> U32
+        Type.F16 -> F16
+        Type.F32 -> F16
+        Type.AbstractFloat -> TODO()
+        Type.AbstractInteger -> TODO()
+    } as ScalarTypeDecl
+
+fun Type.toTypeDecl(): TypeDecl =
+    when (this) {
+        is Type.Scalar -> this.toTypeDecl()
+        is Type.Vector ->
+            when (this.width) {
+                2 ->
+                    Vec2(
+                        this.elementType.toTypeDecl(),
+                    )
+                3 ->
+                    Vec3(
+                        this.elementType.toTypeDecl(),
+                    )
+                4 ->
+                    Vec4(
+                        this.elementType.toTypeDecl(),
+                    )
+                else -> throw IllegalArgumentException("Bad vector size.")
+            }
+        is Type.Array ->
+            Array(
+                elementType = this.elementType.toTypeDecl(),
+                elementCount = this.elementCount?.let { Expression.IntLiteral(it.toString()) },
+            )
+        is Type.Struct -> TODO("There is not TypeDecl for a Struct only a GlobalDecl")
+        else -> TODO()
+    }
 
 // The following are builtin structures described in the WGSL specification, representing the result types of various
 // builtin functions.

@@ -301,6 +301,28 @@ private fun literalExprFromBytes(
                 else -> throw UnsupportedOperationException("Bad vector size.")
             }
         }
+        is Type.Array -> {
+            val elementCount = type.elementCount ?: TODO("Runtime sized arrays not yet implemented")
+            var currentIndex = bufferByteIndex
+            while (currentIndex % type.alignOf() != 0) {
+                currentIndex++
+            }
+            val args: MutableList<Expression> = mutableListOf()
+            repeat(elementCount) {
+                val (literal, indexAfter) = literalExprFromBytes(type.elementType, bufferBytes, currentIndex)
+                args.add(literal)
+                currentIndex = indexAfter
+            }
+
+            return Pair(
+                Expression.ArrayValueConstructor(
+                    elementType = TODO("Determine way of converting typeDecl from type"),
+                    elementCount = Expression.IntLiteral(elementCount.toString()),
+                    args = args,
+                ),
+                second = currentIndex,
+            )
+        }
         else -> TODO("Type $type not yet supported in uniform buffers.")
     }
 }
