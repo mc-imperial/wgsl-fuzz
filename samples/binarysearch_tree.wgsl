@@ -146,7 +146,7 @@ fn fragmentMain() -> @location(0) vec4f {
                 }
             }
             default {
-                if (result == -1 || (contains(i) && result == i)) {
+                if ((result == -1 && !contains(i)) || (contains(i) && result == i)) {
                     count++;
                 }
             }
