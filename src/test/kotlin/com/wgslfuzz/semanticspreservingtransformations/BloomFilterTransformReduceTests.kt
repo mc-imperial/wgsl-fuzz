@@ -30,21 +30,6 @@ class BloomFilterTransformReduceTests : TransformReduceTests() {
         assertNotEquals(filenameNoExtension, "")
     }
 
-    @Test
-    override fun testAddDeadReturns() {
-        super.testAddDeadReturns()
-    }
-
-    @Test
-    override fun testAddDeadBreaks() {
-        super.testAddDeadBreaks()
-    }
-
-    @Test
-    override fun testAddDeadContinues() {
-        super.testAddDeadContinues()
-    }
-
     @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/130)")
     @Test
     override fun testAddIdentityOperations() {
