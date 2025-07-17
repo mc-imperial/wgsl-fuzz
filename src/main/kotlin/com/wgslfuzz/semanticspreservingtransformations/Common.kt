@@ -138,7 +138,7 @@ fun randomUniformScalarWithValue(
     val uniformDeclaration = shaderJob.tu.getUniformDeclaration(group, binding)
 
     var currentType: Type =
-        uniformDeclaration.typeDecl?.toType(shaderJob.environment.globalScope)
+        uniformDeclaration.typeDecl?.toType(shaderJob.environment.globalScope, shaderJob.environment)
             ?: throw IllegalStateException("Uniform should have type")
 
     var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)

@@ -1953,7 +1953,9 @@ fun evaluateToInt(
     expression: Expression,
     scope: Scope,
     resolvedEnvironment: ResolvedEnvironment,
-): Int = (evaluate(expression, scope, resolvedEnvironment) as EvaluatedValue.Integer).value
+): Int =
+    (evaluate(expression, scope, resolvedEnvironment) as? EvaluatedValue.Integer)?.value
+        ?: throw IllegalArgumentException("Expression $expression to int")
 
 private fun isSwizzle(memberName: String): Boolean =
     memberName.length in (2..4) &&

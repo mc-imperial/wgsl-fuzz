@@ -562,17 +562,17 @@ sealed interface TypeDecl : AstNode {
     class TextureDepthCubeArray : TypeDecl
 }
 
-fun TypeDecl.toType(scope: Scope): Type =
+fun TypeDecl.toType(
+    scope: Scope,
+    resolvedEnvironment: ResolvedEnvironment,
+): Type =
     when (this) {
         is TypeDecl.Array ->
             Type.Array(
-                elementType = this.elementType.toType(scope),
-                // Investigate whether expressions such as 8 * 8 can appear here and thus would require evaluation
-                // the element count expression
+                elementType = this.elementType.toType(scope, resolvedEnvironment),
                 elementCount =
-                    this.elementCount?.evaluateToInt(scope) ?: throw IllegalArgumentException(
-                        "Array must have a known length",
-                    ),
+                    this.elementCount?.let { evaluateToInt(it, scope, resolvedEnvironment) }
+                        ?: throw IllegalArgumentException("Array must have a known length"),
             )
 
         is TypeDecl.NamedType -> {
@@ -593,56 +593,25 @@ fun TypeDecl.toType(scope: Scope): Type =
             Type.Vector(
                 width = 2,
                 elementType =
-                    this.elementType.toType(scope) as? Type.Scalar
+                    this.elementType.toType(scope, resolvedEnvironment) as? Type.Scalar
                         ?: throw IllegalStateException("Invalid vector element type"),
             )
         is TypeDecl.Vec3 ->
             Type.Vector(
                 width = 3,
                 elementType =
-                    this.elementType.toType(scope) as? Type.Scalar
+                    this.elementType.toType(scope, resolvedEnvironment) as? Type.Scalar
                         ?: throw IllegalStateException("Invalid vector element type"),
             )
         is TypeDecl.Vec4 ->
             Type.Vector(
                 width = 4,
                 elementType =
-                    this.elementType.toType(scope) as? Type.Scalar
+                    this.elementType.toType(scope, resolvedEnvironment) as? Type.Scalar
                         ?: throw IllegalStateException("Invalid vector element type"),
             )
 
         else -> TODO()
-    }
-
-private fun Expression.evaluateToInt(scope: Scope): Int? =
-    when (this) {
-        is Expression.IntLiteral -> this.text.toInt()
-        is Expression.Identifier -> {
-            val scopeEntry = scope.getEntry(this.name)
-            when (scopeEntry) {
-                is ScopeEntry.GlobalConstant -> scopeEntry.astNode.initializer.evaluateToInt(scope)
-                is ScopeEntry.GlobalOverride -> TODO()
-                is ScopeEntry.GlobalVariable -> TODO()
-                is ScopeEntry.LocalValue -> TODO()
-                is ScopeEntry.LocalVariable -> TODO()
-                is ScopeEntry.Parameter -> TODO()
-                else -> throw IllegalArgumentException("Cannot evaluate $this to int")
-            }
-        }
-        is AugmentedExpression.AddZero -> TODO()
-        is AugmentedExpression.DivOne -> TODO()
-        is AugmentedExpression.MulOne -> TODO()
-        is AugmentedExpression.SubZero -> TODO()
-        is AugmentedExpression.KnownValue -> TODO()
-        is Expression.FunctionCall -> TODO()
-        is Expression.IndexLookup -> TODO()
-        is Expression.MemberLookup -> TODO()
-        is Expression.Paren -> TODO()
-        is Expression.Unary -> TODO()
-        is Expression.I32ValueConstructor -> TODO()
-        is Expression.U32ValueConstructor -> TODO()
-
-        else -> throw IllegalArgumentException("Cannot evaluate $this to int")
     }
 
 /**
