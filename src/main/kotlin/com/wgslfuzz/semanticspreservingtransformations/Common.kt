@@ -34,7 +34,7 @@ private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
 interface FuzzerSettings {
     val maxDepth: Int
-        get() = 10
+        get() = 7
 
     // Yields a random integer in the range [0, limit)
     fun randomInt(limit: Int): Int

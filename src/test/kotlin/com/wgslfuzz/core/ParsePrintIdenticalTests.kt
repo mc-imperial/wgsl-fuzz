@@ -443,6 +443,23 @@ class ParsePrintIdenticalTests {
         checkParsePrintIdentical(input)
     }
 
+
+    @Test
+    fun refDeref() {
+        val input =
+            """
+            @compute
+            @workgroup_size(16)
+            fn main()
+            {
+              var x = 0;
+              *&(x) = 1;
+            }
+            
+            """.trimIndent()
+        checkParsePrintIdentical(input)
+    }
+
     private fun checkParsePrintIdentical(input: String) {
         val errorListener = LoggingParseErrorListener()
 
