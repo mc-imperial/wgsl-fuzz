@@ -25,6 +25,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.UnaryOperator
+import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.getUniformDeclaration
 import java.util.Random
@@ -143,7 +144,7 @@ fun isVariableOfTypeInScope(
         .any {
             it is ScopeEntry.TypedDecl &&
                 it !is ScopeEntry.TypeAlias &&
-                it.type == type
+                it.type.asStoreTypeIfReference() == type
         }
 
 fun randomVariableFromScope(
@@ -155,7 +156,7 @@ fun randomVariableFromScope(
         scope.getAllEntries().filter {
             it is ScopeEntry.TypedDecl &&
                 it !is ScopeEntry.TypeAlias &&
-                it.type == type
+                it.type.asStoreTypeIfReference() == type
         }
 
     if (scopeEntries.isEmpty()) return null
