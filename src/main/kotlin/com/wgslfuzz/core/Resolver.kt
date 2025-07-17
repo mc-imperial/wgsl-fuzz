@@ -1946,6 +1946,7 @@ fun evaluate(
                 else -> TODO("${expression.operator}")
             }
         }
+        is AugmentedExpression.IdentityOperation -> evaluate(expression.originalExpression, scope, resolvedEnvironment)
         else -> TODO("$expression")
     }
 
