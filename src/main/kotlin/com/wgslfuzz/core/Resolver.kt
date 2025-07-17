@@ -1939,6 +1939,9 @@ private fun evaluate(
                 BinaryOperator.SHIFT_LEFT -> {
                     EvaluatedValue.Integer(lhs.value.shl(rhs.value))
                 }
+                BinaryOperator.DIVIDE -> {
+                    EvaluatedValue.Integer(lhs.value / rhs.value)
+                }
                 else -> TODO("${expression.operator}")
             }
         }
