@@ -386,4 +386,3 @@ fun Type.isIntegerScalar(): Boolean = this is Type.AbstractInteger || this is Ty
 
 // https://www.w3.org/TR/WGSL/#vector-types
 fun Type.isNumericVector(): Boolean = this is Type.Vector && this.elementType.isNumericScalar()
-

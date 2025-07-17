@@ -1591,7 +1591,8 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("Not enough arguments provided to $calleeName")
                     } else {
                         when (
-                            val textureType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                            val textureType =
+                                resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                         ) {
                             is Type.Texture.Sampled ->
                                 if (textureType.sampledType is Type.F32) {
