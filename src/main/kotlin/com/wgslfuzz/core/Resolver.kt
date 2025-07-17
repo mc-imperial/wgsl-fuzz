@@ -85,6 +85,11 @@ sealed interface ScopeEntry {
 sealed interface Scope {
     fun getEntry(name: String): ScopeEntry?
 
+    /**
+     * Returns all the entries that can be accessible from this scope.
+     * If variable shadowing occurs in the scope it will not return the shadowed variables since they are not
+     * accessible.
+     */
     fun getAllEntries(): List<ScopeEntry>
 }
 

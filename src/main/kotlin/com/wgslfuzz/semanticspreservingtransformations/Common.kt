@@ -43,7 +43,7 @@ interface FuzzerSettings {
 
     fun <T> randomElement(list: List<T>): T {
         require(list.isNotEmpty()) { "Cannot get random element of an empty list" }
-        return list [randomInt(list.size)]
+        return list[randomInt(list.size)]
     }
 
     data class FalseByConstructionWeights(
@@ -133,6 +133,18 @@ fun <T> choose(
     }
     return fuzzerSettings.randomElement(functions)()
 }
+
+fun isVariableOfTypeInScope(
+    scope: Scope,
+    type: Type,
+): Boolean =
+    scope
+        .getAllEntries()
+        .any {
+            it is ScopeEntry.TypedDecl &&
+                it !is ScopeEntry.TypeAlias &&
+                it.type == type
+        }
 
 fun randomVariableFromScope(
     scope: Scope,

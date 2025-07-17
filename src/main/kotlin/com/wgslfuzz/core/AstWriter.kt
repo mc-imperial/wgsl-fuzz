@@ -457,7 +457,7 @@ class AstWriter(
             is AugmentedExpression.ArbitraryExpression -> {
                 out.print("(")
                 if (emitCommentary) {
-                    out.print("/* Arbitrary Expression : */ ")
+                    out.print("/* arbitrary expression: */ ")
                 }
                 emitExpression(expression.expression)
                 out.print(")")
