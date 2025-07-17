@@ -254,14 +254,14 @@ fun Type.alignOf(): Int =
 
 private fun Type.Scalar.toTypeDecl(): TypeDecl.ScalarTypeDecl =
     when (this) {
-        Type.Bool -> TypeDecl.Bool
-        Type.I32 -> TypeDecl.I32
-        Type.U32 -> TypeDecl.U32
-        Type.F16 -> TypeDecl.F16
-        Type.F32 -> TypeDecl.F16
+        Type.Bool -> TypeDecl.Bool()
+        Type.I32 -> TypeDecl.I32()
+        Type.U32 -> TypeDecl.U32()
+        Type.F16 -> TypeDecl.F16()
+        Type.F32 -> TypeDecl.F32()
         Type.AbstractFloat -> throw UnsupportedOperationException("AbstractFloat cannot converted to TypeDecl")
         Type.AbstractInteger -> throw UnsupportedOperationException("AbstractInteger cannot converted to TypeDecl")
-    } as TypeDecl.ScalarTypeDecl
+    }
 
 fun Type.toTypeDecl(): TypeDecl =
     when (this) {
