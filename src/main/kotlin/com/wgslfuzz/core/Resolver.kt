@@ -701,7 +701,6 @@ private fun resolveTypeOfIndexLookupExpression(
     // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/94): This is not really strict enough.
     val indexType = resolverState.resolvedEnvironment.typeOf(indexLookup.index).asStoreTypeIfReference()
     if (!indexType.isAbstractionOf(Type.I32) && !indexType.isAbstractionOf(Type.U32)) {
-        println(resolverState.resolvedEnvironment.typeOf(indexLookup.index))
         throw IllegalArgumentException("Array index expression must be of type i32 or u32.")
     }
 
@@ -1694,9 +1693,12 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("${functionCallExpression.callee} requires one of type i32, u32, vecN<i32>, or vecN<u32>")
                     }
                     val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
-                    if (argType !is Type.I32 &&
-                        argType !is Type.U32 &&
-                        !(argType is Type.Vector && (argType.elementType is Type.I32 || argType.elementType is Type.U32))
+                    if (!argType.isAbstractionOf(Type.I32) &&
+                        !argType.isAbstractionOf(Type.U32) &&
+                        !(
+                            argType is Type.Vector &&
+                                (argType.elementType.isAbstractionOf(Type.I32) || argType.elementType.isAbstractionOf(Type.U32))
+                        )
                     ) {
                         throw RuntimeException("${functionCallExpression.callee} requires one of type i32, u32, vecN<i32>, or vecN<u32>")
                     }
@@ -1735,8 +1737,7 @@ private fun resolveTypeOfFunctionCallExpression(
                             "The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector",
                         )
                     }
-                    if (arg2Type !is Type.U32 && arg2Type !is Type.I32) {
-                        println(arg2Type)
+                    if (!arg2Type.isAbstractionOf(Type.U32) && !arg2Type.isAbstractionOf(Type.I32)) {
                         throw RuntimeException("The second argument to ${functionCallExpression.callee} must be i32 or u32")
                     }
                     // TODO: This doesn't check that the second argument is a const expr in the correct range (which differs by function)
@@ -1758,7 +1759,7 @@ private fun resolveTypeOfFunctionCallExpression(
                             "The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector",
                         )
                     }
-                    if (arg2Type !is Type.U32) {
+                    if (!arg2Type.isAbstractionOf(Type.U32)) {
                         throw RuntimeException("The second argument to ${functionCallExpression.callee} must be u32")
                     }
                     // TODO(JLJ): This doesn't check that the second argument is a const expr in the correct range

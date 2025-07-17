@@ -498,4 +498,20 @@ class UniformityWGSLAnalysisTests {
             """.trimIndent()
         checkNonUniform(input)
     }
+
+    @Test
+    fun nonUniformGlobalVar() {
+        val input =
+            """
+            const x: u32 = 0;
+
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+                if (x == 0) {
+                    workgroupBarrier();
+                }
+            }
+            """.trimIndent()
+        checkUniform(input)
+    }
 }

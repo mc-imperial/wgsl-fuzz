@@ -1008,8 +1008,8 @@ private fun analyseFunctionCall(
         }
     val lastCf = if (argsAndCfs.isNotEmpty()) argsAndCfs.last().cfNode else cf
 
-    val result = createUniformityNode("Result_function_call_${callee}")
-    val cfAfter = createUniformityNode("CF_after_function_call_${callee}")
+    val result = createUniformityNode("Result_function_call_$callee")
+    val cfAfter = createUniformityNode("CF_after_function_call_$callee")
 
     val calleeFunctionTags =
         if (callee in
@@ -1139,10 +1139,17 @@ private fun analyseExpression(
                     resultNode.addEdges(functionInfo.variableNodes.get(expression.name)!!)
                     ExpressionAnalysisResult(cf, resultNode)
                 }
-
-                is ScopeEntry.Function -> TODO()
+                // TODO(JLJ): Same as for values, factor out
+                is ScopeEntry.GlobalOverride -> {
+                    val resultNode = createUniformityNode("Result_ident_expr")
+                    resultNode.addEdges(cf)
+                    // TODO: it seems the folloiwng is not necessary for override expressions or global values (not a variable) the spec doesn't say this though.
+                    // resultNode.addEdges(functionInfo.variableNodes.get(expression.name)!!)
+                    ExpressionAnalysisResult(cf, resultNode)
+                }
+                // TODO(JLJ): I don't think the following is correct.
                 is ScopeEntry.GlobalConstant -> ExpressionAnalysisResult(cf, cf)
-                is ScopeEntry.GlobalOverride -> TODO()
+                is ScopeEntry.Function -> TODO()
                 is ScopeEntry.GlobalVariable -> {
                     if (entry.type is Type.Reference && entry.type.accessMode != AccessMode.READ) {
                         if (isLoadRuleInvoked(entry.type)) {
@@ -1151,7 +1158,7 @@ private fun analyseExpression(
                             ExpressionAnalysisResult(cf, cf)
                         }
                     } else if (entry.type is Type.Reference && entry.type.accessMode == AccessMode.READ) {
-                        // This is a read-only module-scope variable, even though it's a varible
+                        // This is a read-only module-scope variable, even though it's a variable
                         ExpressionAnalysisResult(cf, cf)
                     } else {
                         // This shouldn't be reachable because all global variables should have reference type.

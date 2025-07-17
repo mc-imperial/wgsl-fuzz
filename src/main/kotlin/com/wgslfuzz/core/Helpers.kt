@@ -77,3 +77,14 @@ fun Type.isIntegerScalar(): Boolean = this is Type.AbstractInteger || this is Ty
 
 // https://www.w3.org/TR/WGSL/#vector-types
 fun Type.isNumericVector(): Boolean = this is Type.Vector && this.elementType.isNumericScalar()
+
+// Lhs expressions must have a target identifier
+fun LhsExpression.targetIdentifier(): LhsExpression.Identifier =
+    when (this) {
+        is LhsExpression.Identifier -> this
+        is LhsExpression.AddressOf -> this.target.targetIdentifier()
+        is LhsExpression.Dereference -> this.target.targetIdentifier()
+        is LhsExpression.IndexLookup -> this.target.targetIdentifier()
+        is LhsExpression.MemberLookup -> this.receiver.targetIdentifier()
+        is LhsExpression.Paren -> this.target.targetIdentifier()
+    }
