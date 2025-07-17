@@ -55,7 +55,7 @@ private fun generateArbitraryBool(
             if (isVariableOfTypeInScope(scope, Type.Bool)) {
                 fuzzerSettings.arbitraryBooleanExpressionWeights
                     .variableFromScope(depth) to {
-                    randomVariableFromScope(scope, type = Type.Bool, fuzzerSettings)!!
+                    randomVariableFromScope(scope, Type.Bool, fuzzerSettings)!!
                 }
             } else {
                 null
