@@ -20,13 +20,12 @@ import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.Scope
-import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.getUniformDeclaration
+import com.wgslfuzz.core.toType
 import java.util.Random
 import kotlin.math.max
 
@@ -137,9 +136,11 @@ fun randomUniformScalarWithValue(
             .sorted()
     val binding = fuzzerSettings.randomElement(bindings)
     val uniformDeclaration = shaderJob.tu.getUniformDeclaration(group, binding)
-    val typename: String = (uniformDeclaration.typeDecl as TypeDecl.NamedType).name
 
-    var currentType: Type = (shaderJob.environment.globalScope.getEntry(typename) as ScopeEntry.Struct).type
+    var currentType: Type =
+        uniformDeclaration.typeDecl?.toType(shaderJob.environment.globalScope)
+            ?: throw IllegalStateException("Uniform should have type")
+
     var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)
     var currentValueExpr: Expression = shaderJob.pipelineState.getUniformValue(group, binding)
 
@@ -159,6 +160,16 @@ fun randomUniformScalarWithValue(
                 currentType = randomMember.second
                 currentUniformExpr = Expression.MemberLookup(currentUniformExpr, randomMember.first)
                 currentValueExpr = (currentValueExpr as Expression.StructValueConstructor).args[randomMemberIndex]
+            }
+            is Type.Array -> {
+                val randomElementIndex = fuzzerSettings.randomInt(currentType.elementCount!!)
+                currentType = currentType.elementType
+                currentUniformExpr =
+                    Expression.IndexLookup(
+                        currentUniformExpr,
+                        Expression.IntLiteral(randomElementIndex.toString()),
+                    )
+                currentValueExpr = (currentValueExpr as Expression.ArrayValueConstructor).args[randomElementIndex]
             }
             else -> TODO()
         }

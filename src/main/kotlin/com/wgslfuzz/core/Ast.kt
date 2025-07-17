@@ -562,6 +562,89 @@ sealed interface TypeDecl : AstNode {
     class TextureDepthCubeArray : TypeDecl
 }
 
+fun TypeDecl.toType(scope: Scope): Type =
+    when (this) {
+        is TypeDecl.Array ->
+            Type.Array(
+                elementType = this.elementType.toType(scope),
+                // Investigate whether expressions such as 8 * 8 can appear here and thus would require evaluation
+                // the element count expression
+                elementCount =
+                    this.elementCount?.evaluateToInt(scope) ?: throw IllegalArgumentException(
+                        "Array must have a known length",
+                    ),
+            )
+
+        is TypeDecl.NamedType -> {
+            val scopeEntry = scope.getEntry(this.name)
+            when (scopeEntry) {
+                is ScopeEntry.Struct, is ScopeEntry.TypeAlias -> scopeEntry.type
+                else -> throw IllegalStateException("Named Type does not correspond to a named type in scope")
+            }
+        }
+
+        is TypeDecl.Bool -> Type.Bool
+        is TypeDecl.F16 -> Type.F16
+        is TypeDecl.F32 -> Type.F32
+        is TypeDecl.I32 -> Type.I32
+        is TypeDecl.U32 -> Type.U32
+
+        is TypeDecl.Vec2 ->
+            Type.Vector(
+                width = 2,
+                elementType =
+                    this.elementType.toType(scope) as? Type.Scalar
+                        ?: throw IllegalStateException("Invalid vector element type"),
+            )
+        is TypeDecl.Vec3 ->
+            Type.Vector(
+                width = 3,
+                elementType =
+                    this.elementType.toType(scope) as? Type.Scalar
+                        ?: throw IllegalStateException("Invalid vector element type"),
+            )
+        is TypeDecl.Vec4 ->
+            Type.Vector(
+                width = 4,
+                elementType =
+                    this.elementType.toType(scope) as? Type.Scalar
+                        ?: throw IllegalStateException("Invalid vector element type"),
+            )
+
+        else -> TODO()
+    }
+
+private fun Expression.evaluateToInt(scope: Scope): Int? =
+    when (this) {
+        is Expression.IntLiteral -> this.text.toInt()
+        is Expression.Identifier -> {
+            val scopeEntry = scope.getEntry(this.name)
+            when (scopeEntry) {
+                is ScopeEntry.GlobalConstant -> scopeEntry.astNode.initializer.evaluateToInt(scope)
+                is ScopeEntry.GlobalOverride -> TODO()
+                is ScopeEntry.GlobalVariable -> TODO()
+                is ScopeEntry.LocalValue -> TODO()
+                is ScopeEntry.LocalVariable -> TODO()
+                is ScopeEntry.Parameter -> TODO()
+                else -> throw IllegalArgumentException("Cannot evaluate $this to int")
+            }
+        }
+        is AugmentedExpression.AddZero -> TODO()
+        is AugmentedExpression.DivOne -> TODO()
+        is AugmentedExpression.MulOne -> TODO()
+        is AugmentedExpression.SubZero -> TODO()
+        is AugmentedExpression.KnownValue -> TODO()
+        is Expression.FunctionCall -> TODO()
+        is Expression.IndexLookup -> TODO()
+        is Expression.MemberLookup -> TODO()
+        is Expression.Paren -> TODO()
+        is Expression.Unary -> TODO()
+        is Expression.I32ValueConstructor -> TODO()
+        is Expression.U32ValueConstructor -> TODO()
+
+        else -> throw IllegalArgumentException("Cannot evaluate $this to int")
+    }
+
 /**
  * Expressions in the AST, capturing all sorts of expressions except those that occur on the
  * left-hand-sides of assignments, which are captured by the separate LhsExpression type hierarchy.

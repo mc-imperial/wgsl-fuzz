@@ -30,7 +30,7 @@ class BloomFilterTransformReduceTests : TransformReduceTests() {
         assertNotEquals(filenameNoExtension, "")
     }
 
-    @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/127)")
+//    @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/127)")
     @Test
     override fun testAddDeadReturns() {
         super.testAddDeadReturns()
