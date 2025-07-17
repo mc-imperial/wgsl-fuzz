@@ -302,13 +302,13 @@ private fun literalExprFromBytes(
             }
         }
         is Type.Array -> {
-            val elementCount = type.elementCount ?: TODO("Runtime sized arrays not yet implemented")
+            check(type.elementCount != null) { "Cannot have a runtime sized uniform array" }
             var currentIndex = bufferByteIndex
             while (currentIndex % type.alignOf() != 0) {
                 currentIndex++
             }
             val args: MutableList<Expression> = mutableListOf()
-            repeat(elementCount) {
+            repeat(type.elementCount) {
                 val (literal, indexAfter) = literalExprFromBytes(type.elementType, bufferBytes, currentIndex)
                 args.add(literal)
                 currentIndex = indexAfter
@@ -317,7 +317,7 @@ private fun literalExprFromBytes(
             return Pair(
                 Expression.ArrayValueConstructor(
                     elementType = type.elementType.toTypeDecl(),
-                    elementCount = Expression.IntLiteral(elementCount.toString()),
+                    elementCount = Expression.IntLiteral(type.elementCount.toString()),
                     args = args,
                 ),
                 second = currentIndex,
