@@ -316,7 +316,7 @@ private fun literalExprFromBytes(
 
             return Pair(
                 Expression.ArrayValueConstructor(
-                    elementType = TODO("Determine way of converting typeDecl from type"),
+                    elementType = type.elementType.toTypeDecl(),
                     elementCount = Expression.IntLiteral(elementCount.toString()),
                     args = args,
                 ),

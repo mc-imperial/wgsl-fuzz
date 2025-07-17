@@ -16,8 +16,6 @@
 
 package com.wgslfuzz.core
 
-import com.wgslfuzz.core.TypeDecl.*
-
 /**
  * Interfaces and classes representing the types associated with AST nodes after resolving has taken place.
  * This hierarchy of interfaces and classes is deliberately entirely separate from those that represent type declarations
@@ -254,16 +252,16 @@ fun Type.alignOf(): Int =
         else -> TODO()
     }
 
-private fun Type.Scalar.toTypeDecl(): ScalarTypeDecl =
+private fun Type.Scalar.toTypeDecl(): TypeDecl.ScalarTypeDecl =
     when (this) {
-        Type.Bool -> Bool
-        Type.I32 -> I32
-        Type.U32 -> U32
-        Type.F16 -> F16
-        Type.F32 -> F16
-        Type.AbstractFloat -> TODO()
-        Type.AbstractInteger -> TODO()
-    } as ScalarTypeDecl
+        Type.Bool -> TypeDecl.Bool
+        Type.I32 -> TypeDecl.I32
+        Type.U32 -> TypeDecl.U32
+        Type.F16 -> TypeDecl.F16
+        Type.F32 -> TypeDecl.F16
+        Type.AbstractFloat -> throw UnsupportedOperationException("AbstractFloat cannot converted to TypeDecl")
+        Type.AbstractInteger -> throw UnsupportedOperationException("AbstractInteger cannot converted to TypeDecl")
+    } as TypeDecl.ScalarTypeDecl
 
 fun Type.toTypeDecl(): TypeDecl =
     when (this) {
@@ -271,25 +269,28 @@ fun Type.toTypeDecl(): TypeDecl =
         is Type.Vector ->
             when (this.width) {
                 2 ->
-                    Vec2(
+                    TypeDecl.Vec2(
                         this.elementType.toTypeDecl(),
                     )
                 3 ->
-                    Vec3(
+                    TypeDecl.Vec3(
                         this.elementType.toTypeDecl(),
                     )
                 4 ->
-                    Vec4(
+                    TypeDecl.Vec4(
                         this.elementType.toTypeDecl(),
                     )
                 else -> throw IllegalArgumentException("Bad vector size.")
             }
         is Type.Array ->
-            Array(
+            TypeDecl.Array(
                 elementType = this.elementType.toTypeDecl(),
                 elementCount = this.elementCount?.let { Expression.IntLiteral(it.toString()) },
             )
-        is Type.Struct -> TODO("There is not TypeDecl for a Struct only a GlobalDecl")
+        is Type.Struct ->
+            TypeDecl.NamedType(
+                name = this.name,
+            )
         else -> TODO()
     }
 
