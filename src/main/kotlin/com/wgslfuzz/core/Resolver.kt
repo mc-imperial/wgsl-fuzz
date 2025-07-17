@@ -1591,10 +1591,7 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("Not enough arguments provided to $calleeName")
                     } else {
                         when (
-                            val textureType =
-                                resolverState.resolvedEnvironment
-                                    .typeOf(functionCallExpression.args[0])
-                                    .asStoreTypeIfReference()
+                            val textureType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                         ) {
                             is Type.Texture.Sampled ->
                                 if (textureType.sampledType is Type.F32) {
@@ -1602,7 +1599,6 @@ private fun resolveTypeOfFunctionCallExpression(
                                 } else {
                                     throw RuntimeException("Incorrect sample type used with $calleeName")
                                 }
-
                             Type.Texture.Depth2D, Type.Texture.Depth2DArray, Type.Texture.DepthCube, Type.Texture.DepthCubeArray -> Type.F32
                             else -> throw RuntimeException("First argument to $calleeName must be a suitable texture")
                         }

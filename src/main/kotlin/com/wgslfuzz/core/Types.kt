@@ -374,3 +374,16 @@ val AtomicCompareExchangeResultU32 =
         name = "__atomic_compare_exchange_result_U32",
         members = listOf("old_value" to Type.U32, "exchanged" to Type.Bool),
     )
+
+// https://www.w3.org/TR/WGSL/#scalar-types
+fun Type.isScalar(): Boolean = this is Type.Scalar
+
+// https://www.w3.org/TR/WGSL/#scalar-types
+fun Type.isNumericScalar(): Boolean = this.isScalar() && this !is Type.Bool
+
+// https://www.w3.org/TR/WGSL/#scalar-types
+fun Type.isIntegerScalar(): Boolean = this is Type.AbstractInteger || this is Type.I32 || this is Type.U32
+
+// https://www.w3.org/TR/WGSL/#vector-types
+fun Type.isNumericVector(): Boolean = this is Type.Vector && this.elementType.isNumericScalar()
+
