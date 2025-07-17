@@ -842,16 +842,21 @@ private fun resolveLhsExpressionType(
                         "type",
                 )
             }
-            // The AddressOf expression converts a pointer to a reference.
+            // The AddressOf expression converts a reference to a pointer.
             // https://www.w3.org/TR/WGSL/#address-of-expr
             Type.Pointer(referenceType.storeType, referenceType.addressSpace, referenceType.accessMode)
         }
         is LhsExpression.Dereference -> {
             val pointerType = resolverState.resolvedEnvironment.typeOf(lhsExpression.target)
             if (pointerType !is Type.Pointer) {
+                println(pointerType)
+                if (lhsExpression.target is LhsExpression.Paren) {
+                    println(lhsExpression.target.target)
+                    println(resolverState.resolvedEnvironment.typeOf(lhsExpression.target.target))
+                }
                 throw RuntimeException("Dereference in LHS expression applied to expression ${lhsExpression.target} with non-pointer type")
             }
-            // The Indirection expression converts a reference to a pointer.
+            // The Indirection expression converts a pointer to a reference.
             // https://www.w3.org/TR/WGSL/#indirection-expr
             Type.Reference(pointerType.pointeeType, pointerType.addressSpace, pointerType.accessMode)
         }

@@ -853,8 +853,11 @@ private fun analyseLhsExpression(
             } else if (resolvedScope is ScopeEntry.GlobalVariable) {
                 ExpressionAnalysisResult(cf, functionInfo.mayBeNonUniform)
             } else {
-                // TODO(JLJ): Add other identifier rule.
-                TODO()
+                val variableNode = functionInfo.variableNodes.get(lhsExpression.name)
+                val valueNode = variableNode ?: cf
+                // TODO: This is not in the spec, but for module scope variables, we don't have a node representing its value so it seem that
+                // returning cf as the value is correct.
+                ExpressionAnalysisResult(cf, valueNode)
             }
         }
 
