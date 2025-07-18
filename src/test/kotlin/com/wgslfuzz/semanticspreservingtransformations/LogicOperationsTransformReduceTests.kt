@@ -38,9 +38,4 @@ class LogicOperationsTransformReduceTests : TransformReduceTests() {
     override fun testAddDeadContinues() {
         // This test does not have any loops hence cannot test dead continues
     }
-
-    @Test
-    override fun testAddIdentityOperations() {
-        super.testAddIdentityOperations()
-    }
 }
