@@ -149,8 +149,8 @@ fun randomUniformScalarWithValue(
 
     while (true) {
         when (currentType) {
-            is Type.I32 -> break
-            is Type.F32 -> break
+            is Type.I32, is Type.F32, is Type.U32 -> break
+
             is Type.Vector -> {
                 val randomVectorIndex = fuzzerSettings.randomInt(currentType.width)
                 currentType = currentType.elementType
