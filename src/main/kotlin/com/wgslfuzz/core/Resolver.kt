@@ -2035,7 +2035,7 @@ fun evaluate(
         is Expression.Paren -> evaluate(expression.target, scope, resolvedEnvironment)
         is Expression.Binary -> {
             val lhs = evaluate(expression.lhs, scope, resolvedEnvironment)
-            val rhs = evaluate(expression.lhs, scope, resolvedEnvironment)
+            val rhs = evaluate(expression.rhs, scope, resolvedEnvironment)
             if (lhs !is EvaluatedValue.Integer || rhs !is EvaluatedValue.Integer) {
                 TODO("Evaluation of arithmetic on non-integer values is not supported")
             }
