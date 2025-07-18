@@ -738,7 +738,6 @@ private fun resolveTypeOfIndexLookupExpression(
     // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/94): This is not really strict enough.
     val indexType = resolverState.resolvedEnvironment.typeOf(indexLookup.index).asStoreTypeIfReference()
     if (!indexType.isAbstractionOf(Type.I32) && !indexType.isAbstractionOf(Type.U32)) {
-        println(resolverState.resolvedEnvironment.typeOf(indexLookup.index))
         throw IllegalArgumentException("Array index expression must be of type i32 or u32.")
     }
 
@@ -1689,6 +1688,114 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("workgroupUniformLoad requires a pointer argument")
                     }
                     argType.pointeeType
+                }
+                "subgroupAdd", "subgroupExclusiveAdd", "subgroupInclusiveAdd", "subgroupBroadcastFirst", "subgroupMax",
+                "subgroupMin", "subgroupMul", "subgroupExclusiveMul", "subgroupInclusiveMul", "quadSwapDiagonal",
+                "quadSwapX", "quadSwapY",
+                -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException(
+                            "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
+                        )
+                    }
+                    // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
+                    // Since we are not type checking, we don't check if the type is concrete.
+                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    if (!argType.isNumericScalar() && !argType.isNumericVector()) {
+                        throw RuntimeException(
+                            "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
+                        )
+                    }
+
+                    argType
+                }
+                "subgroupAll", "subgroupAny" -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException(
+                            "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
+                        )
+                    }
+                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    if (argType !is Type.Bool) {
+                        throw RuntimeException("${functionCallExpression.callee} requires one argument of bool type")
+                    }
+
+                    argType
+                }
+                "subgroupAnd", "subgroupOr", "subgroupXor" -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException("${functionCallExpression.callee} requires one of type i32, u32, vecN<i32>, or vecN<u32>")
+                    }
+                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    if (argType !is Type.I32 &&
+                        argType !is Type.U32 &&
+                        !(argType is Type.Vector && (argType.elementType is Type.I32 || argType.elementType is Type.U32))
+                    ) {
+                        throw RuntimeException("${functionCallExpression.callee} requires one of type i32, u32, vecN<i32>, or vecN<u32>")
+                    }
+
+                    argType
+                }
+                "subgroupBallot" -> {
+                    if (functionCallExpression.args.size != 1) {
+                        throw RuntimeException("${functionCallExpression.callee} requires one of type bool")
+                    }
+                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    if (argType !is Type.Bool) {
+                        throw RuntimeException("${functionCallExpression.callee} requires one of type bool")
+                    }
+
+                    Type.Vector(width = 4, elementType = Type.U32)
+                }
+                "subgroupElect" -> {
+                    if (functionCallExpression.args.isNotEmpty()) {
+                        throw RuntimeException("${functionCallExpression.callee} takes no arguments")
+                    }
+                    Type.Bool
+                }
+                "subgroupBroadcast", "subgroupShuffle", "quadBroadcast" -> {
+                    if (functionCallExpression.args.size != 2) {
+                        throw RuntimeException("${functionCallExpression.callee} requires two arguments")
+                    }
+
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()
+
+                    // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
+                    // Since we are not type checking, we don't check if the type is concrete.
+                    if (!arg1Type.isNumericScalar() && !arg1Type.isNumericVector()) {
+                        throw RuntimeException(
+                            "The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector",
+                        )
+                    }
+                    if (arg2Type !is Type.U32 && arg2Type !is Type.I32) {
+                        throw RuntimeException("The second argument to ${functionCallExpression.callee} must be i32 or u32")
+                    }
+                    // TODO: This doesn't check that the second argument is a const expr in the correct range (which differs by function)
+
+                    arg1Type
+                }
+                "subgroupShuffleDown", "subgroupShuffleUp", "subgroupShuffleXor" -> {
+                    if (functionCallExpression.args.size != 2) {
+                        throw RuntimeException("${functionCallExpression.callee} requires two arguments")
+                    }
+
+                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()
+
+                    // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
+                    // Since we are not type checking, we don't check if the type is concrete.
+                    if (!arg1Type.isNumericScalar() && !arg1Type.isNumericVector()) {
+                        throw RuntimeException(
+                            "The first argument to ${functionCallExpression.callee} must be a concrete numeric scalar or numeric vector",
+                        )
+                    }
+                    if (arg2Type !is Type.U32) {
+                        throw RuntimeException("The second argument to ${functionCallExpression.callee} must be u32")
+                    }
+                    // TODO(JLJ): This doesn't check that the second argument is a const expr in the correct range
+
+                    arg1Type
                 }
                 else -> TODO("Unsupported builtin function $calleeName")
             }
