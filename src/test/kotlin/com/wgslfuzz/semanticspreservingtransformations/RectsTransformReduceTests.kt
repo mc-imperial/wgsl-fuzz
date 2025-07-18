@@ -16,7 +16,6 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotEquals
 
@@ -30,9 +29,12 @@ class RectsTransformReduceTests : TransformReduceTests() {
         assertNotEquals(filenameNoExtension, "")
     }
 
-    @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/169)")
     @Test
     override fun testAddDeadBreaks() {
-        super.testAddDeadBreaks()
+        testTransformationAndReduction(
+            44,
+            filenameNoExtension,
+            ::addDeadBreaks,
+        )
     }
 }

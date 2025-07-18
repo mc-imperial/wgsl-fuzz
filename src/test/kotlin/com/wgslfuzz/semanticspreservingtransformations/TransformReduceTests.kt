@@ -75,7 +75,7 @@ abstract class TransformReduceTests {
         }
     }
 
-    private fun testTransformationAndReduction(
+    fun testTransformationAndReduction(
         pnrgSeed: Long,
         filenameNoExtension: String,
         transformation: MetamorphicTransformation,
