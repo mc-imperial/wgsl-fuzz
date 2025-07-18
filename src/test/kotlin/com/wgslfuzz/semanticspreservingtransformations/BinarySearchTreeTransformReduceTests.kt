@@ -28,29 +28,4 @@ class BinarySearchTreeTransformReduceTests : TransformReduceTests() {
         // A solution for cases where IDEs are unable to detect child classes of test classes as valid test classes.
         assertNotEquals(filenameNoExtension, "")
     }
-
-    @Test
-    override fun testAddDeadReturns() {
-        super.testAddDeadReturns()
-    }
-
-    @Test
-    override fun testAddDeadBreaks() {
-        super.testAddDeadBreaks()
-    }
-
-    @Test
-    override fun testAddDeadContinues() {
-        super.testAddDeadContinues()
-    }
-
-    @Test
-    override fun testAddIdentityOperations() {
-        super.testAddIdentityOperations()
-    }
-
-    @Test
-    override fun testMultipleTransformations() {
-        super.testMultipleTransformations()
-    }
 }
