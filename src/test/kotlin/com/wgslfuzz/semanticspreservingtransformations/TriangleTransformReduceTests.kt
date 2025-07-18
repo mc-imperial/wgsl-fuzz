@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotEquals
 
-@Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/155)")
 class TriangleTransformReduceTests : TransformReduceTests() {
     override val filenameNoExtension: String
         get() = "triangle"
@@ -29,5 +28,17 @@ class TriangleTransformReduceTests : TransformReduceTests() {
     fun `Check filenameNoExtension is not empty`() {
         // A solution for cases where IDEs are unable to detect child classes of test classes as valid test classes.
         assertNotEquals(filenameNoExtension, "")
+    }
+
+    @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/170)")
+    @Test
+    override fun testAddDeadBreaks() {
+        super.testAddDeadBreaks()
+    }
+
+    @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/171)")
+    @Test
+    override fun testAddDeadContinues() {
+        super.testAddDeadContinues()
     }
 }
