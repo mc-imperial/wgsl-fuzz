@@ -31,41 +31,111 @@ sealed interface Type {
      */
     fun isAbstract(): Boolean = false
 
+    fun alignOf(): Int
+
     data class Reference(
         val storeType: Type,
         val addressSpace: AddressSpace,
         val accessMode: AccessMode,
-    ) : Type
+    ) : Type {
+        override fun alignOf(): Int {
+            TODO("Not yet implemented")
+        }
+    }
 
     sealed interface Scalar : Type
 
-    data object Bool : Scalar
+    data object Bool : Scalar {
+        override fun alignOf(): Int = 4
+    }
 
     sealed interface Integer : Scalar
 
     data object AbstractInteger : Integer {
         override fun isAbstract(): Boolean = true
+
+        override fun alignOf(): Int =
+            throw UnsupportedOperationException(
+                "AbstractInteger does not have a meaningful alignment",
+            )
     }
 
-    data object I32 : Integer
+    data object I32 : Integer {
+        override fun alignOf(): Int = 4
+    }
 
-    data object U32 : Integer
+    data object U32 : Integer {
+        override fun alignOf(): Int = 4
+    }
 
     sealed interface Float : Scalar
 
     data object AbstractFloat : Float {
         override fun isAbstract(): Boolean = true
+
+        override fun alignOf(): Int =
+            throw UnsupportedOperationException(
+                "AbstractFloat does not have a meaningful alignment",
+            )
     }
 
-    data object F16 : Float
+    data object F16 : Float {
+        override fun alignOf(): Int = 2
+    }
 
-    data object F32 : Float
+    data object F32 : Float {
+        override fun alignOf(): Int = 4
+    }
 
     data class Vector(
         val width: Int,
         val elementType: Scalar,
     ) : Type {
         override fun isAbstract(): Boolean = elementType.isAbstract()
+
+        override fun alignOf(): Int =
+            when (this.width) {
+                2 ->
+                    when (this.elementType) {
+                        F16 -> 4
+                        Bool, I32, U32, F32 -> 8
+                        AbstractFloat -> throw UnsupportedOperationException(
+                            "AbstractFloat does not have a meaningful alignment",
+                        )
+
+                        AbstractInteger -> throw UnsupportedOperationException(
+                            "AbstractInteger does not have a meaningful alignment",
+                        )
+                    }
+
+                3 ->
+                    when (this.elementType) {
+                        F16 -> 8
+                        Bool, I32, U32, F32 -> 16
+                        AbstractFloat -> throw UnsupportedOperationException(
+                            "AbstractFloat does not have a meaningful alignment",
+                        )
+
+                        AbstractInteger -> throw UnsupportedOperationException(
+                            "AbstractInteger does not have a meaningful alignment",
+                        )
+                    }
+
+                4 ->
+                    when (this.elementType) {
+                        F16 -> 8
+                        Bool, I32, U32, F32 -> 16
+                        AbstractFloat -> throw UnsupportedOperationException(
+                            "AbstractFloat does not have a meaningful alignment",
+                        )
+
+                        AbstractInteger -> throw UnsupportedOperationException(
+                            "AbstractInteger does not have a meaningful alignment",
+                        )
+                    }
+
+                else -> throw IllegalArgumentException("Bad vector size.")
+            }
     }
 
     data class Matrix(
@@ -74,6 +144,8 @@ sealed interface Type {
         val elementType: Float,
     ) : Type {
         override fun isAbstract(): Boolean = elementType.isAbstract()
+
+        override fun alignOf(): Int = Vector(numRows, elementType).alignOf()
     }
 
     /**
@@ -87,18 +159,26 @@ sealed interface Type {
         val elementCount: Int?,
     ) : Type {
         override fun isAbstract(): Boolean = elementType.isAbstract()
+
+        override fun alignOf(): Int = elementType.alignOf()
     }
 
     data class Pointer(
         val pointeeType: Type,
         val addressSpace: AddressSpace,
         val accessMode: AccessMode,
-    ) : Type
+    ) : Type {
+        override fun alignOf(): Int {
+            TODO("Not yet implemented")
+        }
+    }
 
     data class Struct(
         val name: String,
         val members: List<Pair<String, Type>>,
-    ) : Type
+    ) : Type {
+        override fun alignOf(): Int = members.maxOf { it.second.alignOf() }
+    }
 
     sealed interface Atomic : Type {
         val targetType: Integer
@@ -106,10 +186,14 @@ sealed interface Type {
 
     data object AtomicI32 : Atomic {
         override val targetType: I32 = I32
+
+        override fun alignOf(): Int = 4
     }
 
     data object AtomicU32 : Atomic {
         override val targetType: U32 = U32
+
+        override fun alignOf(): Int = 4
     }
 
     sealed interface Texture : Type {
@@ -118,6 +202,10 @@ sealed interface Type {
          */
         sealed interface Sampled : Texture {
             val sampledType: Scalar
+
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
         }
 
         data class Sampled1D(
@@ -149,14 +237,26 @@ sealed interface Type {
          */
         data class Multisampled2d(
             val sampledType: Scalar,
-        ) : Texture
+        ) : Texture {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
-        data object DepthMultisampled2D : Texture
+        data object DepthMultisampled2D : Texture {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
         /**
          * External Sampled Texture Types
          */
-        data object External : Texture
+        data object External : Texture {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
         /**
          * Storage Texture Types
@@ -169,42 +269,82 @@ sealed interface Type {
         data class Storage1D(
             override val format: TexelFormat,
             override val accessMode: AccessMode,
-        ) : Storage
+        ) : Storage {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
         data class Storage2D(
             override val format: TexelFormat,
             override val accessMode: AccessMode,
-        ) : Storage
+        ) : Storage {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
         data class Storage2DArray(
             override val format: TexelFormat,
             override val accessMode: AccessMode,
-        ) : Storage
+        ) : Storage {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
         data class Storage3D(
             override val format: TexelFormat,
             override val accessMode: AccessMode,
-        ) : Storage
+        ) : Storage {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
         /**
          * Depth Texture Types
          */
         sealed interface Depth : Texture
 
-        data object Depth2D : Depth
+        data object Depth2D : Depth {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
-        data object Depth2DArray : Depth
+        data object Depth2DArray : Depth {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
-        data object DepthCube : Depth
+        data object DepthCube : Depth {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
 
-        data object DepthCubeArray : Depth
+        data object DepthCubeArray : Depth {
+            override fun alignOf(): Int {
+                TODO("Not yet implemented")
+            }
+        }
     }
 
     sealed interface Sampler : Type
 
-    data object SamplerRegular : Sampler
+    data object SamplerRegular : Sampler {
+        override fun alignOf(): Int {
+            TODO("Not yet implemented")
+        }
+    }
 
-    data object SamplerComparison : Sampler
+    data object SamplerComparison : Sampler {
+        override fun alignOf(): Int {
+            TODO("Not yet implemented")
+        }
+    }
 }
 
 /**
@@ -215,42 +355,6 @@ data class FunctionType(
     val argTypes: List<Type>,
     val returnType: Type?,
 )
-
-fun Type.alignOf(): Int =
-    when (this) {
-        Type.F16 -> 2
-        Type.Bool, Type.I32, Type.U32, Type.F32, is Type.Atomic -> 4
-        is Type.Vector ->
-            when (this.width) {
-                2 ->
-                    when (this.elementType) {
-                        Type.F16 -> 4
-                        Type.Bool, Type.I32, Type.U32, Type.F32 -> 8
-                        Type.AbstractFloat -> TODO()
-                        Type.AbstractInteger -> TODO()
-                    }
-                3 ->
-                    when (this.elementType) {
-                        Type.F16 -> 8
-                        Type.Bool, Type.I32, Type.U32, Type.F32 -> 16
-                        Type.AbstractFloat -> TODO()
-                        Type.AbstractInteger -> TODO()
-                    }
-                4 ->
-                    when (this.elementType) {
-                        Type.F16 -> 8
-                        Type.Bool, Type.I32, Type.U32, Type.F32 -> 16
-                        Type.AbstractFloat -> TODO()
-                        Type.AbstractInteger -> TODO()
-                    }
-                else -> throw IllegalArgumentException("Bad vector size.")
-            }
-        is Type.Matrix -> Type.Vector(this.numRows, this.elementType).alignOf()
-        is Type.Struct -> this.members.maxOf { it.second.alignOf() }
-        is Type.Array -> this.elementType.alignOf()
-
-        else -> TODO()
-    }
 
 private fun Type.Scalar.toTypeDecl(): TypeDecl.ScalarTypeDecl =
     when (this) {
