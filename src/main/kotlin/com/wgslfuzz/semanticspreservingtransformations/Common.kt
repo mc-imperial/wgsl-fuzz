@@ -31,6 +31,7 @@ import com.wgslfuzz.core.evaluateToInt
 import com.wgslfuzz.core.getUniformDeclaration
 import java.util.Random
 import kotlin.math.max
+import kotlin.math.truncate
 
 private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
@@ -618,14 +619,20 @@ fun generateKnownValueExpression(
                 val valueOfUniformAsInt: Int =
                     getNumericValueFromConstant(
                         valueOfUniform,
+                        truncate = true,
                     )
                 val uniformScalarWithCastIfNeeded =
                     if (type is Type.U32) {
+                        // This truncates for us
                         Expression.U32ValueConstructor(listOf(uniformScalar))
                     } else if (scalarType is Type.Integer && type is Type.Float) {
+                        // Do not need to truncate scalarType is integer
                         Expression.F32ValueConstructor(listOf(uniformScalar))
-                    } else if (scalarType is Type.Float && type is Type.Integer) {
+                    } else if (type is Type.Integer) {
+                        // This truncates for us
                         Expression.I32ValueConstructor(listOf(uniformScalar))
+                    } else if (scalarType is Type.Float) {
+                        truncateExpression(uniformScalar)
                     } else {
                         uniformScalar
                     }
@@ -723,13 +730,20 @@ fun constantWithSameValueEverywhere(
         else -> throw UnsupportedOperationException("Constant construction not supported for type $type")
     }
 
-private fun getNumericValueFromConstant(constantExpression: Expression): Int {
+private fun getNumericValueFromConstant(
+    constantExpression: Expression,
+    truncate: Boolean = false,
+): Int {
     when (constantExpression) {
         is Expression.FloatLiteral -> {
             val resultAsDouble = constantExpression.text.trimEnd('f', 'h').toDouble()
             val resultAsInt = resultAsDouble.toInt()
             if (resultAsDouble != resultAsInt.toDouble()) {
-                throw RuntimeException("Only integer-valued doubles are supported in known value expressions.")
+                if (truncate) {
+                    return truncate(resultAsDouble).toInt()
+                } else {
+                    throw RuntimeException("Only integer-valued doubles are supported in known value expressions.")
+                }
             }
             return resultAsInt
         }
@@ -739,6 +753,13 @@ private fun getNumericValueFromConstant(constantExpression: Expression): Int {
         else -> throw UnsupportedOperationException("Cannot get numeric value from $constantExpression")
     }
 }
+
+private fun truncateExpression(expression: Expression) =
+    Expression.FunctionCall(
+        callee = "trunc",
+        templateParameter = null,
+        args = listOf(expression),
+    )
 
 private fun binaryExpressionRandomOperandOrder(
     fuzzerSettings: FuzzerSettings,

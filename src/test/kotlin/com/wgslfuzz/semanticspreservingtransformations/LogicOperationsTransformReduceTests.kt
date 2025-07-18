@@ -16,11 +16,9 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotEquals
 
-@Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/146)")
 class LogicOperationsTransformReduceTests : TransformReduceTests() {
     override val filenameNoExtension: String
         get() = "logic_operations"
@@ -29,5 +27,20 @@ class LogicOperationsTransformReduceTests : TransformReduceTests() {
     fun `Check filenameNoExtension is not empty`() {
         // A solution for cases where IDEs are unable to detect child classes of test classes as valid test classes.
         assertNotEquals(filenameNoExtension, "")
+    }
+
+    @Test
+    override fun testAddDeadBreaks() {
+        // This test does not have any loops hence cannot test dead breaks
+    }
+
+    @Test
+    override fun testAddDeadContinues() {
+        // This test does not have any loops hence cannot test dead continues
+    }
+
+    @Test
+    override fun testAddIdentityOperations() {
+        super.testAddIdentityOperations()
     }
 }
