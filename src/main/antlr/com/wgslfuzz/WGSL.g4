@@ -240,7 +240,9 @@ unary_expression: singular_expression
 
 singular_expression: primary_expression postfix_expression?;
 
-lhs_expression: (STAR | AND)* core_lhs_expression postfix_expression?;
+lhs_expression: core_lhs_expression postfix_expression?
+              | AND lhs_expression
+              | STAR lhs_expression;
 
 core_lhs_expression: IDENT | PAREN_LEFT lhs_expression PAREN_RIGHT;
 
