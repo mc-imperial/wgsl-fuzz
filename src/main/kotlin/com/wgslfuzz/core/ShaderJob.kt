@@ -234,7 +234,7 @@ private fun literalExprFromBytes(
                 currentBufferByteIndex,
             )
         }
-        is Type.I32 -> {
+        is Type.I32, is Type.U32 -> {
             return Pair(
                 Expression.IntLiteral(
                     text = wordFromBytes(bufferBytes, bufferByteIndex).toString(),
