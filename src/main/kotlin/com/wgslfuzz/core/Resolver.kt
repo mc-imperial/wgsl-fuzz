@@ -1219,7 +1219,7 @@ private fun resolveTypeOfArrayValueConstructor(
         }
     val elementCount: Int =
         expression.elementCount?.let {
-            evaluateToInt(expression.elementCount, resolverState)
+            evaluateToInt(expression.elementCount, resolverState.currentScope, resolverState.resolvedEnvironment)
         } ?: expression.args.size
     return Type.Array(elementType, elementCount)
 }
@@ -1879,9 +1879,10 @@ sealed class EvaluatedValue {
 
 // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/36): Expression evaluation is in a prototypical state; a number
 //  of known issues are discussed below
-private fun evaluate(
+fun evaluate(
     expression: Expression,
-    resolverState: ResolverState,
+    scope: Scope,
+    resolvedEnvironment: ResolvedEnvironment,
 ): EvaluatedValue =
     when (expression) {
         is Expression.IntLiteral ->
@@ -1893,30 +1894,30 @@ private fun evaluate(
                 },
             )
         is Expression.IndexLookup ->
-            (evaluate(expression.target, resolverState) as EvaluatedValue.IntIndexed).mapping(
-                (evaluate(expression.index, resolverState) as EvaluatedValue.Integer).value,
+            (evaluate(expression.target, scope, resolvedEnvironment) as EvaluatedValue.IntIndexed).mapping(
+                (evaluate(expression.index, scope, resolvedEnvironment) as EvaluatedValue.Integer).value,
             )
         is Expression.ArrayValueConstructor -> {
-            val arrayType = resolverState.resolvedEnvironment.typeOf(expression) as Type.Array
+            val arrayType = resolvedEnvironment.typeOf(expression) as Type.Array
             if (arrayType.elementCount == null) {
                 throw RuntimeException("Constant evaluation encountered array with non-constant size")
             }
             if (expression.args.isEmpty()) {
                 TODO()
             } else if (expression.args.size == arrayType.elementCount) {
-                EvaluatedValue.IntIndexed(mapping = { x -> evaluate(expression.args[x], resolverState) })
+                EvaluatedValue.IntIndexed(mapping = { x -> evaluate(expression.args[x], scope, resolvedEnvironment) })
             } else {
                 TODO()
             }
         }
         is Expression.Identifier -> {
-            when (val scopeEntry = resolverState.currentScope.getEntry(expression.name)) {
+            when (val scopeEntry = scope.getEntry(expression.name)) {
                 // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/36): Avoid re-evaluating global constants,
                 //  and/or handle the problem that the resolver state needed to evaluate the global constant would
                 //  really be global scope.
-                is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, resolverState)
+                is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, scope, resolvedEnvironment)
                 is ScopeEntry.GlobalOverride -> {
-                    scopeEntry.astNode.initializer?.let { evaluate(it, resolverState) }
+                    scopeEntry.astNode.initializer?.let { evaluate(it, scope, resolvedEnvironment) }
                         ?: throw UnsupportedOperationException(
                             "The use of override expressions without initializers is not supported in expression evaluation",
                         )
@@ -1924,10 +1925,10 @@ private fun evaluate(
                 else -> throw IllegalArgumentException("Inappropriate declaration used in constant expression: ${expression.name}")
             }
         }
-        is Expression.Paren -> evaluate(expression.target, resolverState)
+        is Expression.Paren -> evaluate(expression.target, scope, resolvedEnvironment)
         is Expression.Binary -> {
-            val lhs = evaluate(expression.lhs, resolverState)
-            val rhs = evaluate(expression.lhs, resolverState)
+            val lhs = evaluate(expression.lhs, scope, resolvedEnvironment)
+            val rhs = evaluate(expression.lhs, scope, resolvedEnvironment)
             if (lhs !is EvaluatedValue.Integer || rhs !is EvaluatedValue.Integer) {
                 TODO("Evaluation of arithmetic on non-integer values is not supported")
             }
@@ -1939,16 +1940,22 @@ private fun evaluate(
                 BinaryOperator.SHIFT_LEFT -> {
                     EvaluatedValue.Integer(lhs.value.shl(rhs.value))
                 }
+                BinaryOperator.DIVIDE -> {
+                    EvaluatedValue.Integer(lhs.value / rhs.value)
+                }
                 else -> TODO("${expression.operator}")
             }
         }
         else -> TODO("$expression")
     }
 
-private fun evaluateToInt(
+fun evaluateToInt(
     expression: Expression,
-    resolverState: ResolverState,
-): Int = (evaluate(expression, resolverState) as EvaluatedValue.Integer).value
+    scope: Scope,
+    resolvedEnvironment: ResolvedEnvironment,
+): Int =
+    (evaluate(expression, scope, resolvedEnvironment) as? EvaluatedValue.Integer)?.value
+        ?: throw IllegalArgumentException("Expression $expression to int")
 
 private fun isSwizzle(memberName: String): Boolean =
     memberName.length in (2..4) &&
@@ -1991,7 +1998,7 @@ private fun resolveTypeDecl(
                 elementType = resolveTypeDecl(typeDecl.elementType, resolverState),
                 elementCount =
                     typeDecl.elementCount?.let {
-                        evaluateToInt(it, resolverState)
+                        evaluateToInt(it, resolverState.currentScope, resolverState.resolvedEnvironment)
                     },
             )
         is TypeDecl.NamedType -> {

@@ -562,6 +562,58 @@ sealed interface TypeDecl : AstNode {
     class TextureDepthCubeArray : TypeDecl
 }
 
+fun TypeDecl.toType(
+    scope: Scope,
+    resolvedEnvironment: ResolvedEnvironment,
+): Type =
+    when (this) {
+        is TypeDecl.Array ->
+            Type.Array(
+                elementType = this.elementType.toType(scope, resolvedEnvironment),
+                elementCount =
+                    this.elementCount?.let { evaluateToInt(it, scope, resolvedEnvironment) }
+                        ?: throw IllegalArgumentException("Array must have a known length"),
+            )
+
+        is TypeDecl.NamedType -> {
+            val scopeEntry = scope.getEntry(this.name)
+            when (scopeEntry) {
+                is ScopeEntry.Struct, is ScopeEntry.TypeAlias -> scopeEntry.type
+                else -> throw IllegalStateException("Named Type does not correspond to a named type in scope")
+            }
+        }
+
+        is TypeDecl.Bool -> Type.Bool
+        is TypeDecl.F16 -> Type.F16
+        is TypeDecl.F32 -> Type.F32
+        is TypeDecl.I32 -> Type.I32
+        is TypeDecl.U32 -> Type.U32
+
+        is TypeDecl.Vec2 ->
+            Type.Vector(
+                width = 2,
+                elementType =
+                    this.elementType.toType(scope, resolvedEnvironment) as? Type.Scalar
+                        ?: throw IllegalStateException("Invalid vector element type"),
+            )
+        is TypeDecl.Vec3 ->
+            Type.Vector(
+                width = 3,
+                elementType =
+                    this.elementType.toType(scope, resolvedEnvironment) as? Type.Scalar
+                        ?: throw IllegalStateException("Invalid vector element type"),
+            )
+        is TypeDecl.Vec4 ->
+            Type.Vector(
+                width = 4,
+                elementType =
+                    this.elementType.toType(scope, resolvedEnvironment) as? Type.Scalar
+                        ?: throw IllegalStateException("Invalid vector element type"),
+            )
+
+        else -> TODO()
+    }
+
 /**
  * Expressions in the AST, capturing all sorts of expressions except those that occur on the
  * left-hand-sides of assignments, which are captured by the separate LhsExpression type hierarchy.
