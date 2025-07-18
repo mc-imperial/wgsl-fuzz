@@ -616,22 +616,22 @@ fun generateKnownValueExpression(
         choices.add(
             fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
                 val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
-                val valueOfUniformAsInt: Int =
-                    getNumericValueFromConstant(
+                val (valueOfUniformAsInt, truncated) =
+                    getNumericValueFromConstantTruncated(
                         valueOfUniform,
-                        truncate = true,
                     )
                 val uniformScalarWithCastIfNeeded =
                     if (type is Type.U32) {
-                        // This truncates for us
+                        // This truncates - https://www.w3.org/TR/WGSL/#u32-builtin
                         Expression.U32ValueConstructor(listOf(uniformScalar))
                     } else if (scalarType is Type.Integer && type is Type.Float) {
-                        // Do not need to truncate scalarType is integer
+                        // Should not have to truncate a scalar of type Integer
+                        assert(!truncated)
                         Expression.F32ValueConstructor(listOf(uniformScalar))
-                    } else if (type is Type.Integer) {
-                        // This truncates for us
+                    } else if (scalarType is Type.Float && type is Type.Integer) {
+                        // This truncates https://www.w3.org/TR/WGSL/#i32-builtin
                         Expression.I32ValueConstructor(listOf(uniformScalar))
-                    } else if (scalarType is Type.Float) {
+                    } else if (truncated) {
                         truncateExpression(uniformScalar)
                     } else {
                         uniformScalar
@@ -730,25 +730,26 @@ fun constantWithSameValueEverywhere(
         else -> throw UnsupportedOperationException("Constant construction not supported for type $type")
     }
 
-private fun getNumericValueFromConstant(
-    constantExpression: Expression,
-    truncate: Boolean = false,
-): Int {
+private fun getNumericValueFromConstant(constantExpression: Expression): Int {
+    val (result, truncated) = getNumericValueFromConstantTruncated(constantExpression)
+    if (truncated) {
+        throw RuntimeException("Only integer-valued doubles are supported in known value expressions.")
+    }
+    return result
+}
+
+private fun getNumericValueFromConstantTruncated(constantExpression: Expression): Pair<Int, Boolean> {
     when (constantExpression) {
         is Expression.FloatLiteral -> {
             val resultAsDouble = constantExpression.text.trimEnd('f', 'h').toDouble()
             val resultAsInt = resultAsDouble.toInt()
             if (resultAsDouble != resultAsInt.toDouble()) {
-                if (truncate) {
-                    return truncate(resultAsDouble).toInt()
-                } else {
-                    throw RuntimeException("Only integer-valued doubles are supported in known value expressions.")
-                }
+                return truncate(resultAsDouble).toInt() to true
             }
-            return resultAsInt
+            return resultAsInt to false
         }
         is Expression.IntLiteral -> {
-            return constantExpression.text.trimEnd('i', 'u').toInt()
+            return constantExpression.text.trimEnd('i', 'u').toInt() to false
         }
         else -> throw UnsupportedOperationException("Cannot get numeric value from $constantExpression")
     }
