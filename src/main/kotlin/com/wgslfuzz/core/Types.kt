@@ -356,48 +356,6 @@ data class FunctionType(
     val returnType: Type?,
 )
 
-private fun Type.Scalar.toTypeDecl(): TypeDecl.ScalarTypeDecl =
-    when (this) {
-        Type.Bool -> TypeDecl.Bool()
-        Type.I32 -> TypeDecl.I32()
-        Type.U32 -> TypeDecl.U32()
-        Type.F16 -> TypeDecl.F16()
-        Type.F32 -> TypeDecl.F32()
-        Type.AbstractFloat -> throw UnsupportedOperationException("AbstractFloat cannot converted to TypeDecl")
-        Type.AbstractInteger -> throw UnsupportedOperationException("AbstractInteger cannot converted to TypeDecl")
-    }
-
-fun Type.toTypeDecl(): TypeDecl =
-    when (this) {
-        is Type.Scalar -> this.toTypeDecl()
-        is Type.Vector ->
-            when (this.width) {
-                2 ->
-                    TypeDecl.Vec2(
-                        this.elementType.toTypeDecl(),
-                    )
-                3 ->
-                    TypeDecl.Vec3(
-                        this.elementType.toTypeDecl(),
-                    )
-                4 ->
-                    TypeDecl.Vec4(
-                        this.elementType.toTypeDecl(),
-                    )
-                else -> throw IllegalArgumentException("Bad vector size.")
-            }
-        is Type.Array ->
-            TypeDecl.Array(
-                elementType = this.elementType.toTypeDecl(),
-                elementCount = this.elementCount?.let { Expression.IntLiteral(it.toString()) },
-            )
-        is Type.Struct ->
-            TypeDecl.NamedType(
-                name = this.name,
-            )
-        else -> TODO()
-    }
-
 // The following are builtin structures described in the WGSL specification, representing the result types of various
 // builtin functions.
 
