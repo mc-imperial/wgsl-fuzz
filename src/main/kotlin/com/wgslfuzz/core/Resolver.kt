@@ -86,12 +86,14 @@ sealed interface Scope {
     fun getEntry(name: String): ScopeEntry?
 }
 
-sealed interface ResolvedEnvironment {
-    val globalScope: Scope
-
+interface TypeOf {
     fun typeOf(expression: Expression): Type
 
     fun typeOf(lhsExpression: LhsExpression): Type
+}
+
+interface ResolvedEnvironment : TypeOf {
+    val globalScope: Scope
 
     /**
      * Yields a scope that can be used to query all declarations that are in scope immediately _before_ the given
@@ -318,7 +320,7 @@ private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String
     return result
 }
 
-private class ResolverState {
+private class ResolverState : TypeOf {
     var currentScope: ScopeImpl = ScopeImpl()
 
     val ancestorsStack: MutableList<AstNode> = mutableListOf()
@@ -355,7 +357,7 @@ private class ResolverState {
         expression: Expression,
         type: Type,
     ) {
-        require(resolvedEnvironment == null) {
+        check(!resolvedEnvironment) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(expression !in expressionTypes.keys)
@@ -366,7 +368,7 @@ private class ResolverState {
         lhsExpression: LhsExpression,
         type: Type,
     ) {
-        require(resolvedEnvironment == null) {
+        check(!resolvedEnvironment) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(lhsExpression !in lhsExpressionTypes.keys)
@@ -377,7 +379,7 @@ private class ResolverState {
         statement: Statement,
         scope: Scope,
     ) {
-        require(resolvedEnvironment == null) {
+        check(!resolvedEnvironment) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(statement !in scopeAvailableBeforeEachStatement.keys)
@@ -388,44 +390,40 @@ private class ResolverState {
         compound: Statement.Compound,
         scope: Scope,
     ) {
-        require(resolvedEnvironment == null) {
+        check(!resolvedEnvironment) {
             "Cannot mutate Resolver State after generating Resolved Environment"
         }
         assert(compound !in scopeAvailableAtEndOfEachCompound.keys)
         scopeAvailableAtEndOfEachCompound[compound] = scope
     }
 
-    fun typeOf(expression: Expression): Type =
+    override fun typeOf(expression: Expression): Type =
         expressionTypes[expression]
             ?: throw IllegalArgumentException("No type for $expression")
 
-    fun typeOf(lhsExpression: LhsExpression): Type =
+    override fun typeOf(lhsExpression: LhsExpression): Type =
         lhsExpressionTypes[lhsExpression]
             ?: throw IllegalArgumentException("No type for $lhsExpression")
 
-    private var resolvedEnvironment: ResolvedEnvironment? = null
+    private var resolvedEnvironment: Boolean = false
 
+    /**
+     * Precondition: Before calling currentScope of resolverState must be the correct global scope of the environment
+     */
     fun getCompletedResolvedEnvironment(): ResolvedEnvironment {
-        if (resolvedEnvironment == null) {
-            resolvedEnvironment = ResolvedEnvironmentImpl(this)
+        check(!resolvedEnvironment) { "Cannot generate more than one Resolved Environment from a Resolver State" }
+        check(currentScope.popScopeLevel() == null) { "currentScope is not the global scope" }
+        resolvedEnvironment = true
+        return object : TypeOf by this@ResolverState, ResolvedEnvironment {
+            override val globalScope: Scope
+                get() = currentScope
+
+            override fun scopeAvailableBefore(statement: Statement): Scope =
+                this@ResolverState.scopeAvailableBeforeEachStatement[statement] ?: throw IllegalArgumentException("No scope for $statement")
+
+            override fun scopeAvailableAtEnd(compound: Statement.Compound): Scope =
+                this@ResolverState.scopeAvailableAtEndOfEachCompound[compound] ?: throw IllegalArgumentException("No scope for $compound")
         }
-        return resolvedEnvironment!!
-    }
-
-    private class ResolvedEnvironmentImpl(
-        private val finalResolverState: ResolverState,
-    ) : ResolvedEnvironment {
-        override val globalScope: Scope = finalResolverState.currentScope
-
-        override fun typeOf(expression: Expression): Type = finalResolverState.typeOf(expression)
-
-        override fun typeOf(lhsExpression: LhsExpression): Type = finalResolverState.typeOf(lhsExpression)
-
-        override fun scopeAvailableBefore(statement: Statement): Scope =
-            finalResolverState.scopeAvailableBeforeEachStatement[statement] ?: throw IllegalArgumentException("No scope for $statement")
-
-        override fun scopeAvailableAtEnd(compound: Statement.Compound): Scope =
-            finalResolverState.scopeAvailableAtEndOfEachCompound[compound] ?: throw IllegalArgumentException("No scope for $compound")
     }
 }
 
@@ -1243,7 +1241,7 @@ private fun resolveTypeOfArrayValueConstructor(
         }
     val elementCount: Int =
         expression.elementCount?.let {
-            evaluateToInt(expression.elementCount, resolverState.currentScope, resolverState.resolvedEnvironment)
+            evaluateToInt(expression.elementCount, resolverState.currentScope, resolverState)
         } ?: expression.args.size
     return Type.Array(elementType, elementCount)
 }
@@ -1725,7 +1723,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     }
                     // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
                     // Since we are not type checking, we don't check if the type is concrete.
-                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val argType = resolverState.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (!argType.isNumericScalar() && !argType.isNumericVector()) {
                         throw RuntimeException(
                             "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
@@ -1740,7 +1738,7 @@ private fun resolveTypeOfFunctionCallExpression(
                             "${functionCallExpression.callee} requires one argument of concrete numeric scalar or numeric vector type.",
                         )
                     }
-                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val argType = resolverState.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (argType !is Type.Bool) {
                         throw RuntimeException("${functionCallExpression.callee} requires one argument of bool type")
                     }
@@ -1751,7 +1749,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("${functionCallExpression.callee} requires one of type i32, u32, vecN<i32>, or vecN<u32>")
                     }
-                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val argType = resolverState.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (argType !is Type.I32 &&
                         argType !is Type.U32 &&
                         !(argType is Type.Vector && (argType.elementType is Type.I32 || argType.elementType is Type.U32))
@@ -1765,7 +1763,7 @@ private fun resolveTypeOfFunctionCallExpression(
                     if (functionCallExpression.args.size != 1) {
                         throw RuntimeException("${functionCallExpression.callee} requires one of type bool")
                     }
-                    val argType = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val argType = resolverState.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
                     if (argType !is Type.Bool) {
                         throw RuntimeException("${functionCallExpression.callee} requires one of type bool")
                     }
@@ -1783,8 +1781,8 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("${functionCallExpression.callee} requires two arguments")
                     }
 
-                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
-                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()
+                    val arg1Type = resolverState.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val arg2Type = resolverState.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()
 
                     // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
                     // Since we are not type checking, we don't check if the type is concrete.
@@ -1805,8 +1803,8 @@ private fun resolveTypeOfFunctionCallExpression(
                         throw RuntimeException("${functionCallExpression.callee} requires two arguments")
                     }
 
-                    val arg1Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
-                    val arg2Type = resolverState.resolvedEnvironment.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()
+                    val arg1Type = resolverState.typeOf(functionCallExpression.args[0]).asStoreTypeIfReference()
+                    val arg2Type = resolverState.typeOf(functionCallExpression.args[1]).asStoreTypeIfReference()
 
                     // NOTE: The spec says the first argument T is 'concrete numeric scalar or numeric vector'.
                     // Since we are not type checking, we don't check if the type is concrete.
@@ -2014,7 +2012,7 @@ sealed class EvaluatedValue {
 fun evaluate(
     expression: Expression,
     scope: Scope,
-    resolvedEnvironment: ResolvedEnvironment,
+    typeOf: TypeOf,
 ): EvaluatedValue =
     when (expression) {
         is Expression.IntLiteral ->
@@ -2026,18 +2024,18 @@ fun evaluate(
                 },
             )
         is Expression.IndexLookup ->
-            (evaluate(expression.target, scope, resolvedEnvironment) as EvaluatedValue.IntIndexed).mapping(
-                (evaluate(expression.index, scope, resolvedEnvironment) as EvaluatedValue.Integer).value,
+            (evaluate(expression.target, scope, typeOf) as EvaluatedValue.IntIndexed).mapping(
+                (evaluate(expression.index, scope, typeOf) as EvaluatedValue.Integer).value,
             )
         is Expression.ArrayValueConstructor -> {
-            val arrayType = resolverState.typeOf(expression) as Type.Array
+            val arrayType = typeOf.typeOf(expression) as Type.Array
             if (arrayType.elementCount == null) {
                 throw RuntimeException("Constant evaluation encountered array with non-constant size")
             }
             if (expression.args.isEmpty()) {
                 TODO()
             } else if (expression.args.size == arrayType.elementCount) {
-                EvaluatedValue.IntIndexed(mapping = { x -> evaluate(expression.args[x], scope, resolvedEnvironment) })
+                EvaluatedValue.IntIndexed(mapping = { x -> evaluate(expression.args[x], scope, typeOf) })
             } else {
                 TODO()
             }
@@ -2047,9 +2045,9 @@ fun evaluate(
                 // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/36): Avoid re-evaluating global constants,
                 //  and/or handle the problem that the resolver state needed to evaluate the global constant would
                 //  really be global scope.
-                is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, scope, resolvedEnvironment)
+                is ScopeEntry.GlobalConstant -> evaluate(scopeEntry.astNode.initializer, scope, typeOf)
                 is ScopeEntry.GlobalOverride -> {
-                    scopeEntry.astNode.initializer?.let { evaluate(it, scope, resolvedEnvironment) }
+                    scopeEntry.astNode.initializer?.let { evaluate(it, scope, typeOf) }
                         ?: throw UnsupportedOperationException(
                             "The use of override expressions without initializers is not supported in expression evaluation",
                         )
@@ -2057,10 +2055,10 @@ fun evaluate(
                 else -> throw IllegalArgumentException("Inappropriate declaration used in constant expression: ${expression.name}")
             }
         }
-        is Expression.Paren -> evaluate(expression.target, scope, resolvedEnvironment)
+        is Expression.Paren -> evaluate(expression.target, scope, typeOf)
         is Expression.Binary -> {
-            val lhs = evaluate(expression.lhs, scope, resolvedEnvironment)
-            val rhs = evaluate(expression.rhs, scope, resolvedEnvironment)
+            val lhs = evaluate(expression.lhs, scope, typeOf)
+            val rhs = evaluate(expression.rhs, scope, typeOf)
             if (lhs !is EvaluatedValue.Integer || rhs !is EvaluatedValue.Integer) {
                 TODO("Evaluation of arithmetic on non-integer values is not supported")
             }
@@ -2078,16 +2076,16 @@ fun evaluate(
                 else -> TODO("${expression.operator}")
             }
         }
-        is AugmentedExpression.IdentityOperation -> evaluate(expression.originalExpression, scope, resolvedEnvironment)
+        is AugmentedExpression.IdentityOperation -> evaluate(expression.originalExpression, scope, typeOf)
         else -> TODO("$expression")
     }
 
 fun evaluateToInt(
     expression: Expression,
     scope: Scope,
-    resolvedEnvironment: ResolvedEnvironment,
+    typeOf: TypeOf,
 ): Int =
-    (evaluate(expression, scope, resolvedEnvironment) as? EvaluatedValue.Integer)?.value
+    (evaluate(expression, scope, typeOf) as? EvaluatedValue.Integer)?.value
         ?: throw IllegalArgumentException("Expression $expression to int")
 
 private fun isSwizzle(memberName: String): Boolean =
@@ -2131,7 +2129,7 @@ private fun resolveTypeDecl(
                 elementType = resolveTypeDecl(typeDecl.elementType, resolverState),
                 elementCount =
                     typeDecl.elementCount?.let {
-                        evaluateToInt(it, resolverState.currentScope, resolverState.resolvedEnvironment)
+                        evaluateToInt(it, resolverState.currentScope, resolverState)
                     },
             )
         is TypeDecl.NamedType -> {
