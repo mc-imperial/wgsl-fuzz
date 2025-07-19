@@ -31,6 +31,7 @@ import com.wgslfuzz.core.evaluateToInt
 import com.wgslfuzz.core.getUniformDeclaration
 import java.util.Random
 import kotlin.math.max
+import kotlin.math.truncate
 
 private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
@@ -615,17 +616,23 @@ fun generateKnownValueExpression(
         choices.add(
             fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
                 val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
-                val valueOfUniformAsInt: Int =
-                    getNumericValueFromConstant(
+                val (valueOfUniformAsInt, truncated) =
+                    getNumericValueFromConstantTruncated(
                         valueOfUniform,
                     )
                 val uniformScalarWithCastIfNeeded =
                     if (type is Type.U32) {
+                        // This truncates - https://www.w3.org/TR/WGSL/#u32-builtin
                         Expression.U32ValueConstructor(listOf(uniformScalar))
                     } else if (scalarType is Type.Integer && type is Type.Float) {
+                        // Should not have to truncate a scalar of type Integer
+                        assert(!truncated)
                         Expression.F32ValueConstructor(listOf(uniformScalar))
                     } else if (scalarType is Type.Float && type is Type.Integer) {
+                        // This truncates https://www.w3.org/TR/WGSL/#i32-builtin
                         Expression.I32ValueConstructor(listOf(uniformScalar))
+                    } else if (truncated) {
+                        truncateExpression(uniformScalar)
                     } else {
                         uniformScalar
                     }
@@ -724,21 +731,36 @@ fun constantWithSameValueEverywhere(
     }
 
 private fun getNumericValueFromConstant(constantExpression: Expression): Int {
+    val (result, truncated) = getNumericValueFromConstantTruncated(constantExpression)
+    if (truncated) {
+        throw RuntimeException("Only integer-valued doubles are supported in known value expressions.")
+    }
+    return result
+}
+
+private fun getNumericValueFromConstantTruncated(constantExpression: Expression): Pair<Int, Boolean> {
     when (constantExpression) {
         is Expression.FloatLiteral -> {
             val resultAsDouble = constantExpression.text.trimEnd('f', 'h').toDouble()
             val resultAsInt = resultAsDouble.toInt()
             if (resultAsDouble != resultAsInt.toDouble()) {
-                throw RuntimeException("Only integer-valued doubles are supported in known value expressions.")
+                return truncate(resultAsDouble).toInt() to true
             }
-            return resultAsInt
+            return resultAsInt to false
         }
         is Expression.IntLiteral -> {
-            return constantExpression.text.trimEnd('i', 'u').toInt()
+            return constantExpression.text.trimEnd('i', 'u').toInt() to false
         }
         else -> throw UnsupportedOperationException("Cannot get numeric value from $constantExpression")
     }
 }
+
+private fun truncateExpression(expression: Expression) =
+    Expression.FunctionCall(
+        callee = "trunc",
+        templateParameter = null,
+        args = listOf(expression),
+    )
 
 private fun binaryExpressionRandomOperandOrder(
     fuzzerSettings: FuzzerSettings,
