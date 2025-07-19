@@ -31,6 +31,7 @@ class RectsTransformReduceTests : TransformReduceTests() {
 
     @Test
     override fun testAddDeadBreaks() {
+        // Trial and error was used to find a random seed and if future changes affecting randomness cause this test fail try a different seed
         testTransformationAndReduction(
             44,
             filenameNoExtension,
