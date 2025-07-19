@@ -234,7 +234,7 @@ private fun literalExprFromBytes(
                 currentBufferByteIndex,
             )
         }
-        is Type.I32 -> {
+        is Type.I32, is Type.U32 -> {
             return Pair(
                 Expression.IntLiteral(
                     text = wordFromBytes(bufferBytes, bufferByteIndex).toString(),
@@ -301,9 +301,73 @@ private fun literalExprFromBytes(
                 else -> throw UnsupportedOperationException("Bad vector size.")
             }
         }
+        is Type.Array -> {
+            check(type.elementCount != null) { "Cannot have a runtime sized uniform array" }
+            var currentIndex = bufferByteIndex
+            while (currentIndex % type.alignOf() != 0) {
+                currentIndex++
+            }
+            val args: MutableList<Expression> = mutableListOf()
+            repeat(type.elementCount) {
+                val (literal, indexAfter) = literalExprFromBytes(type.elementType, bufferBytes, currentIndex)
+                args.add(literal)
+                currentIndex = indexAfter
+            }
+
+            return Pair(
+                Expression.ArrayValueConstructor(
+                    elementType = type.elementType.toTypeDecl(),
+                    elementCount = Expression.IntLiteral(type.elementCount.toString()),
+                    args = args,
+                ),
+                second = currentIndex,
+            )
+        }
         else -> TODO("Type $type not yet supported in uniform buffers.")
     }
 }
+
+private fun Type.Scalar.toTypeDecl(): TypeDecl.ScalarTypeDecl =
+    when (this) {
+        Type.Bool -> TypeDecl.Bool()
+        Type.I32 -> TypeDecl.I32()
+        Type.U32 -> TypeDecl.U32()
+        Type.F16 -> TypeDecl.F16()
+        Type.F32 -> TypeDecl.F32()
+        Type.AbstractFloat -> throw UnsupportedOperationException("AbstractFloat cannot converted to TypeDecl")
+        Type.AbstractInteger -> throw UnsupportedOperationException("AbstractInteger cannot converted to TypeDecl")
+    }
+
+private fun Type.toTypeDecl(): TypeDecl =
+    when (this) {
+        is Type.Scalar -> this.toTypeDecl()
+        is Type.Vector ->
+            when (this.width) {
+                2 ->
+                    TypeDecl.Vec2(
+                        this.elementType.toTypeDecl(),
+                    )
+                3 ->
+                    TypeDecl.Vec3(
+                        this.elementType.toTypeDecl(),
+                    )
+                4 ->
+                    TypeDecl.Vec4(
+                        this.elementType.toTypeDecl(),
+                    )
+                else -> throw IllegalArgumentException("Bad vector size.")
+            }
+        is Type.Array ->
+            TypeDecl.Array(
+                elementType = this.elementType.toTypeDecl(),
+                elementCount = this.elementCount?.let { Expression.IntLiteral(it.toString()) },
+            )
+        is Type.Struct ->
+            TypeDecl.NamedType(
+                name = this.name,
+            )
+        else -> TODO()
+    }
 
 private fun wordFromBytes(
     bufferBytes: List<UByte>,

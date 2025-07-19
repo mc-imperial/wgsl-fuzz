@@ -90,7 +90,6 @@ class ParseTintTests {
             if (text.contains("enable chromium_experimental") ||
                 text.contains("chromium_internal_graphite") ||
                 text.contains("chromium_internal_input_attachments") ||
-                text.contains("enable subgroups") ||
                 // binding_array is not currently mentioned in the WGSL specification, but online
                 // research suggests that it is a naga extension.
                 text.contains("binding_array") ||

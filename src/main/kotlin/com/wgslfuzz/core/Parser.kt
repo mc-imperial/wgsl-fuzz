@@ -473,17 +473,16 @@ private class AstBuilder(
 
     override fun visitStatement(ctx: WGSLParser.StatementContext): Statement = super.visitStatement(ctx) as Statement
 
-    override fun visitLhs_expression(ctx: WGSLParser.Lhs_expressionContext): LhsExpression {
-        val target = visitCore_lhs_expression(ctx.core_lhs_expression())
-        val targetWithPostfix = processLhsExpressionPostfix(target, ctx.postfix_expression())
-        return if (ctx.STAR().isNotEmpty()) {
-            LhsExpression.Dereference(targetWithPostfix)
-        } else if (ctx.AND().isNotEmpty()) {
-            LhsExpression.AddressOf(targetWithPostfix)
+    override fun visitLhs_expression(ctx: WGSLParser.Lhs_expressionContext): LhsExpression =
+        if (ctx.STAR() != null) {
+            LhsExpression.Dereference(visitLhs_expression(ctx.lhs_expression()))
+        } else if (ctx.AND() != null) {
+            LhsExpression.AddressOf(visitLhs_expression(ctx.lhs_expression()))
         } else {
+            val target = visitCore_lhs_expression(ctx.core_lhs_expression())
+            val targetWithPostfix = processLhsExpressionPostfix(target, ctx.postfix_expression())
             targetWithPostfix
         }
-    }
 
     override fun visitCore_lhs_expression(ctx: WGSLParser.Core_lhs_expressionContext): LhsExpression =
         if (ctx.IDENT() != null) {
