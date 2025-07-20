@@ -16,7 +16,6 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotEquals
 
@@ -30,13 +29,11 @@ class ReverseBitsTransformReduceTests : TransformReduceTests() {
         assertNotEquals(filenameNoExtension, "")
     }
 
-    @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/172)")
     @Test
     override fun testAddIdentityOperations() {
         super.testAddIdentityOperations()
     }
 
-    @Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/172)")
     @Test
     override fun testMultipleTransformations() {
         super.testMultipleTransformations()
