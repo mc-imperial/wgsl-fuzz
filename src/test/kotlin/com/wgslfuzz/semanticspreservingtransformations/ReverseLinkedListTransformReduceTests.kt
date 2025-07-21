@@ -16,11 +16,9 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotEquals
 
-@Disabled("TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/154)")
 class ReverseLinkedListTransformReduceTests : TransformReduceTests() {
     override val filenameNoExtension: String
         get() = "reverse_linked_list"
