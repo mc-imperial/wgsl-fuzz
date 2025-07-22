@@ -87,7 +87,7 @@ class ShaderJob(
         type: Type,
         value: Expression,
         offset: Int,
-    ): List<Int> {
+    ): List<Int> =
         when (type) {
             is Type.Struct -> {
                 val result = mutableListOf<Int>()
@@ -100,7 +100,7 @@ class ShaderJob(
                             offset = result.size,
                         )
                 }
-                return result
+                result
             }
             is Type.Vector -> {
                 val vectorValue = value as Expression.VectorValueConstructor
@@ -128,7 +128,7 @@ class ShaderJob(
                             offset = result.size,
                         )
                 }
-                return result
+                result
             }
             is Type.F32 -> {
                 val floatValue = value as Expression.FloatLiteral
@@ -139,29 +139,37 @@ class ShaderJob(
                         .order(ByteOrder.LITTLE_ENDIAN)
                         .putFloat(parsedFloat)
                         .array()
-                return byteArray.map { i -> i.toInt() and 0xFF }
+                byteArray.map { i -> i.toInt() and 0xFF }
             }
-            is Type.I32 -> {
-                return intLiteralToBytes(value)
-            }
-            is Type.U32 -> {
-                return intLiteralToBytes(value)
+            is Type.I32, is Type.U32 -> intLiteralToBytes(value)
+            is Type.Array -> {
+                require(type.elementCount != null) { "An array uniform must have a fixed length" }
+                val result = mutableListOf<Int>()
+                val structValue = value as Expression.ArrayValueConstructor
+                for (i in 0..<type.elementCount) {
+                    result +=
+                        getBytesForExpression(
+                            type = type.elementType,
+                            value = structValue.args[i],
+                            offset = result.size,
+                        )
+                }
+                result
             }
             else -> TODO("Support for $type not implemented yet")
         }
-    }
+}
 
-    private fun intLiteralToBytes(value: Expression): List<Int> {
-        val intValue = value as Expression.IntLiteral
-        val parsedInt: Int = intValue.text.toInt()
-        val byteArray =
-            ByteBuffer
-                .allocate(4)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .putInt(parsedInt)
-                .array()
-        return byteArray.map { i -> i.toInt() }
-    }
+private fun intLiteralToBytes(value: Expression): List<Int> {
+    val intValue = value as Expression.IntLiteral
+    val parsedInt: Int = intValue.text.toInt()
+    val byteArray =
+        ByteBuffer
+            .allocate(4)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .putInt(parsedInt)
+            .array()
+    return byteArray.map { i -> i.toInt() }
 }
 
 fun createShaderJob(
