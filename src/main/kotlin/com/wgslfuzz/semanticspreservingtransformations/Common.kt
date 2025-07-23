@@ -751,7 +751,7 @@ private fun getNumericValueFromConstant(constantExpression: Expression): Int {
  * Takes in a constant expression and determines its value and outputs an adjusted expression if changes were made to make it conform to requirements.
  * Requirements:
  * - Correct output type
- * - If the value is a float with a fractional the function truncates the value and expression
+ * - If the value is a float with a fractional part the function truncates the value and expression
  * - If the value is outside the range which known values are allowed uses absolute and modulo to bring value within allowed range
  */
 private fun getNumericValueWithAdjustedExpression(
@@ -763,10 +763,10 @@ private fun getNumericValueWithAdjustedExpression(
     val value = getValueAsDoubleFromConstant(constantExpression)
 
     // Determine if truncation is necessary by checking if value has a fractional part
-    val truncate = value.toInt().toDouble() != value
+    val truncate = truncate(value) != value
 
     // Performs type cast and wraps in truncation if necessary
-    // Type casts to integer involve truncation and hence do not need to a call wgsl trunc function on top
+    // Type casts to integer involve truncation and hence do not need to a call wgsl trunc function in addition to their type cast
     val outputExpressionWithCastIfNeeded =
         if (outputType is Type.U32) {
             // This truncates - https://www.w3.org/TR/WGSL/#u32-builtin
@@ -787,7 +787,7 @@ private fun getNumericValueWithAdjustedExpression(
     val truncatedValue = truncate(value)
 
     // Brings the truncatedValue into the range 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE if truncatedValue isn't in the range
-    // The operation to bring it into range is abs(truncatedValue) % LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE
+    // The operation to bring truncatedValue into range is abs(truncatedValue) % LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE
     val (outputValueInRangeAndInteger, outputExpressionWithCastAndInRange) =
         if (truncatedValue !in
             0.0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toDouble()
