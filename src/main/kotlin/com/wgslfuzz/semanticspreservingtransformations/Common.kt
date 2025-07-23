@@ -36,11 +36,13 @@ import kotlin.math.truncate
 private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
 interface FuzzerSettings {
-    val maxDepth: Int
-        get() = 5
+    fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 1.0 / (currentDepth.toDouble() + 1.0)
 
     // Yields a random integer in the range [0, limit)
     fun randomInt(limit: Int): Int
+
+    // Yield a random double in the range [0, 1]
+    fun randomDouble(): Double
 
     fun randomBool(): Boolean
 
@@ -106,6 +108,8 @@ class DefaultFuzzerSettings(
     private val generator: Random,
 ) : FuzzerSettings {
     override fun randomInt(limit: Int): Int = generator.nextInt(limit)
+
+    override fun randomDouble(): Double = generator.nextDouble()
 
     override fun randomBool(): Boolean = generator.nextBoolean()
 }
@@ -236,7 +240,7 @@ private fun generateFalseByConstructionExpression(
     shaderJob: ShaderJob,
     scope: Scope,
 ): AugmentedExpression.FalseByConstruction {
-    if (depth >= fuzzerSettings.maxDepth) {
+    if (!fuzzerSettings.goDeeper(depth)) {
         return AugmentedExpression.FalseByConstruction(
             Expression.BoolLiteral("false"),
         )
@@ -317,7 +321,7 @@ private fun generateTrueByConstructionExpression(
     shaderJob: ShaderJob,
     scope: Scope,
 ): AugmentedExpression.TrueByConstruction {
-    if (depth >= fuzzerSettings.maxDepth) {
+    if (!fuzzerSettings.goDeeper(depth)) {
         return AugmentedExpression.TrueByConstruction(
             Expression.BoolLiteral("true"),
         )
@@ -429,7 +433,7 @@ fun generateKnownValueExpression(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
 ): AugmentedExpression.KnownValue {
-    if (depth >= fuzzerSettings.maxDepth) {
+    if (!fuzzerSettings.goDeeper(depth)) {
         return AugmentedExpression.KnownValue(
             knownValue = knownValue.clone(),
             expression = knownValue.clone(),
