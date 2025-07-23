@@ -468,6 +468,7 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.sumOfKnownValues(depth) to {
+                // Deriving a known value by using addition of two numbers.
                 val randomValue = fuzzerSettings.randomInt(knownValueAsInt + 1)
                 assert(randomValue <= knownValueAsInt)
                 val difference: Int = knownValueAsInt - randomValue
@@ -510,6 +511,7 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.differenceOfKnownValues(depth) to {
+                // Deriving a known value by using subtraction of two numbers.
                 val randomValue = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE - knownValueAsInt + 1)
                 val sum: Int = knownValueAsInt + randomValue
                 assert(sum in 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
@@ -550,6 +552,7 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.productOfKnownValues(depth) to {
+                // Deriving a known value by using multiplication of two numbers.
                 val randomValue = max(1, fuzzerSettings.randomInt(max(1, knownValueAsInt / 2)))
                 val quotient: Int = knownValueAsInt / randomValue
                 val remainder: Int = knownValueAsInt % randomValue
@@ -616,11 +619,12 @@ fun generateKnownValueExpression(
                     expression = resultExpression,
                 )
             },
+            // Deriving a known value from a uniform only works with concrete types.
             if (type.isAbstract()) {
                 // Removed by listOfNotNull
                 null
             } else {
-                // Deriving a known value from a uniform only works with concrete types.
+                // Deriving a known value from a uniform while adjusting as necessary using addition and subtraction.
                 fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
                     val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
 
