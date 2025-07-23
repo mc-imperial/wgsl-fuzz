@@ -16,6 +16,7 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
@@ -23,6 +24,7 @@ import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.UnaryOperator
+import com.wgslfuzz.core.clone
 
 fun generateArbitraryExpression(
     depth: Int,
@@ -34,6 +36,24 @@ fun generateArbitraryExpression(
 ): Expression =
     when (type) {
         Type.Bool -> generateArbitraryBool(depth, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
+        Type.I32, Type.U32, Type.F32 -> {
+            fun replaceKnownValueWithArbitraryExpression(node: AstNode): AstNode? =
+                when (node) {
+                    is AugmentedExpression.KnownValue ->
+                        AugmentedExpression.ArbitraryExpression(
+                            node.expression.clone(::replaceKnownValueWithArbitraryExpression),
+                        )
+                    else -> null
+                }
+
+            generateKnownValueExpression(
+                depth = depth,
+                knownValue = constantWithSameValueEverywhere(fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE), type),
+                type = type,
+                fuzzerSettings = fuzzerSettings,
+                shaderJob = shaderJob,
+            ).clone(::replaceKnownValueWithArbitraryExpression)
+        }
         // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
         else -> constantWithSameValueEverywhere(1, type)
     }
@@ -122,10 +142,10 @@ private fun generateArbitraryBool(
         )
 
     return AugmentedExpression.ArbitraryExpression(
-        if (depth == fuzzerSettings.maxDepth) {
-            choose(fuzzerSettings, nonRecursiveChoices)
-        } else {
+        if (fuzzerSettings.goDeeper(depth)) {
             choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+        } else {
+            choose(fuzzerSettings, nonRecursiveChoices)
         },
     )
 }

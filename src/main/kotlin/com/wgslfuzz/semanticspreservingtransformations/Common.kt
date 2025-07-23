@@ -34,7 +34,7 @@ import java.util.Random
 import kotlin.math.max
 import kotlin.math.truncate
 
-private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
+const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 1.0 / (currentDepth.toDouble() + 1.0)
