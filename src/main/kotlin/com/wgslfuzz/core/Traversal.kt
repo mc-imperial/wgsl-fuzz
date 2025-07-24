@@ -245,7 +245,9 @@ fun <T> traverse(
         }
         is AugmentedStatement.ControlFlowWrapper -> {
             actionWithState(node.statement)
-            actionWithState(node.originalStatement)
+        }
+        is AugmentedStatement.ControlFlowWrapperOriginalStatements -> {
+            node.statements.forEach(actionWithState)
         }
         is StructMember -> {
             node.attributes.forEach(actionWithState)

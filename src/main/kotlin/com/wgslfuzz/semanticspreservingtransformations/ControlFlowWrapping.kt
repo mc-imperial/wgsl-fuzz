@@ -13,6 +13,7 @@ import com.wgslfuzz.core.SwitchClause
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
+import kotlin.math.abs
 
 private typealias ControlFlowWrappingsInjections = MutableMap<Statement.Compound, Pair<Int, Int>>
 
@@ -32,10 +33,9 @@ private class ControlFlowWrapping(
             is ContinuingStatement -> return // TODO()
 
             is Statement.Compound -> {
-                assert(node.statements.isNotEmpty())
                 traverseSubExpression(node)
 
-                if (!fuzzerSettings.controlFlowWrap()) return
+                if (node.statements.isEmpty() || !fuzzerSettings.controlFlowWrap()) return
 
                 val allPossibleAcceptableSectionsOfStatements = (0..<node.statements.size).map { it to node.statements.size }
 //                    // All possible sublists of contiguous sections of stmts
@@ -80,7 +80,12 @@ private class ControlFlowWrapping(
         val containsBreakOrContinue =
             originalStatements.any { stmt -> astNodeAny(stmt) { it is Statement.Break || it is Statement.Continue } }
 
-        val originalStatementCompound = Statement.Compound(originalStatements.clone { injectControlFlowWrapper(it, injections) })
+        val originalStatementCompound =
+            AugmentedStatement.ControlFlowWrapperOriginalStatements(
+                originalStatements.clone {
+                    injectControlFlowWrapper(it, injections)
+                },
+            )
         val scope = shaderJob.environment.scopeAvailableBefore(originalStatements[0])
 
         val choices: List<Pair<Int, () -> AugmentedStatement.ControlFlowWrapper>> =
@@ -102,7 +107,6 @@ private class ControlFlowWrapping(
 
                     AugmentedStatement.ControlFlowWrapper(
                         statement = wrappedStatement,
-                        originalStatement = originalStatementCompound.clone(),
                     )
                 },
                 fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping to {
@@ -121,7 +125,6 @@ private class ControlFlowWrapping(
                         )
                     AugmentedStatement.ControlFlowWrapper(
                         statement = wrappedStatement,
-                        originalStatement = originalStatementCompound.clone(),
                     )
                 },
                 if (containsBreakOrContinue) {
@@ -136,16 +139,16 @@ private class ControlFlowWrapping(
                                         // A loop which uses addition to update the loop counter
                                         val updateValue = fuzzerSettings.randomInt(1000) + 1
                                         integerCounterForLoop(
-                                            counterName = originalStatements.hashCode().toString(),
+                                            counterName = "counter_${abs(originalStatements.hashCode())}",
                                             depth = depth,
                                             computeFinalValue = { initialValue ->
                                                 initialValue + updateValue
                                             },
-                                            computeForUpdate = { initialValue, counterName, typeCast ->
+                                            computeForUpdate = { initialValue, counterName, intToExpression ->
                                                 Statement.Assignment(
                                                     lhsExpression = LhsExpression.Identifier(counterName),
                                                     assignmentOperator = AssignmentOperator.PLUS_EQUAL,
-                                                    rhs = typeCast(Expression.IntLiteral(updateValue.toString())),
+                                                    rhs = intToExpression(updateValue),
                                                 )
                                             },
                                         )
@@ -154,7 +157,7 @@ private class ControlFlowWrapping(
                                         // A loop which uses subtraction to update the loop counter
                                         val updateValue = fuzzerSettings.randomInt(1000) + 1
                                         integerCounterForLoop(
-                                            counterName = originalStatements.hashCode().toString(),
+                                            counterName = "counter_${abs(originalStatements.hashCode())}",
                                             depth = depth,
                                             computeFinalValue = { initialValue ->
                                                 if (initialValue > updateValue) {
@@ -163,24 +166,22 @@ private class ControlFlowWrapping(
                                                     updateValue - initialValue
                                                 }
                                             },
-                                            computeForUpdate = { initialValue, counterName, typeCast ->
+                                            computeForUpdate = { initialValue, counterName, intToExpression ->
                                                 if (initialValue > updateValue) {
                                                     Statement.Assignment(
                                                         lhsExpression = LhsExpression.Identifier(counterName),
                                                         assignmentOperator = AssignmentOperator.MINUS_EQUAL,
-                                                        rhs = typeCast(Expression.IntLiteral(updateValue.toString())),
+                                                        rhs = intToExpression(updateValue),
                                                     )
                                                 } else {
                                                     Statement.Assignment(
                                                         lhsExpression = LhsExpression.Identifier(counterName),
                                                         assignmentOperator = AssignmentOperator.EQUAL,
                                                         rhs =
-                                                            typeCast(
-                                                                Expression.Binary(
-                                                                    operator = BinaryOperator.MINUS,
-                                                                    lhs = Expression.IntLiteral(updateValue.toString()),
-                                                                    rhs = Expression.IntLiteral(initialValue.toString()),
-                                                                ),
+                                                            Expression.Binary(
+                                                                operator = BinaryOperator.MINUS,
+                                                                lhs = intToExpression(updateValue),
+                                                                rhs = Expression.Identifier(counterName),
                                                             ),
                                                     )
                                                 }
@@ -190,12 +191,12 @@ private class ControlFlowWrapping(
                                     {
                                         // A simple loop which increments the loop counter
                                         integerCounterForLoop(
-                                            counterName = originalStatements.hashCode().toString(),
+                                            counterName = "counter_${abs(originalStatements.hashCode())}",
                                             depth = depth,
                                             computeFinalValue = { initialValue ->
                                                 initialValue + 1
                                             },
-                                            computeForUpdate = { initialValue, counterName, typeCast ->
+                                            computeForUpdate = { _, counterName, _ ->
                                                 Statement.Increment(LhsExpression.Identifier(counterName))
                                             },
                                         )
@@ -213,7 +214,6 @@ private class ControlFlowWrapping(
                             )
                         AugmentedStatement.ControlFlowWrapper(
                             statement = wrappedStatement,
-                            originalStatement = originalStatementCompound.clone(),
                         )
                     }
                 },
@@ -227,20 +227,19 @@ private class ControlFlowWrapping(
         depth: Int,
         // Called computeFinalValue(initialValue) where initialValue is the initial value of the counter
         computeFinalValue: (Int) -> Int,
-        // Called computeForUpdate(initialValue, counterName, typeCast)
-        computeForUpdate: (Int, String, (Expression) -> Expression) -> Statement.ForUpdate,
+        // Called computeForUpdate(initialValue, counterName, intToExpression)
+        computeForUpdate: (Int, String, (Int) -> Expression) -> Statement.ForUpdate,
     ): Triple<Statement.ForInit, Expression, Statement.ForUpdate> {
-        val typeCast =
-            mapOf<Type, (Expression) -> Expression>(
-                Type.I32 to { it },
-                Type.U32 to { Expression.U32ValueConstructor(listOf(it)) },
+        val intToExpressionWithType =
+            mapOf<Type, (Int) -> Expression>(
+                Type.I32 to { Expression.IntLiteral(it.toString() + "i") },
+                Type.U32 to { Expression.IntLiteral(it.toString() + "u") },
             )
 
         val initialValue = fuzzerSettings.randomInt(1000)
         val finalValue = computeFinalValue(initialValue)
         check(finalValue >= 0) { "computeFinalValue must return a value greater than or equal to 0" }
 
-        val counterName = "counter_$counterName"
         val type = fuzzerSettings.randomElement(Type.I32, Type.U32)
 
         val init =
@@ -249,14 +248,14 @@ private class ControlFlowWrapping(
                 initializer =
                     generateKnownValueExpression(
                         depth = depth + 1,
-                        knownValue = Expression.IntLiteral(initialValue.toString()),
+                        knownValue = intToExpressionWithType[type]!!(initialValue),
                         type = type,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
                     ),
             )
 
-        val update: Statement.ForUpdate = computeForUpdate(initialValue, counterName, typeCast[type]!!)
+        val update: Statement.ForUpdate = computeForUpdate(initialValue, counterName, intToExpressionWithType[type]!!)
 
         val condition =
             binaryExpressionRandomOperandOrder(
@@ -271,7 +270,7 @@ private class ControlFlowWrapping(
                 operand2 =
                     generateKnownValueExpression(
                         depth = depth + 1,
-                        knownValue = Expression.IntLiteral(finalValue.toString()),
+                        knownValue = intToExpressionWithType[type]!!(finalValue),
                         type = type,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,

@@ -675,11 +675,15 @@ class AstWriter(
         }
     }
 
-    private fun emitStatementCompound(compound: Statement.Compound) {
+    private fun emitStatementCompound(compound: Statement.ICompound) {
         with(compound) {
             emitIndent()
             out.print("{\n")
             increaseIndent()
+            if (compound is AugmentedStatement.ControlFlowWrapperOriginalStatements) {
+                emitIndent()
+                out.print("/* wrapped original statements: */\n")
+            }
             statements.forEach(::emitStatement)
             decreaseIndent()
             emitIndent()
@@ -902,7 +906,7 @@ class AstWriter(
                 emitIndent()
                 out.print("break;\n")
             }
-            is Statement.Compound -> emitStatementCompound(statement)
+            is Statement.ICompound -> emitStatementCompound(statement)
             is Statement.ConstAssert -> emitStatementConstAssert(statement)
             is Statement.Continue -> {
                 emitIndent()

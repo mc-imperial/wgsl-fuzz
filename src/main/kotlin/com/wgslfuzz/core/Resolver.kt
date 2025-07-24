@@ -235,7 +235,7 @@ private class ResolvedEnvironmentImpl(
     }
 
     fun recordScopeAvailableAtEndOfCompound(
-        compound: Statement.Compound,
+        compound: Statement.ICompound,
         scope: Scope,
     ) {
         assert(compound !in scopeAvailableAtEndOfEachCompound.keys)

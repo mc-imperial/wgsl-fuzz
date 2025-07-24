@@ -329,7 +329,10 @@ private fun cloneHelper(
             is AugmentedStatement.ControlFlowWrapper ->
                 AugmentedStatement.ControlFlowWrapper(
                     statement.clone(replacements),
-                    originalStatement.clone(replacements),
+                )
+            is AugmentedStatement.ControlFlowWrapperOriginalStatements ->
+                AugmentedStatement.ControlFlowWrapperOriginalStatements(
+                    statements.clone(replacements),
                 )
         }
     }

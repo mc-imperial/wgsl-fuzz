@@ -268,7 +268,7 @@ sealed interface GlobalDecl : AstNode {
         val parameters: List<ParameterDecl>,
         val returnAttributes: List<Attribute> = emptyList(),
         val returnType: TypeDecl? = null,
-        val body: Statement.Compound,
+        val body: Statement.ICompound,
     ) : GlobalDecl
 
     @Serializable
@@ -926,15 +926,20 @@ sealed interface Statement : AstNode {
     ) : Statement
 
     @Serializable
+    sealed interface ICompound : ElseBranch {
+        val statements: List<Statement>
+    }
+
+    @Serializable
     class Compound(
-        val statements: List<Statement>,
-    ) : ElseBranch
+        override val statements: List<Statement>,
+    ) : ICompound
 
     @Serializable
     class If(
         val attributes: List<Attribute> = emptyList(),
         val condition: Expression,
-        val thenBranch: Compound,
+        val thenBranch: ICompound,
         val elseBranch: ElseBranch? = null,
     ) : ElseBranch
 
@@ -950,7 +955,7 @@ sealed interface Statement : AstNode {
     class Loop(
         val attributesAtStart: List<Attribute> = emptyList(),
         val attributesBeforeBody: List<Attribute> = emptyList(),
-        val body: Compound,
+        val body: ICompound,
         val continuingStatement: ContinuingStatement? = null,
     ) : Statement
 
@@ -960,14 +965,14 @@ sealed interface Statement : AstNode {
         val init: ForInit? = null,
         val condition: Expression? = null,
         val update: ForUpdate? = null,
-        val body: Compound,
+        val body: ICompound,
     ) : Statement
 
     @Serializable
     class While(
         val attributes: List<Attribute> = emptyList(),
         val condition: Expression,
-        val body: Compound,
+        val body: ICompound,
     ) : Statement
 
     @Serializable
@@ -1005,7 +1010,7 @@ sealed interface Statement : AstNode {
 @Serializable
 class ContinuingStatement(
     val attributes: List<Attribute> = emptyList(),
-    val statements: Statement.Compound,
+    val statements: Statement.ICompound,
     val breakIfExpr: Expression? = null,
 ) : AstNode
 
@@ -1021,7 +1026,7 @@ class ContinuingStatement(
 @Serializable
 class SwitchClause(
     val caseSelectors: List<Expression?>,
-    val compoundStatement: Statement.Compound,
+    val compoundStatement: Statement.ICompound,
 ) : AstNode
 
 /**
@@ -1176,10 +1181,12 @@ sealed interface AugmentedStatement :
 
     @Serializable
     class ControlFlowWrapper(
-        // statement contains originalStatement in itself.
-        // To reverse the transformation just get the original statement via originalStatement.statement.
-        // Then potentially flatten the structure.
         val statement: Statement,
-        val originalStatement: Statement.Compound,
     ) : AugmentedStatement
+
+    @Serializable
+    class ControlFlowWrapperOriginalStatements(
+        override val statements: List<Statement>,
+    ) : AugmentedStatement,
+        Statement.ICompound
 }
