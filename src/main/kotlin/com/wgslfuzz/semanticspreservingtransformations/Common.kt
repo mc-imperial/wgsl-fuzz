@@ -48,6 +48,8 @@ interface FuzzerSettings {
 
     fun <T> randomElement(list: List<T>) = list[randomInt(list.size)]
 
+    fun <T> randomElement(vararg elements: T): T = randomElement(elements.toList())
+
     data class FalseByConstructionWeights(
         val plainFalse: (depth: Int) -> Int = { 1 },
         val falseAndArbitrary: (depth: Int) -> Int = { 3 },
@@ -93,6 +95,15 @@ interface FuzzerSettings {
     val knownValueWeights: KnownValueWeights
         get() = KnownValueWeights()
 
+    data class ControlFlowWrappingWeights(
+        val ifTrueWrapping: Int = 1,
+        val ifFalseWrapping: Int = 1,
+        val singleIterForLoop: Int = 1,
+    )
+
+    val controlFlowWrappingWeights: ControlFlowWrappingWeights
+        get() = ControlFlowWrappingWeights()
+
     fun injectDeadBreak(): Boolean = randomInt(100) < 50
 
     fun injectDeadContinue(): Boolean = randomInt(100) < 50
@@ -102,6 +113,8 @@ interface FuzzerSettings {
     fun injectDeadReturn(): Boolean = randomInt(100) < 50
 
     fun applyIdentityOperation(): Boolean = randomInt(100) < 50
+
+    fun controlFlowWrap(): Boolean = randomInt(100) < 50
 }
 
 class DefaultFuzzerSettings(
@@ -815,7 +828,7 @@ private fun absExpression(expression: Expression) =
         args = listOf(expression),
     )
 
-private fun binaryExpressionRandomOperandOrder(
+fun binaryExpressionRandomOperandOrder(
     fuzzerSettings: FuzzerSettings,
     operator: BinaryOperator,
     operand1: Expression,

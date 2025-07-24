@@ -1173,4 +1173,13 @@ sealed interface AugmentedStatement :
     class DeadCodeFragment(
         val statement: Statement,
     ) : AugmentedStatement
+
+    @Serializable
+    class ControlFlowWrapper(
+        // statement contains originalStatement in itself.
+        // To reverse the transformation just get the original statement via originalStatement.statement.
+        // Then potentially flatten the structure.
+        val statement: Statement,
+        val originalStatement: Statement.Compound,
+    ) : AugmentedStatement
 }

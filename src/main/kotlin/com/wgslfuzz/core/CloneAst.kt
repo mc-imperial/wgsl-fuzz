@@ -28,7 +28,7 @@ package com.wgslfuzz.core
 @Suppress("UNCHECKED_CAST")
 fun <T : AstNode> T.clone(replacements: (AstNode) -> AstNode? = { null }): T = cloneHelper(this, replacements) as T
 
-private fun <T : AstNode> List<T>.clone(replacements: (AstNode) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
+fun <T : AstNode> List<T>.clone(replacements: (AstNode) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
 
 private fun cloneHelper(
     node: AstNode,
@@ -325,6 +325,11 @@ private fun cloneHelper(
                 AugmentedExpression.KnownValue(
                     knownValue.clone(replacements),
                     expression.clone(replacements),
+                )
+            is AugmentedStatement.ControlFlowWrapper ->
+                AugmentedStatement.ControlFlowWrapper(
+                    statement.clone(replacements),
+                    originalStatement.clone(replacements),
                 )
         }
     }

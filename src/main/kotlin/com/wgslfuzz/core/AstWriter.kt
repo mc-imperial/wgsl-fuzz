@@ -886,6 +886,12 @@ class AstWriter(
         emitStatement(deadCodeFragment.statement)
     }
 
+    private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
+        emitIndent()
+        out.print("/* control flow wrapped: */\n")
+        emitStatement(statement.statement)
+    }
+
     private fun emitStatement(
         statement: Statement,
         inForLoopHeader: Boolean = false,
@@ -922,6 +928,7 @@ class AstWriter(
             is Statement.Variable -> emitStatementVariable(statement, inForLoopHeader)
             is Statement.While -> emitStatementWhile(statement)
             is AugmentedStatement.DeadCodeFragment -> emitMetamorphicStatementDeadCodeFragment(statement)
+            is AugmentedStatement.ControlFlowWrapper -> emitMetamorphicStatementControlFlowWrapped(statement)
         }
     }
 
