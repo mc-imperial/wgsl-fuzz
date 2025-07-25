@@ -230,7 +230,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                     }
                 return Statement.Compound(
                     statements = newStatements,
-                    metadata = node.metadata?.clone(),
+                    metadata = node.metadata,
                 )
             }
 
