@@ -30,6 +30,9 @@ fun <T : AstNode> T.clone(replacements: (AstNode) -> AstNode? = { null }): T = c
 
 fun <T : AstNode> List<T>.clone(replacements: (AstNode) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
 
+fun <T : AugmentedMetadata> T.clone(replacements: (AugmentedMetadata) -> AugmentedMetadata? = { null }): T =
+    cloneHelper(this, replacements) as T
+
 private fun cloneHelper(
     node: AstNode,
     replacements: (AstNode) -> AstNode?,
@@ -204,7 +207,7 @@ private fun cloneHelper(
             is Statement.ConstAssert -> Statement.ConstAssert(expression.clone(replacements))
             is Statement.Continue -> Statement.Continue()
             is Statement.Discard -> Statement.Discard()
-            is Statement.Compound -> Statement.Compound(statements.clone(replacements))
+            is Statement.Compound -> Statement.Compound(statements.clone(replacements), metadata?.clone())
             is Statement.If ->
                 Statement.If(
                     attributes.clone(replacements),
@@ -329,10 +332,17 @@ private fun cloneHelper(
             is AugmentedStatement.ControlFlowWrapper ->
                 AugmentedStatement.ControlFlowWrapper(
                     statement.clone(replacements),
+                    id,
                 )
-            is AugmentedStatement.ControlFlowWrapperOriginalStatements ->
-                AugmentedStatement.ControlFlowWrapperOriginalStatements(
-                    statements.clone(replacements),
-                )
+        }
+    }
+
+private fun cloneHelper(
+    metadata: AugmentedMetadata,
+    replacements: (AugmentedMetadata) -> AugmentedMetadata?,
+): AugmentedMetadata =
+    replacements(metadata) ?: with(metadata) {
+        when (metadata) {
+            is AugmentedMetadata.ControlFlowWrapperMetaData -> AugmentedMetadata.ControlFlowWrapperMetaData(metadata.id)
         }
     }

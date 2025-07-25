@@ -38,6 +38,8 @@ private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 1.0 / (currentDepth.toDouble() + 1.0)
 
+    fun getUniqueId(): Int
+
     // Yields a random integer in the range [0, limit)
     fun randomInt(limit: Int): Int
 
@@ -120,6 +122,13 @@ interface FuzzerSettings {
 class DefaultFuzzerSettings(
     private val generator: Random,
 ) : FuzzerSettings {
+    private var nextId: Int = 0
+
+    override fun getUniqueId(): Int {
+        nextId++
+        return nextId
+    }
+
     override fun randomInt(limit: Int): Int = generator.nextInt(limit)
 
     override fun randomDouble(): Double = generator.nextDouble()

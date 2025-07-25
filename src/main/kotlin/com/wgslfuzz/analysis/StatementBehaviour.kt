@@ -188,7 +188,6 @@ private fun statementBehaviour(
             // NON-STANDARD: the code here is statically unreachable so has behaviour next.
             is AugmentedStatement.DeadCodeFragment -> setOf(StatementBehaviour.NEXT)
             is AugmentedStatement.ControlFlowWrapper -> setOf(StatementBehaviour.NEXT)
-            is AugmentedStatement.ControlFlowWrapperOriginalStatements -> setOf(StatementBehaviour.NEXT)
         }
 
     behaviourMap.put(statement, behaviour)

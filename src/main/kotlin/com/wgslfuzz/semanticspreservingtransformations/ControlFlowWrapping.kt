@@ -2,6 +2,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AssignmentOperator
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.ContinuingStatement
@@ -68,11 +69,14 @@ private class ControlFlowWrapping(
         val containsBreakOrContinue =
             originalStatements.any { stmt -> astNodeAny(stmt) { it is Statement.Break || it is Statement.Continue } }
 
+        val uniqueId = fuzzerSettings.getUniqueId()
+
         val originalStatementCompound =
-            AugmentedStatement.ControlFlowWrapperOriginalStatements(
+            Statement.Compound(
                 originalStatements.clone {
                     injectControlFlowWrapper(it, injections)
                 },
+                metadata = AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId),
             )
         val scope = shaderJob.environment.scopeAvailableBefore(originalStatements[0])
 
@@ -95,6 +99,7 @@ private class ControlFlowWrapping(
 
                     AugmentedStatement.ControlFlowWrapper(
                         statement = wrappedStatement,
+                        id = uniqueId,
                     )
                 },
                 fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping to {
@@ -113,6 +118,7 @@ private class ControlFlowWrapping(
                         )
                     AugmentedStatement.ControlFlowWrapper(
                         statement = wrappedStatement,
+                        id = uniqueId,
                     )
                 },
                 if (containsBreakOrContinue) {
@@ -202,6 +208,7 @@ private class ControlFlowWrapping(
                             )
                         AugmentedStatement.ControlFlowWrapper(
                             statement = wrappedStatement,
+                            id = uniqueId,
                         )
                     }
                 },
