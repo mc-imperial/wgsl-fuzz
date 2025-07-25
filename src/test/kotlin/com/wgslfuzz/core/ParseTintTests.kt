@@ -96,7 +96,11 @@ class ParseTintTests {
                 // texel_buffers cannot be found within the WGSL specification. It is a proposal
                 // which is under active development and has not been standardised yet.
                 // Link to proposal: https://github.com/gpuweb/gpuweb/blob/main/proposals/texel-buffers.md
-                text.contains("texel_buffers")
+                text.contains("texel_buffers") ||
+                // Matches the regex for print(<anything>)
+                // Requires chromium_print language feature to be enabled
+                // Link to commit to add print is: https://dawn.googlesource.com/dawn/+/b991ae2b06e441a50072dea2835242df3a577612
+                Regex("print\\(.*\\)").containsMatchIn(text)
             ) {
                 return@forEach
             }
