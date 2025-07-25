@@ -685,7 +685,7 @@ class AstWriter(
                     emitIndent()
                     out.print("/* wrapped original statements: */\n")
                 }
-                null -> {}
+                else -> {}
             }
             statements.forEach(::emitStatement)
             decreaseIndent()
