@@ -37,31 +37,19 @@ private class ControlFlowWrapping(
 
                 if (node.statements.isEmpty() || !fuzzerSettings.controlFlowWrap()) return
 
-                val allPossibleAcceptableSectionsOfStatements = (0..<node.statements.size).map { it to node.statements.size }
-//                    // All possible sublists of contiguous sections of stmts
-//                    (0..<node.statements.size)
-//                        .asSequence()
-//                        .flatMap { i ->
-//                            (i + 1..node.statements.size).asSequence().map { j -> Pair(i, j) }
-//                        }
-//                        // Removes sublists of stmts which have variables declared in them which are used after in the scope
-//                        .filter { (x, y) ->
-//                            val declaredVariableNamesInStmts =
-//                                node.statements.subList(x, y).mapNotNull { stmt ->
-//                                    when (stmt) {
-//                                        is Statement.Variable -> stmt.name
-//                                        is Statement.Value -> stmt.name
-//                                        else -> null
-//                                    }
-//                                }
-//
-//                            y == node.statements.size ||
-//                                !node.statements.subList(y + 1, node.statements.size).any { stmt ->
-//                                    astNodeAny(stmt) { node ->
-//                                        node is Expression.Identifier && node.name in declaredVariableNamesInStmts
-//                                    }
-//                                }
-//                        }.toList()
+                val allPossibleAcceptableSectionsOfStatements =
+                    // All possible sublists of contiguous sections of stmts
+                    (0..<node.statements.size)
+                        .asSequence()
+                        .flatMap { i ->
+                            var x = node.statements.size
+                            while (x - 1 > i &&
+                                checkDeclarations(node.statements.subList(i, x - 1), node.statements.subList(x - 1, node.statements.size))
+                            ) {
+                                x--
+                            }
+                            (x..node.statements.size).asSequence().map { j -> Pair(i, j) }
+                        }.toList()
 
                 injections[node] = fuzzerSettings.randomElement(allPossibleAcceptableSectionsOfStatements)
             }
@@ -299,6 +287,35 @@ private class ControlFlowWrapping(
         checkNode(node)
 
         return predicateResult
+    }
+
+    private fun checkDeclarations(
+        declarations: List<Statement>,
+        statementsToCheck: List<Statement>,
+    ): Boolean {
+        val variableNamesDeclared =
+            declarations
+                .mapNotNull {
+                    when (it) {
+                        is Statement.Variable -> it.name
+                        is Statement.Value -> it.name
+                        else -> null
+                    }
+                }.toSet()
+
+        for (statement in statementsToCheck) {
+            if (astNodeAny(statement) {
+                    when (it) {
+                        is LhsExpression.Identifier -> it.name in variableNamesDeclared
+                        is Expression.Identifier -> it.name in variableNamesDeclared
+                        else -> false
+                    }
+                }
+            ) {
+                return false
+            }
+        }
+        return true
     }
 
     // Similar to injectDeadJumps
