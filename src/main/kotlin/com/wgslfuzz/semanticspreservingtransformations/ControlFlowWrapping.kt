@@ -126,77 +126,77 @@ private class ControlFlowWrapping(
                 } else {
                     // Single iteration for loop control flow wrapper
                     fuzzerSettings.controlFlowWrappingWeights.singleIterForLoop to {
-                        val (init, condition, update) =
-                            fuzzerSettings.randomElement(
-                                listOf<() -> Triple<Statement.ForInit, Expression, Statement.ForUpdate>>(
-                                    {
-                                        // A loop which uses addition to update the loop counter
-                                        val updateValue = fuzzerSettings.randomInt(1000) + 1
-                                        integerCounterForLoop(
-                                            counterName = "counter_${abs(originalStatements.hashCode())}",
-                                            depth = depth,
-                                            computeFinalValue = { initialValue ->
-                                                initialValue + updateValue
-                                            },
-                                            computeForUpdate = { initialValue, counterName, intToExpression ->
+                        val forLoopInitConditionUpdateChoices:
+                            List<Pair<Int, () -> Triple<Statement.ForInit, Expression, Statement.ForUpdate>>> =
+                            listOf(
+                                1 to {
+                                    // A loop which uses addition to update the loop counter
+                                    val updateValue = fuzzerSettings.randomInt(1000) + 1
+                                    integerCounterForLoop(
+                                        counterName = "counter_${abs(originalStatements.hashCode())}",
+                                        depth = depth,
+                                        computeFinalValue = { initialValue ->
+                                            initialValue + updateValue
+                                        },
+                                        computeForUpdate = { initialValue, counterName, intToExpression ->
+                                            Statement.Assignment(
+                                                lhsExpression = LhsExpression.Identifier(counterName),
+                                                assignmentOperator = AssignmentOperator.PLUS_EQUAL,
+                                                rhs = intToExpression(updateValue),
+                                            )
+                                        },
+                                    )
+                                },
+                                1 to {
+                                    // A loop which uses subtraction to update the loop counter
+                                    val updateValue = fuzzerSettings.randomInt(1000) + 1
+                                    integerCounterForLoop(
+                                        counterName = "counter_${abs(originalStatements.hashCode())}",
+                                        depth = depth,
+                                        computeFinalValue = { initialValue ->
+                                            if (initialValue > updateValue) {
+                                                initialValue - updateValue
+                                            } else {
+                                                updateValue - initialValue
+                                            }
+                                        },
+                                        computeForUpdate = { initialValue, counterName, intToExpression ->
+                                            if (initialValue > updateValue) {
                                                 Statement.Assignment(
                                                     lhsExpression = LhsExpression.Identifier(counterName),
-                                                    assignmentOperator = AssignmentOperator.PLUS_EQUAL,
+                                                    assignmentOperator = AssignmentOperator.MINUS_EQUAL,
                                                     rhs = intToExpression(updateValue),
                                                 )
-                                            },
-                                        )
-                                    },
-                                    {
-                                        // A loop which uses subtraction to update the loop counter
-                                        val updateValue = fuzzerSettings.randomInt(1000) + 1
-                                        integerCounterForLoop(
-                                            counterName = "counter_${abs(originalStatements.hashCode())}",
-                                            depth = depth,
-                                            computeFinalValue = { initialValue ->
-                                                if (initialValue > updateValue) {
-                                                    initialValue - updateValue
-                                                } else {
-                                                    updateValue - initialValue
-                                                }
-                                            },
-                                            computeForUpdate = { initialValue, counterName, intToExpression ->
-                                                if (initialValue > updateValue) {
-                                                    Statement.Assignment(
-                                                        lhsExpression = LhsExpression.Identifier(counterName),
-                                                        assignmentOperator = AssignmentOperator.MINUS_EQUAL,
-                                                        rhs = intToExpression(updateValue),
-                                                    )
-                                                } else {
-                                                    Statement.Assignment(
-                                                        lhsExpression = LhsExpression.Identifier(counterName),
-                                                        assignmentOperator = AssignmentOperator.EQUAL,
-                                                        rhs =
-                                                            Expression.Binary(
-                                                                operator = BinaryOperator.MINUS,
-                                                                lhs = intToExpression(updateValue),
-                                                                rhs = Expression.Identifier(counterName),
-                                                            ),
-                                                    )
-                                                }
-                                            },
-                                        )
-                                    },
-                                    {
-                                        // A simple loop which increments the loop counter
-                                        integerCounterForLoop(
-                                            counterName = "counter_${abs(originalStatements.hashCode())}",
-                                            depth = depth,
-                                            computeFinalValue = { initialValue ->
-                                                initialValue + 1
-                                            },
-                                            computeForUpdate = { _, counterName, _ ->
-                                                Statement.Increment(LhsExpression.Identifier(counterName))
-                                            },
-                                        )
-                                    },
-                                ),
-                            )()
+                                            } else {
+                                                Statement.Assignment(
+                                                    lhsExpression = LhsExpression.Identifier(counterName),
+                                                    assignmentOperator = AssignmentOperator.EQUAL,
+                                                    rhs =
+                                                        Expression.Binary(
+                                                            operator = BinaryOperator.MINUS,
+                                                            lhs = intToExpression(updateValue),
+                                                            rhs = Expression.Identifier(counterName),
+                                                        ),
+                                                )
+                                            }
+                                        },
+                                    )
+                                },
+                                1 to {
+                                    // A simple loop which increments the loop counter
+                                    integerCounterForLoop(
+                                        counterName = "counter_${abs(originalStatements.hashCode())}",
+                                        depth = depth,
+                                        computeFinalValue = { initialValue ->
+                                            initialValue + 1
+                                        },
+                                        computeForUpdate = { _, counterName, _ ->
+                                            Statement.Increment(LhsExpression.Identifier(counterName))
+                                        },
+                                    )
+                                },
+                            )
+                        val (init, condition, update) = choose(fuzzerSettings, forLoopInitConditionUpdateChoices)
 
                         val wrappedStatement =
                             Statement.For(
