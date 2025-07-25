@@ -46,9 +46,9 @@ private class ControlFlowWrapping(
             is Statement.Compound -> {
                 traverseSubExpression(node)
 
-                if (node.statements.isEmpty() || !fuzzerSettings.controlFlowWrap()) return
+                if (node.statements.isEmpty()) return
 
-                val allPossibleAcceptableSectionsOfStatements =
+                var allPossibleAcceptableSectionsOfStatements =
                     // All possible sublists of contiguous sections of stmts
                     (0..<node.statements.size)
                         .asSequence()
@@ -62,7 +62,12 @@ private class ControlFlowWrapping(
                             (x..node.statements.size).asSequence().map { j -> Pair(i, j) }
                         }.toList()
 
-                injections[node] = fuzzerSettings.randomElement(allPossibleAcceptableSectionsOfStatements)
+                while (fuzzerSettings.controlFlowWrap() && allPossibleAcceptableSectionsOfStatements.isNotEmpty()) {
+                    val injectionLocation = fuzzerSettings.randomElement(allPossibleAcceptableSectionsOfStatements)
+                    injections[node] = injectionLocation
+                    allPossibleAcceptableSectionsOfStatements =
+                        removeOverLapping(injectionLocation, allPossibleAcceptableSectionsOfStatements)
+                }
             }
 
             // Potential future issue: Continuing statements must not contain a return within their body.
@@ -72,6 +77,11 @@ private class ControlFlowWrapping(
             else -> traverseSubExpression(node)
         }
     }
+
+    private fun removeOverLapping(
+        indexRange: Pair<Int, Int>,
+        ranges: List<Pair<Int, Int>>,
+    ): List<Pair<Int, Int>> = ranges.filter { indexRange.second <= it.first || it.second <= indexRange.first }
 
     private fun wrapInControlFlow(
         originalStatements: List<Statement>,
