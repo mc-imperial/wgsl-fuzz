@@ -110,6 +110,9 @@ fun <T> traverse(
         is AugmentedExpression.TrueByConstruction -> {
             actionWithState(node.trueExpression)
         }
+        is AugmentedExpression.ArbitraryExpression -> {
+            actionWithState(node.expression)
+        }
         is AugmentedExpression.AddZero -> {
             actionWithState(node.originalExpression)
             actionWithState(node.zeroExpression)
