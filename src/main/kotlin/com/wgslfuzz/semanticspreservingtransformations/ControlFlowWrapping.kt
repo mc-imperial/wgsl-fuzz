@@ -28,11 +28,6 @@ private class ControlFlowWrapping(
     ) {
         val traverseSubExpression = { node: AstNode -> traverse(::selectStatementsToControlFlowWrap, node, injections) }
         when (node) {
-            is Statement.Switch -> return // TODO()
-            is SwitchClause -> return // TODO()
-
-            is ContinuingStatement -> return // TODO()
-
             is Statement.Compound -> {
                 traverseSubExpression(node)
 
@@ -54,6 +49,10 @@ private class ControlFlowWrapping(
 
                 injections[node] = fuzzerSettings.randomElement(allPossibleAcceptableSectionsOfStatements)
             }
+
+            // Potential future issue: Continuing statements must not contain a return within their body.
+            // https://www.w3.org/TR/WGSL/#continuing-statement
+            is ContinuingStatement -> traverseSubExpression(node)
 
             else -> traverseSubExpression(node)
         }
