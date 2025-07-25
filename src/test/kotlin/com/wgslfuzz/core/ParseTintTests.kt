@@ -22,11 +22,11 @@ import java.io.File
 import java.io.PrintStream
 
 class ParseTintTests {
-    // This test, commented out by default, is useful if you want to check a specific WGSL test case during debugging.
-    @Test
-    fun checkSpecificWgslTest() {
-        checkWgslTest("external/dawn/test/tint/builtins/gen/literal/print/13415a.wgsl")
-    }
+//    // This test, commented out by default, is useful if you want to check a specific WGSL test case during debugging.
+//    @Test
+//    fun checkSpecificWgslTest() {
+//        checkWgslTest("external/dawn/test/...")
+//    }
 
     @Test
     fun parseTintTests() {
@@ -98,6 +98,7 @@ class ParseTintTests {
                 // Link to proposal: https://github.com/gpuweb/gpuweb/blob/main/proposals/texel-buffers.md
                 text.contains("texel_buffers") ||
                 // Matches the regex for print(<anything>)
+                // Requires chromium_print language feature to be enabled
                 // Link to commit to add print is: https://dawn.googlesource.com/dawn/+/b991ae2b06e441a50072dea2835242df3a577612
                 Regex("print\\(.*\\)").containsMatchIn(text)
             ) {
