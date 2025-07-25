@@ -12,6 +12,7 @@ fun generateArbitraryElseBranch(
     scope: Scope,
 ): Statement.ElseBranch? = null
 
+// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/186)
 fun generateArbitraryCompound(
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
