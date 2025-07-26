@@ -350,7 +350,7 @@ private class ControlFlowWrapping(
                 i++
             }
 
-            Statement.Compound(newBody)
+            Statement.Compound(newBody, compound.metadata)
         }
 
     fun apply(): ShaderJob {

@@ -90,7 +90,7 @@ private class InjectDeadBreaksContinues(
                     )
                 }
             }
-            Statement.Compound(newBody)
+            Statement.Compound(newBody, compound.metadata)
         }
 
     private fun createDeadStatement(scope: Scope): AugmentedStatement.DeadCodeFragment {

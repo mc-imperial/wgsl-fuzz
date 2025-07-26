@@ -152,7 +152,7 @@ private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>
                         }
                         newStatements.add(node.statements[i])
                     }
-                    Statement.Compound(newStatements)
+                    Statement.Compound(newStatements, node.metadata)
                 }
             },
             originalShaderJob.pipelineState,
