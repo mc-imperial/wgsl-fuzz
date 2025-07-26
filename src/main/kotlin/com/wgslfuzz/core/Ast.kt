@@ -928,6 +928,7 @@ sealed interface Statement : AstNode {
     @Serializable
     class Compound(
         val statements: List<Statement>,
+        val metadata: AugmentedMetadata? = null,
     ) : ElseBranch
 
     @Serializable
@@ -1173,4 +1174,18 @@ sealed interface AugmentedStatement :
     class DeadCodeFragment(
         val statement: Statement,
     ) : AugmentedStatement
+
+    @Serializable
+    class ControlFlowWrapper(
+        val statement: Statement,
+        val id: Int,
+    ) : AugmentedStatement
+}
+
+@Serializable
+sealed interface AugmentedMetadata {
+    @Serializable
+    data class ControlFlowWrapperMetaData(
+        val id: Int,
+    ) : AugmentedMetadata
 }

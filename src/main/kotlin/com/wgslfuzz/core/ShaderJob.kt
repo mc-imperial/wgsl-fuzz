@@ -185,7 +185,7 @@ fun createShaderJob(
         val bufferBytes: List<UByte> = uniformBuffer.data.map(Int::toUByte)
 
         val uniformType: Type = getUniformStoreType(environment, tu.getUniformDeclaration(group, binding))
-        println(uniformType)
+//        println(uniformType)
 
         val (literalExpr, newBufferByteIndex) =
             literalExprFromBytes(

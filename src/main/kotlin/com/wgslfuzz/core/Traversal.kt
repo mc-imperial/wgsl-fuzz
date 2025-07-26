@@ -243,6 +243,9 @@ fun <T> traverse(
         is AugmentedStatement.DeadCodeFragment -> {
             actionWithState(node.statement)
         }
+        is AugmentedStatement.ControlFlowWrapper -> {
+            actionWithState(node.statement)
+        }
         is StructMember -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.typeDecl)

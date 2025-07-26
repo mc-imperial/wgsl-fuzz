@@ -90,7 +90,7 @@ private class InjectDeadReturns(
                         )
                     }
                 }
-                Statement.Compound(newBody)
+                Statement.Compound(newBody, compound.metadata)
             }
         }
 
