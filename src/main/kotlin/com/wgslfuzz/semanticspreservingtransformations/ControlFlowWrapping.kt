@@ -28,6 +28,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
+import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
 import java.util.SortedSet
 import kotlin.math.abs
@@ -92,7 +93,7 @@ private class ControlFlowWrapping(
         require(originalStatements.isNotEmpty()) { "Cannot control flow wrap an empty list of statements" }
 
         val containsBreakOrContinue =
-            originalStatements.any { stmt -> astNodeAny(stmt) { it is Statement.Break || it is Statement.Continue } }
+            originalStatements.any { stmt -> nodesPreOrder(stmt).any { it is Statement.Break || it is Statement.Continue } }
 
         val uniqueId = fuzzerSettings.getUniqueId()
 
@@ -300,27 +301,6 @@ private class ControlFlowWrapping(
         return Triple(init, condition, update)
     }
 
-    /**
-     * Similar to the `any` function for lists
-     */
-    private fun astNodeAny(
-        node: AstNode,
-        predicate: (AstNode) -> Boolean,
-    ): Boolean {
-        var predicateResult = false
-
-        fun checkNode(node: AstNode) {
-            predicateResult = predicateResult || predicate(node)
-            if (!predicateResult) {
-                traverse({ node, unusedState -> checkNode(node) }, node, null)
-            }
-        }
-
-        checkNode(node)
-
-        return predicateResult
-    }
-
     private fun checkDeclarations(
         declarations: List<Statement>,
         statementsToCheck: List<Statement>,
@@ -335,19 +315,15 @@ private class ControlFlowWrapping(
                     }
                 }.toSet()
 
-        for (statement in statementsToCheck) {
-            if (astNodeAny(statement) {
-                    when (it) {
-                        is LhsExpression.Identifier -> it.name in variableNamesDeclared
-                        is Expression.Identifier -> it.name in variableNamesDeclared
-                        else -> false
-                    }
+        return statementsToCheck.all { statement ->
+            !nodesPreOrder(statement).any {
+                when (it) {
+                    is LhsExpression.Identifier -> it.name in variableNamesDeclared
+                    is Expression.Identifier -> it.name in variableNamesDeclared
+                    else -> false
                 }
-            ) {
-                return false
             }
         }
-        return true
     }
 
     // Similar to injectDeadJumps
