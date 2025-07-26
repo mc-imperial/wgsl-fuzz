@@ -22,10 +22,10 @@ typealias MetamorphicTransformation = (shaderJob: ShaderJob, fuzzerSettings: Fuz
 
 val metamorphicTransformations: List<MetamorphicTransformation> =
     listOf(
-        ::addDeadDiscards,
-        ::addDeadBreaks,
-        ::addDeadContinues,
-        ::addDeadReturns,
-        ::addIdentityOperations,
+//        ::addDeadDiscards,
+//        ::addDeadBreaks,
+//        ::addDeadContinues,
+//        ::addDeadReturns,
+//        ::addIdentityOperations,
         ::controlFlowWrap,
     )

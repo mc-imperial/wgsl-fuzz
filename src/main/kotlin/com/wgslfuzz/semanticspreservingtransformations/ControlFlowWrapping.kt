@@ -29,9 +29,10 @@ import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
+import java.util.SortedSet
 import kotlin.math.abs
 
-private typealias ControlFlowWrappingsInjections = MutableMap<Statement.Compound, Pair<Int, Int>>
+private typealias ControlFlowWrappingsInjections = MutableMap<Statement.Compound, SortedSet<Pair<Int, Int>>>
 
 private class ControlFlowWrapping(
     private val shaderJob: ShaderJob,
@@ -64,7 +65,7 @@ private class ControlFlowWrapping(
 
                 while (fuzzerSettings.controlFlowWrap() && allPossibleAcceptableSectionsOfStatements.isNotEmpty()) {
                     val injectionLocation = fuzzerSettings.randomElement(allPossibleAcceptableSectionsOfStatements)
-                    injections[node] = injectionLocation
+                    injections.getOrPut(node) { sortedSetOf(compareBy { it.first }) }.add(injectionLocation)
                     allPossibleAcceptableSectionsOfStatements =
                         removeOverLapping(injectionLocation, allPossibleAcceptableSectionsOfStatements)
                 }
@@ -354,21 +355,26 @@ private class ControlFlowWrapping(
         node: AstNode,
         injections: ControlFlowWrappingsInjections,
     ): AstNode? =
-        injections[node]?.let { (x, y) ->
+        injections[node]?.let { locations ->
             val compound = node as Statement.Compound
-            if (x == 0 && y == compound.statements.size) {
-                Statement.Compound(listOf(wrapInControlFlow(node.statements, injections)))
-            } else {
-                val newBody = mutableListOf<Statement>()
-                for (i in 0 until compound.statements.size) {
-                    if (i !in x..<y) {
-                        newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections) })
-                    }
-                }
 
-                newBody.add(x, wrapInControlFlow(node.statements.subList(x, y), injections))
-                Statement.Compound(newBody)
+            val newBody = mutableListOf<Statement>()
+
+            var i = 0
+            for ((x, y) in locations) {
+                while (i < x) {
+                    newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections) })
+                    i++
+                }
+                newBody.add(wrapInControlFlow(node.statements.subList(x, y), injections))
+                i = y
             }
+            while (i < compound.statements.size) {
+                newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections) })
+                i++
+            }
+
+            Statement.Compound(newBody)
         }
 
     fun apply(): ShaderJob {
