@@ -32,6 +32,7 @@ import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
 import java.util.SortedSet
 import kotlin.math.abs
+import kotlin.random.Random
 
 private typealias ControlFlowWrappingsInjections = MutableMap<Statement.Compound, SortedSet<Pair<Int, Int>>>
 
@@ -50,25 +51,36 @@ private class ControlFlowWrapping(
 
                 if (node.statements.isEmpty()) return
 
-                var allPossibleAcceptableSectionsOfStatements =
-                    // All possible sublists of contiguous sections of stmts
+                var allPossibleAcceptableSectionsOfStatements: Sequence<Pair<Int, Lazy<Int>>> =
                     (0..<node.statements.size)
+                        // Sequence so that map operations is lazy when generating elements
                         .asSequence()
-                        .flatMap { i ->
-                            var x = node.statements.size
-                            while (x - 1 > i &&
-                                checkDeclarations(node.statements.subList(i, x - 1), node.statements.subList(x - 1, node.statements.size))
-                            ) {
-                                x--
-                            }
-                            (x..node.statements.size).asSequence().map { j -> Pair(i, j) }
-                        }.toList()
+                        // Performance note: shuffled creates a MutableList copy of the sequence and then lazily yields
+                        // values from this list.
+                        .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
+                        .map { i ->
+                            val j =
+                                lazy {
+                                    var x = node.statements.size
+                                    while (x - 1 > i &&
+                                        checkDeclarations(
+                                            declarations = node.statements.subList(i, x - 1),
+                                            statementsToCheck = node.statements.subList(x - 1, node.statements.size),
+                                        )
+                                    ) {
+                                        x--
+                                    }
+                                    x + fuzzerSettings.randomInt(node.statements.size - x + 1)
+                                }
+                            i to j
+                        }
 
-                while (fuzzerSettings.controlFlowWrap() && allPossibleAcceptableSectionsOfStatements.isNotEmpty()) {
-                    val injectionLocation = fuzzerSettings.randomElement(allPossibleAcceptableSectionsOfStatements)
+                while (fuzzerSettings.controlFlowWrap()) {
+                    val (x, yLazy) = allPossibleAcceptableSectionsOfStatements.firstOrNull() ?: break
+                    val injectionLocation: Pair<Int, Int> = Pair(x, yLazy.value)
                     injections.getOrPut(node) { sortedSetOf(compareBy { it.first }) }.add(injectionLocation)
                     allPossibleAcceptableSectionsOfStatements =
-                        removeOverLapping(injectionLocation, allPossibleAcceptableSectionsOfStatements)
+                        removeOverlapping(injectionLocation, allPossibleAcceptableSectionsOfStatements)
                 }
             }
 
@@ -80,10 +92,35 @@ private class ControlFlowWrapping(
         }
     }
 
-    private fun removeOverLapping(
+    private fun checkDeclarations(
+        declarations: List<Statement>,
+        statementsToCheck: List<Statement>,
+    ): Boolean {
+        val variableNamesDeclared =
+            declarations
+                .mapNotNull {
+                    when (it) {
+                        is Statement.Variable -> it.name
+                        is Statement.Value -> it.name
+                        else -> null
+                    }
+                }.toSet()
+
+        return statementsToCheck.all { statement ->
+            !nodesPreOrder(statement).any {
+                when (it) {
+                    is LhsExpression.Identifier -> it.name in variableNamesDeclared
+                    is Expression.Identifier -> it.name in variableNamesDeclared
+                    else -> false
+                }
+            }
+        }
+    }
+
+    private fun removeOverlapping(
         indexRange: Pair<Int, Int>,
-        ranges: List<Pair<Int, Int>>,
-    ): List<Pair<Int, Int>> = ranges.filter { indexRange.second <= it.first || it.second <= indexRange.first }
+        ranges: Sequence<Pair<Int, Lazy<Int>>>,
+    ): Sequence<Pair<Int, Lazy<Int>>> = ranges.filter { indexRange.second <= it.first || it.second.value <= indexRange.first }
 
     private fun wrapInControlFlow(
         originalStatements: List<Statement>,
@@ -299,31 +336,6 @@ private class ControlFlowWrapping(
             )
 
         return Triple(init, condition, update)
-    }
-
-    private fun checkDeclarations(
-        declarations: List<Statement>,
-        statementsToCheck: List<Statement>,
-    ): Boolean {
-        val variableNamesDeclared =
-            declarations
-                .mapNotNull {
-                    when (it) {
-                        is Statement.Variable -> it.name
-                        is Statement.Value -> it.name
-                        else -> null
-                    }
-                }.toSet()
-
-        return statementsToCheck.all { statement ->
-            !nodesPreOrder(statement).any {
-                when (it) {
-                    is LhsExpression.Identifier -> it.name in variableNamesDeclared
-                    is Expression.Identifier -> it.name in variableNamesDeclared
-                    else -> false
-                }
-            }
-        }
     }
 
     // Similar to injectDeadJumps
