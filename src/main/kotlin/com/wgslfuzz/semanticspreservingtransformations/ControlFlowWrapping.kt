@@ -342,6 +342,7 @@ private class ControlFlowWrapping(
 
         val type = fuzzerSettings.randomElement(Type.I32, Type.U32)
 
+        // Init expression that sets counter to initialValue
         val init =
             Statement.Variable(
                 name = counterName,
@@ -357,6 +358,7 @@ private class ControlFlowWrapping(
 
         val update: Statement.ForUpdate = computeForUpdate(initialValue, counterName, intToExpressionWithType[type]!!)
 
+        // condition expression that evaluates to false after running the loop.
         val condition =
             binaryExpressionRandomOperandOrder(
                 fuzzerSettings = fuzzerSettings,
