@@ -326,5 +326,9 @@ private fun cloneHelper(
                     knownValue.clone(replacements),
                     expression.clone(replacements),
                 )
+            is AugmentedExpression.ArbitraryExpression ->
+                AugmentedExpression.ArbitraryExpression(
+                    expression.clone(replacements),
+                )
         }
     }

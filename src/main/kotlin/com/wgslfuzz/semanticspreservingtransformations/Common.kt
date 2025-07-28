@@ -26,6 +26,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.UnaryOperator
+import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.evaluateToInt
 import com.wgslfuzz.core.getUniformDeclaration
@@ -33,7 +34,7 @@ import java.util.Random
 import kotlin.math.max
 import kotlin.math.truncate
 
-private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
+const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 4.0 / (currentDepth.toDouble() + 2.0) && currentDepth < 18
@@ -46,7 +47,10 @@ interface FuzzerSettings {
 
     fun randomBool(): Boolean
 
-    fun <T> randomElement(list: List<T>) = list[randomInt(list.size)]
+    fun <T> randomElement(list: List<T>): T {
+        require(list.isNotEmpty()) { "Cannot get random element of an empty list" }
+        return list[randomInt(list.size)]
+    }
 
     data class FalseByConstructionWeights(
         val plainFalse: (depth: Int) -> Int = { 1 },
@@ -93,6 +97,17 @@ interface FuzzerSettings {
     val knownValueWeights: KnownValueWeights
         get() = KnownValueWeights()
 
+    class ArbitraryBooleanExpressionWeights(
+        val not: (depth: Int) -> Int = { 1 },
+        val or: (depth: Int) -> Int = { 2 },
+        val and: (depth: Int) -> Int = { 2 },
+        val variableFromScope: (depth: Int) -> Int = { 1 },
+        val literal: (depth: Int) -> Int = { 1 },
+    )
+
+    val arbitraryBooleanExpressionWeights: ArbitraryBooleanExpressionWeights
+        get() = ArbitraryBooleanExpressionWeights()
+
     fun injectDeadBreak(): Boolean = randomInt(100) < 50
 
     fun injectDeadContinue(): Boolean = randomInt(100) < 50
@@ -126,6 +141,44 @@ fun <T> choose(
     }
     return fuzzerSettings.randomElement(functions)()
 }
+
+fun isVariableOfTypeInScope(
+    scope: Scope,
+    type: Type,
+): Boolean =
+    scope
+        .getAllEntries()
+        .any {
+            it is ScopeEntry.TypedDecl &&
+                it !is ScopeEntry.TypeAlias &&
+                it.type.asStoreTypeIfReference() == type
+        }
+
+fun randomVariableFromScope(
+    scope: Scope,
+    type: Type,
+    fuzzerSettings: FuzzerSettings,
+): Expression? {
+    val scopeEntries =
+        scope.getAllEntries().filter {
+            it is ScopeEntry.TypedDecl &&
+                it !is ScopeEntry.TypeAlias &&
+                it.type.asStoreTypeIfReference() == type
+        }
+
+    if (scopeEntries.isEmpty()) return null
+
+    return scopeEntryTypedDeclToExpression(
+        fuzzerSettings.randomElement(
+            scopeEntries,
+        ) as ScopeEntry.TypedDecl,
+    )
+}
+
+fun scopeEntryTypedDeclToExpression(scopeEntry: ScopeEntry.TypedDecl): Expression =
+    Expression.Identifier(
+        name = scopeEntry.declName,
+    )
 
 fun randomUniformScalarWithValue(
     shaderJob: ShaderJob,
@@ -413,18 +466,6 @@ fun generateTrueByConstructionExpression(
     shaderJob: ShaderJob,
     scope: Scope,
 ): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, shaderJob, scope)
-
-fun generateArbitraryExpression(
-    depth: Int,
-    type: Type,
-    sideEffectsAllowed: Boolean,
-    fuzzerSettings: FuzzerSettings,
-    shaderJob: ShaderJob,
-    scope: Scope,
-): Expression {
-    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
-    return constantWithSameValueEverywhere(1, type)
-}
 
 fun generateKnownValueExpression(
     depth: Int,
