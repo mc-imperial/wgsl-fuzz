@@ -84,6 +84,13 @@ sealed interface ScopeEntry {
 
 sealed interface Scope {
     fun getEntry(name: String): ScopeEntry?
+
+    /**
+     * Returns all the entries that can be accessible from this scope.
+     * If variable shadowing occurs in the scope it will not return the shadowed variables since they are not
+     * accessible.
+     */
+    fun getAllEntries(): List<ScopeEntry>
 }
 
 interface TypeOf {
@@ -167,6 +174,14 @@ private class ScopeImpl(
             .filterNotNull()
             .firstOrNull { it.first == name }
             ?.second
+
+    override fun getAllEntries(): List<ScopeEntry> =
+        scopeSequence()
+            .map { it.scopeEntry }
+            .filterNotNull()
+            .distinctBy { it.first }
+            .map { it.second }
+            .toList()
 
     fun pushScopeLevel(): ScopeImpl = ScopeImpl(previous = this, level = level + 1)
 
@@ -733,6 +748,7 @@ private fun resolveExpressionType(
         is AugmentedExpression.FalseByConstruction -> resolverState.typeOf(expression.falseExpression)
         is AugmentedExpression.TrueByConstruction -> resolverState.typeOf(expression.trueExpression)
         is AugmentedExpression.IdentityOperation -> resolverState.typeOf(expression.originalExpression)
+        is AugmentedExpression.ArbitraryExpression -> resolverState.typeOf(expression.expression)
         is AugmentedExpression.KnownValue -> {
             val knownValueType = resolverState.typeOf(expression.knownValue).asStoreTypeIfReference()
             val expressionType = resolverState.typeOf(expression.expression).asStoreTypeIfReference()
