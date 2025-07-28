@@ -38,6 +38,7 @@ private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 1.0 / (currentDepth.toDouble() + 1.0)
 
+    // Get a unique identifiers for transformation such as `ControlFlowWrapper`
     fun getUniqueId(): Int
 
     // Yields a random integer in the range [0, limit)
