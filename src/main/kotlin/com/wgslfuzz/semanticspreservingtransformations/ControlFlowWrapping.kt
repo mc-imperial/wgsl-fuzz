@@ -339,17 +339,21 @@ private class ControlFlowWrapping(
         // Called computeForUpdate(initialValue, counterName, intToExpression)
         computeForUpdate: (Int, String, (Int) -> Expression) -> Statement.ForUpdate,
     ): Triple<Statement.ForInit, Expression, Statement.ForUpdate> {
-        val intToExpressionWithType =
-            mapOf<Type, (Int) -> Expression>(
-                Type.I32 to { Expression.IntLiteral(it.toString() + "i") },
-                Type.U32 to { Expression.IntLiteral(it.toString() + "u") },
-            )
-
         val initialValue = fuzzerSettings.randomInt(1000)
         val finalValue = computeFinalValue(initialValue)
         check(finalValue >= 0) { "computeFinalValue must return a value greater than or equal to 0" }
 
         val type = fuzzerSettings.randomElement(Type.I32, Type.U32)
+        val intToExpression =
+            when (type) {
+                is Type.I32 -> { value: Int ->
+                    Expression.IntLiteral(value.toString() + "i")
+                }
+                is Type.U32 -> { value: Int ->
+                    Expression.IntLiteral(value.toString() + "u")
+                }
+                else -> TODO()
+            }
 
         // Init expression that sets counter to initialValue
         val init =
@@ -358,14 +362,14 @@ private class ControlFlowWrapping(
                 initializer =
                     generateKnownValueExpression(
                         depth = depth + 1,
-                        knownValue = intToExpressionWithType[type]!!(initialValue),
+                        knownValue = intToExpression(initialValue),
                         type = type,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
                     ),
             )
 
-        val update: Statement.ForUpdate = computeForUpdate(initialValue, counterName, intToExpressionWithType[type]!!)
+        val update: Statement.ForUpdate = computeForUpdate(initialValue, counterName, intToExpression)
 
         // condition expression that evaluates to false after running the loop.
         val condition =
@@ -381,7 +385,7 @@ private class ControlFlowWrapping(
                 operand2 =
                     generateKnownValueExpression(
                         depth = depth + 1,
-                        knownValue = intToExpressionWithType[type]!!(finalValue),
+                        knownValue = intToExpression(finalValue),
                         type = type,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
