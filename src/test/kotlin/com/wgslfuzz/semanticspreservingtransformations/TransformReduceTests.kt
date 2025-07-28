@@ -70,7 +70,7 @@ abstract class TransformReduceTests {
         testTransformationAndReduction(
             45,
             filenameNoExtension,
-            ::controlFlowWrap,
+            ::addControlFlowWrappers,
         )
     }
 

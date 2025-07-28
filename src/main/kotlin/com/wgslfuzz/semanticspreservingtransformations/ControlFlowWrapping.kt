@@ -364,7 +364,7 @@ private class ControlFlowWrapping(
     }
 }
 
-fun controlFlowWrap(
+fun addControlFlowWrappers(
     shaderJob: ShaderJob,
     fuzzerSettings: FuzzerSettings,
 ): ShaderJob =
