@@ -97,16 +97,39 @@ interface FuzzerSettings {
     val knownValueWeights: KnownValueWeights
         get() = KnownValueWeights()
 
-    class ArbitraryBooleanExpressionWeights(
+    data class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
         val or: (depth: Int) -> Int = { 2 },
         val and: (depth: Int) -> Int = { 2 },
+        val lessThan: (depth: Int) -> Int = { 1 },
+        val greaterThan: (depth: Int) -> Int = { 1 },
+        val lessThanOrEqual: (depth: Int) -> Int = { 1 },
+        val greaterThanOrEqual: (depth: Int) -> Int = { 1 },
+        val equal: (depth: Int) -> Int = { 1 },
+        val notEqual: (depth: Int) -> Int = { 1 },
         val variableFromScope: (depth: Int) -> Int = { 1 },
         val literal: (depth: Int) -> Int = { 1 },
     )
 
     val arbitraryBooleanExpressionWeights: ArbitraryBooleanExpressionWeights
         get() = ArbitraryBooleanExpressionWeights()
+
+    data class ArbitraryIntExpressionWeights(
+        val binaryOr: (depth: Int) -> Int = { 1 },
+        val binaryAnd: (depth: Int) -> Int = { 1 },
+        val binaryXor: (depth: Int) -> Int = { 1 },
+        val negate: (depth: Int) -> Int = { 1 },
+        val addition: (depth: Int) -> Int = { 1 },
+        val subtraction: (depth: Int) -> Int = { 1 },
+        val multiplication: (depth: Int) -> Int = { 1 },
+        val division: (depth: Int) -> Int = { 1 },
+        val modulo: (depth: Int) -> Int = { 1 },
+        val variableFromScope: (depth: Int) -> Int = { 1 },
+        val literal: (depth: Int) -> Int = { 1 },
+    )
+
+    val arbitraryIntExpressionWeights: ArbitraryIntExpressionWeights
+        get() = ArbitraryIntExpressionWeights()
 
     fun injectDeadBreak(): Boolean = randomInt(100) < 50
 
@@ -884,7 +907,7 @@ private fun absExpression(expression: Expression) =
         args = listOf(expression),
     )
 
-private fun binaryExpressionRandomOperandOrder(
+fun binaryExpressionRandomOperandOrder(
     fuzzerSettings: FuzzerSettings,
     operator: BinaryOperator,
     operand1: Expression,
