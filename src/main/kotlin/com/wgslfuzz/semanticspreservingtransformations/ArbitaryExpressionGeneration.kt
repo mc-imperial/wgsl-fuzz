@@ -27,8 +27,10 @@ import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.clone
 import kotlin.random.Random
 
-const val I32_LOWEST_VALUE = -0x80000000
-const val I32_HIGHEST_VALUE = 0x7fffffff
+private const val I32_LOWEST_VALUE: Long = -0x80000000
+private const val I32_HIGHEST_VALUE: Long = 0x7fffffff
+private const val U32_LOWEST_VALUE: Long = 0
+private const val U32_HIGHEST_VALUE: Long = 0xffffffff
 
 fun generateArbitraryExpression(
     depth: Int,
@@ -223,8 +225,14 @@ private fun generateArbitraryInt(
     val nonRecursiveChoices: List<Pair<Int, () -> Expression>> =
         listOfNotNull(
             fuzzerSettings.arbitraryIntExpressionWeights.literal(depth) to {
+                val numRange =
+                    when (outputType) {
+                        is Type.I32 -> I32_LOWEST_VALUE..I32_HIGHEST_VALUE
+                        is Type.U32 -> U32_LOWEST_VALUE..U32_HIGHEST_VALUE
+                        Type.AbstractInteger -> throw RuntimeException("Cannot get here require above should guard against this")
+                    }
                 Expression.IntLiteral(
-                    (I32_LOWEST_VALUE..I32_HIGHEST_VALUE)
+                    numRange
                         .random(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
                         .toString() + literalSuffix,
                 )

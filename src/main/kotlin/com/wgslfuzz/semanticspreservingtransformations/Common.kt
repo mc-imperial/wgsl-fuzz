@@ -836,14 +836,14 @@ private fun getNumericValueWithAdjustedExpression(
     // Performs type cast and wraps in truncation if necessary
     // Type casts to integer involve truncation and hence do not need to a call wgsl trunc function in addition to their type cast
     val outputExpressionWithCastIfNeeded =
-        if (outputType is Type.U32) {
+        if (valueExpressionType !is Type.U32 && outputType is Type.U32) {
             // This truncates - https://www.w3.org/TR/WGSL/#u32-builtin
             Expression.U32ValueConstructor(listOf(valueExpression))
         } else if (valueExpressionType is Type.Integer && outputType is Type.Float) {
             // Should not have to truncate a scalar of type Integer
             assert(!truncate)
             Expression.F32ValueConstructor(listOf(valueExpression))
-        } else if (valueExpressionType is Type.Float && outputType is Type.Integer) {
+        } else if (valueExpressionType !is Type.I32 && outputType is Type.I32) {
             // This truncates https://www.w3.org/TR/WGSL/#i32-builtin
             Expression.I32ValueConstructor(listOf(valueExpression))
         } else if (truncate) {
