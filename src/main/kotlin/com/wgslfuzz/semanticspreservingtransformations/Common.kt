@@ -26,6 +26,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.UnaryOperator
+import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.evaluateToInt
 import com.wgslfuzz.core.getUniformDeclaration
@@ -33,10 +34,10 @@ import java.util.Random
 import kotlin.math.max
 import kotlin.math.truncate
 
-private const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
+const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
 interface FuzzerSettings {
-    fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 1.0 / (currentDepth.toDouble() + 1.0)
+    fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 4.0 / (currentDepth.toDouble() + 2.0) && currentDepth < 18
 
     // Get a unique identifiers for transformation such as `ControlFlowWrapper`
     fun getUniqueId(): Int
@@ -49,7 +50,10 @@ interface FuzzerSettings {
 
     fun randomBool(): Boolean
 
-    fun <T> randomElement(list: List<T>) = list[randomInt(list.size)]
+    fun <T> randomElement(list: List<T>): T {
+        require(list.isNotEmpty()) { "Cannot get random element of an empty list" }
+        return list[randomInt(list.size)]
+    }
 
     fun <T> randomElement(vararg elements: T): T = randomElement(elements.toList())
 
@@ -106,6 +110,17 @@ interface FuzzerSettings {
 
     val controlFlowWrappingWeights: ControlFlowWrappingWeights
         get() = ControlFlowWrappingWeights()
+        
+    class ArbitraryBooleanExpressionWeights(
+        val not: (depth: Int) -> Int = { 1 },
+        val or: (depth: Int) -> Int = { 2 },
+        val and: (depth: Int) -> Int = { 2 },
+        val variableFromScope: (depth: Int) -> Int = { 1 },
+        val literal: (depth: Int) -> Int = { 1 },
+    )
+
+    val arbitraryBooleanExpressionWeights: ArbitraryBooleanExpressionWeights
+        get() = ArbitraryBooleanExpressionWeights()
 
     fun injectDeadBreak(): Boolean = randomInt(100) < 50
 
@@ -149,6 +164,44 @@ fun <T> choose(
     }
     return fuzzerSettings.randomElement(functions)()
 }
+
+fun isVariableOfTypeInScope(
+    scope: Scope,
+    type: Type,
+): Boolean =
+    scope
+        .getAllEntries()
+        .any {
+            it is ScopeEntry.TypedDecl &&
+                it !is ScopeEntry.TypeAlias &&
+                it.type.asStoreTypeIfReference() == type
+        }
+
+fun randomVariableFromScope(
+    scope: Scope,
+    type: Type,
+    fuzzerSettings: FuzzerSettings,
+): Expression? {
+    val scopeEntries =
+        scope.getAllEntries().filter {
+            it is ScopeEntry.TypedDecl &&
+                it !is ScopeEntry.TypeAlias &&
+                it.type.asStoreTypeIfReference() == type
+        }
+
+    if (scopeEntries.isEmpty()) return null
+
+    return scopeEntryTypedDeclToExpression(
+        fuzzerSettings.randomElement(
+            scopeEntries,
+        ) as ScopeEntry.TypedDecl,
+    )
+}
+
+fun scopeEntryTypedDeclToExpression(scopeEntry: ScopeEntry.TypedDecl): Expression =
+    Expression.Identifier(
+        name = scopeEntry.declName,
+    )
 
 fun randomUniformScalarWithValue(
     shaderJob: ShaderJob,
@@ -437,18 +490,6 @@ fun generateTrueByConstructionExpression(
     scope: Scope,
 ): AugmentedExpression.TrueByConstruction = generateTrueByConstructionExpression(0, fuzzerSettings, shaderJob, scope)
 
-fun generateArbitraryExpression(
-    depth: Int,
-    type: Type,
-    sideEffectsAllowed: Boolean,
-    fuzzerSettings: FuzzerSettings,
-    shaderJob: ShaderJob,
-    scope: Scope,
-): Expression {
-    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
-    return constantWithSameValueEverywhere(1, type)
-}
-
 fun generateKnownValueExpression(
     depth: Int,
     knownValue: Expression,
@@ -482,8 +523,8 @@ fun generateKnownValueExpression(
             else -> throw RuntimeException("Unsupported type.")
         }
 
-    val choices: MutableList<Pair<Int, () -> AugmentedExpression.KnownValue>> =
-        mutableListOf(
+    val choices: List<Pair<Int, () -> AugmentedExpression.KnownValue>> =
+        listOfNotNull(
             fuzzerSettings.knownValueWeights.plainKnownValue(depth) to {
                 AugmentedExpression.KnownValue(
                     knownValue = knownValue.clone(),
@@ -491,6 +532,7 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.sumOfKnownValues(depth) to {
+                // Deriving a known value by using addition of two numbers.
                 val randomValue = fuzzerSettings.randomInt(knownValueAsInt + 1)
                 assert(randomValue <= knownValueAsInt)
                 val difference: Int = knownValueAsInt - randomValue
@@ -533,6 +575,7 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.differenceOfKnownValues(depth) to {
+                // Deriving a known value by using subtraction of two numbers.
                 val randomValue = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE - knownValueAsInt + 1)
                 val sum: Int = knownValueAsInt + randomValue
                 assert(sum in 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
@@ -573,6 +616,7 @@ fun generateKnownValueExpression(
                 )
             },
             fuzzerSettings.knownValueWeights.productOfKnownValues(depth) to {
+                // Deriving a known value by using multiplication of two numbers.
                 val randomValue = max(1, fuzzerSettings.randomInt(max(1, knownValueAsInt / 2)))
                 val quotient: Int = knownValueAsInt / randomValue
                 val remainder: Int = knownValueAsInt % randomValue
@@ -598,6 +642,7 @@ fun generateKnownValueExpression(
                     } else {
                         Expression.FloatLiteral(remainderText)
                     }
+
                 var resultExpression =
                     binaryExpressionRandomOperandOrder(
                         fuzzerSettings,
@@ -617,6 +662,7 @@ fun generateKnownValueExpression(
                             shaderJob = shaderJob,
                         ),
                     )
+                // If multiplication of the random number and the quotient does not result in the knownValue add the remainder to the expression to make resultExpression equal to knownValue
                 if (remainder != 0 || fuzzerSettings.randomBool()) {
                     resultExpression =
                         binaryExpressionRandomOperandOrder(
@@ -637,71 +683,88 @@ fun generateKnownValueExpression(
                     expression = resultExpression,
                 )
             },
-        )
-    if (!type.isAbstract()) {
-        // Deriving a known value from a uniform only works with concrete types.
-        choices.add(
-            fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
-                val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
-                val (valueOfUniformAdjusted, uniformScalarAdjusted) =
-                    getNumericValueWithAdjustedExpression(
-                        valueExpression = uniformScalar,
-                        valueExpressionType = scalarType,
-                        constantExpression = valueOfUniform,
-                        outputType = type,
+            // Deriving a known value from a uniform only works with concrete types.
+            if (type.isAbstract()) {
+                // Removed by listOfNotNull
+                null
+            } else {
+                // Deriving a known value from a uniform while adjusting as necessary using addition and subtraction.
+                fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
+                    val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
+
+                    // valueOfUniformAdjusted is the underlying int value of uniformScalarAdjusted.
+                    // valueOfUniformAdjusted is in the range 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE and by extension so is the underlying value of uniformScalarAdjusted.
+                    // uniformScalarAdjusted is uniformScalar wrapped in type casts, truncate and/or abs(x) % LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.
+                    val (valueOfUniformAdjusted, uniformScalarAdjusted) =
+                        getNumericValueWithAdjustedExpression(
+                            valueExpression = uniformScalar,
+                            valueExpressionType = scalarType,
+                            constantExpression = valueOfUniform,
+                            outputType = type,
+                        )
+
+                    // Given the valueOfUniformAdjusted create and expression that equals the value of the knownValue using addition and subtraction.
+                    val expression =
+                        when (valueOfUniformAdjusted) {
+                            // valueOfUniformAdjusted == knownValueAsInt
+                            knownValueAsInt -> uniformScalarAdjusted
+                            // valueOfUniformAdjusted > knownValueAsInt
+                            in knownValueAsInt + 1..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE -> {
+                                val difference = valueOfUniformAdjusted - knownValueAsInt
+                                val differenceText = "$difference$literalSuffix"
+                                val differenceKnownExpression =
+                                    if (type is Type.Integer) {
+                                        Expression.IntLiteral(differenceText)
+                                    } else {
+                                        Expression.FloatLiteral(differenceText)
+                                    }
+                                Expression.Binary(
+                                    BinaryOperator.MINUS,
+                                    uniformScalarAdjusted,
+                                    generateKnownValueExpression(
+                                        depth = depth + 1,
+                                        knownValue = differenceKnownExpression,
+                                        fuzzerSettings = fuzzerSettings,
+                                        shaderJob = shaderJob,
+                                        type = type,
+                                    ),
+                                )
+                            }
+                            // valueOfUniformAdjusted < knownValueAsInt
+                            in 0..<knownValueAsInt -> {
+                                val difference = knownValueAsInt - valueOfUniformAdjusted
+                                val differenceText = "$difference$literalSuffix"
+                                val differenceKnownExpression =
+                                    if (type is Type.Integer) {
+                                        Expression.IntLiteral(differenceText)
+                                    } else {
+                                        Expression.FloatLiteral(differenceText)
+                                    }
+                                binaryExpressionRandomOperandOrder(
+                                    fuzzerSettings,
+                                    BinaryOperator.PLUS,
+                                    uniformScalarAdjusted,
+                                    generateKnownValueExpression(
+                                        depth = depth + 1,
+                                        knownValue = differenceKnownExpression,
+                                        fuzzerSettings = fuzzerSettings,
+                                        shaderJob = shaderJob,
+                                        type = type,
+                                    ),
+                                )
+                            }
+
+                            else -> throw RuntimeException(
+                                "valueOfUniformAdjusted is not in correct range. This should be logically impossible.",
+                            )
+                        }
+                    AugmentedExpression.KnownValue(
+                        knownValue = knownValue.clone(),
+                        expression = expression,
                     )
-                val expression =
-                    if (valueOfUniformAdjusted == knownValueAsInt) {
-                        uniformScalarAdjusted
-                    } else if (valueOfUniformAdjusted > knownValueAsInt) {
-                        val difference = valueOfUniformAdjusted - knownValueAsInt
-                        val differenceText = "$difference$literalSuffix"
-                        val differenceKnownExpression =
-                            if (type is Type.Integer) {
-                                Expression.IntLiteral(differenceText)
-                            } else {
-                                Expression.FloatLiteral(differenceText)
-                            }
-                        Expression.Binary(
-                            BinaryOperator.MINUS,
-                            uniformScalarAdjusted,
-                            generateKnownValueExpression(
-                                depth = depth + 1,
-                                knownValue = differenceKnownExpression,
-                                fuzzerSettings = fuzzerSettings,
-                                shaderJob = shaderJob,
-                                type = type,
-                            ),
-                        )
-                    } else {
-                        val difference = knownValueAsInt - valueOfUniformAdjusted
-                        val differenceText = "$difference$literalSuffix"
-                        val differenceKnownExpression =
-                            if (type is Type.Integer) {
-                                Expression.IntLiteral(differenceText)
-                            } else {
-                                Expression.FloatLiteral(differenceText)
-                            }
-                        binaryExpressionRandomOperandOrder(
-                            fuzzerSettings,
-                            BinaryOperator.PLUS,
-                            uniformScalarAdjusted,
-                            generateKnownValueExpression(
-                                depth = depth + 1,
-                                knownValue = differenceKnownExpression,
-                                fuzzerSettings = fuzzerSettings,
-                                shaderJob = shaderJob,
-                                type = type,
-                            ),
-                        )
-                    }
-                AugmentedExpression.KnownValue(
-                    knownValue = knownValue.clone(),
-                    expression = expression,
-                )
+                }
             },
         )
-    }
     return choose(fuzzerSettings, choices)
 }
 
@@ -753,10 +816,11 @@ private fun getNumericValueFromConstant(constantExpression: Expression): Int {
 }
 
 /**
- * Takes in a constant expression and determines its value and outputs the expression if changes were made to make it conform to requirements.
+ * Takes in a constant expression and determines its value and outputs an adjusted expression if changes were made to make it conform to requirements.
  * Requirements:
  * - Correct output type
- * - If the value is a float with a fractional it truncates it
+ * - If the value is a float with a fractional part the function truncates the value and expression
+ * - If the value is outside the range which known values are allowed uses absolute and modulo to bring value within allowed range
  */
 private fun getNumericValueWithAdjustedExpression(
     valueExpression: Expression,
@@ -766,8 +830,11 @@ private fun getNumericValueWithAdjustedExpression(
 ): Pair<Int, Expression> {
     val value = getValueAsDoubleFromConstant(constantExpression)
 
-    val truncate = value.toInt().toDouble() != value
+    // Determine if truncation is necessary by checking if value has a fractional part
+    val truncate = truncate(value) != value
 
+    // Performs type cast and wraps in truncation if necessary
+    // Type casts to integer involve truncation and hence do not need to a call wgsl trunc function in addition to their type cast
     val outputExpressionWithCastIfNeeded =
         if (outputType is Type.U32) {
             // This truncates - https://www.w3.org/TR/WGSL/#u32-builtin
@@ -784,9 +851,11 @@ private fun getNumericValueWithAdjustedExpression(
         } else {
             valueExpression
         }
-
+    // This is the underlying value of outputExpressionWithCastIfNeeded
     val truncatedValue = truncate(value)
 
+    // Brings the truncatedValue into the range 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE if truncatedValue isn't in the range
+    // The operation to bring truncatedValue into range is abs(truncatedValue) % LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE
     val (outputValueInRangeAndInteger, outputExpressionWithCastAndInRange) =
         if (truncatedValue !in
             0.0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toDouble()

@@ -1092,6 +1092,11 @@ sealed interface AugmentedExpression :
     ) : AugmentedExpression
 
     @Serializable
+    class ArbitraryExpression(
+        val expression: Expression,
+    ) : AugmentedExpression
+
+    @Serializable
     class KnownValue(
         val knownValue: Expression,
         val expression: Expression,
