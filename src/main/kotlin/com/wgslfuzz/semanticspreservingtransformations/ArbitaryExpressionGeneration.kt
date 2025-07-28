@@ -37,7 +37,10 @@ fun generateArbitraryExpression(
     when (type) {
         Type.Bool -> generateArbitraryBool(depth, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
         Type.I32, Type.U32, Type.F32 -> {
-            // Fix this to not really on hacky solution
+            // Fix this to not rely on hacky solution.
+            // The hacky solution works by getting a known value with a random integer value and then replacing every
+            // location of AugmentedExpression.KnownValue in the returned AST tree with
+            // AugmentedExpression.ArbitraryExpression which then creates an arbitrary expression.
             // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/109)
             // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/108)
             generateKnownValueExpression(
