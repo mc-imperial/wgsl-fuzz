@@ -55,7 +55,7 @@ private class ControlFlowWrapping(
 
                 // This sequence contains a subset of all start and end points where injection of control flow wrappings can occur
                 // The sequences ordering is random.
-                var allPossibleAcceptableSectionsOfStatements: Sequence<Pair<Int, Lazy<Int>>> =
+                var allPossibleAcceptableSectionsOfStatements: Sequence<Pair<Int, Sequence<Int>>> =
                     (0..<node.statements.size)
                         // Sequence so that map operations is lazy when generating elements
                         .asSequence()
@@ -63,28 +63,25 @@ private class ControlFlowWrapping(
                         // values from this list.
                         .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
                         .map { i ->
-                            val j =
-                                lazy {
-                                    var x = node.statements.size
-                                    while (x - 1 > i &&
-                                        checkDeclarations(
-                                            declarations = node.statements.subList(i, x - 1),
-                                            statementsToCheck = node.statements.subList(x - 1, node.statements.size),
-                                        )
-                                    ) {
-                                        x--
-                                    }
-                                    x + fuzzerSettings.randomInt(node.statements.size - x + 1)
-                                }
-                            i to j
+                            var x = node.statements.size
+                            while (x - 1 > i &&
+                                checkDeclarations(
+                                    declarations = node.statements.subList(i, x - 1),
+                                    statementsToCheck = node.statements.subList(x - 1, node.statements.size),
+                                )
+                            ) {
+                                x--
+                            }
+
+                            i to (x..node.statements.size).asSequence()
                         }
 
                 // Add injection locations to the compound
                 while (fuzzerSettings.controlFlowWrap()) {
                     // If null then no more injection locations
-                    val (x, yLazy) = allPossibleAcceptableSectionsOfStatements.firstOrNull() ?: break
+                    val (x, ySequence) = allPossibleAcceptableSectionsOfStatements.firstOrNull() ?: break
 
-                    val injectionLocation: Pair<Int, Int> = Pair(x, yLazy.value)
+                    val injectionLocation: Pair<Int, Int> = Pair(x, fuzzerSettings.randomElement(ySequence.toList()))
                     injections.getOrPut(node) { sortedSetOf(compareBy { it.first }) }.add(injectionLocation)
 
                     // Remove all invalid injection locations given that injectionLocation has got a control flow wrapping it
@@ -105,6 +102,7 @@ private class ControlFlowWrapping(
      * Returns true if and only if no variables that are declared in `declarations` are used in `statementsToCheck`
      *
      * Example that would return true:
+     * ```
      * var x = 0;
      * --------------------- Beginning of declarations
      * for (var i = 0; i < y; i++) {
@@ -114,8 +112,10 @@ private class ControlFlowWrapping(
      * --------------------- Beginning of statementsToCheck
      * return x;
      * --------------------- End of statementsToCheck
+     *```
      *
      * Example that would return false:
+     * ```
      * --------------------- Beginning of declarations
      * var x = 0;
      * if (y == 1) {
@@ -126,6 +126,7 @@ private class ControlFlowWrapping(
      * --------------------- Beginning of statementsToCheck
      * return z + y;
      * --------------------- End of statementsToCheck
+     * ```
      */
     private fun checkDeclarations(
         declarations: List<Statement>,
@@ -154,8 +155,16 @@ private class ControlFlowWrapping(
 
     private fun removeOverlapping(
         indexRange: Pair<Int, Int>,
-        ranges: Sequence<Pair<Int, Lazy<Int>>>,
-    ): Sequence<Pair<Int, Lazy<Int>>> = ranges.filter { indexRange.second <= it.first || it.second.value <= indexRange.first }
+        ranges: Sequence<Pair<Int, Sequence<Int>>>,
+    ): Sequence<Pair<Int, Sequence<Int>>> =
+        ranges.mapNotNull {
+            val endPointSequence = it.second.filter { endPoint -> endPoint <= indexRange.first }
+            if (indexRange.second <= it.first && endPointSequence.any()) {
+                it.first to endPointSequence
+            } else {
+                null
+            }
+        }
 
     private fun wrapInControlFlow(
         originalStatements: List<Statement>,
