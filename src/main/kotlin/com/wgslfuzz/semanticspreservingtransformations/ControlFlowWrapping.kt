@@ -46,11 +46,15 @@ private class ControlFlowWrapping(
     ) {
         val traverseSubExpression = { node: AstNode -> traverse(::selectStatementsToControlFlowWrap, node, injections) }
         when (node) {
+            // Only perform ControlFlowWrapping within compounds
             is Statement.Compound -> {
                 traverseSubExpression(node)
 
+                // If compound is empty cannot inject into statements
                 if (node.statements.isEmpty()) return
 
+                // This sequence contains a subset of all start and end points where injection of control flow wrappings can occur
+                // The sequences ordering is random.
                 var allPossibleAcceptableSectionsOfStatements: Sequence<Pair<Int, Lazy<Int>>> =
                     (0..<node.statements.size)
                         // Sequence so that map operations is lazy when generating elements
@@ -75,10 +79,15 @@ private class ControlFlowWrapping(
                             i to j
                         }
 
+                // Add injection locations to the compound
                 while (fuzzerSettings.controlFlowWrap()) {
+                    // If null then no more injection locations
                     val (x, yLazy) = allPossibleAcceptableSectionsOfStatements.firstOrNull() ?: break
+
                     val injectionLocation: Pair<Int, Int> = Pair(x, yLazy.value)
                     injections.getOrPut(node) { sortedSetOf(compareBy { it.first }) }.add(injectionLocation)
+
+                    // Remove all invalid injection locations given that injectionLocation has got a control flow wrapping it
                     allPossibleAcceptableSectionsOfStatements =
                         removeOverlapping(injectionLocation, allPossibleAcceptableSectionsOfStatements)
                 }
@@ -92,6 +101,32 @@ private class ControlFlowWrapping(
         }
     }
 
+    /**
+     * Returns true if and only if no variables that are declared in `declarations` are used in `statementsToCheck`
+     *
+     * Example that would return true:
+     * var x = 0;
+     * --------------------- Beginning of declarations
+     * for (var i = 0; i < y; i++) {
+     *   x += 2;
+     * }
+     * --------------------- End of declarations
+     * --------------------- Beginning of statementsToCheck
+     * return x;
+     * --------------------- End of statementsToCheck
+     *
+     * Example that would return false:
+     * --------------------- Beginning of declarations
+     * var x = 0;
+     * if (y == 1) {
+     *   x = 2;
+     * }
+     * let z = 5 * x;
+     * --------------------- End of declarations
+     * --------------------- Beginning of statementsToCheck
+     * return z + y;
+     * --------------------- End of statementsToCheck
+     */
     private fun checkDeclarations(
         declarations: List<Statement>,
         statementsToCheck: List<Statement>,
@@ -146,6 +181,7 @@ private class ControlFlowWrapping(
         val choices: List<Pair<Int, () -> AugmentedStatement.ControlFlowWrapper>> =
             listOfNotNull(
                 fuzzerSettings.controlFlowWrappingWeights.ifTrueWrapping to {
+                    // `if ( <true expression> ) { <original statements> } else { <arbitrary statements> }`
                     val wrappedStatement =
                         Statement.If(
                             attributes = emptyList(),
@@ -166,6 +202,7 @@ private class ControlFlowWrapping(
                     )
                 },
                 fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping to {
+                    // `if ( <false expression> ) { <arbitrary statements> } else { <original statements> }`
                     val wrappedStatement =
                         Statement.If(
                             attributes = emptyList(),
@@ -185,6 +222,7 @@ private class ControlFlowWrapping(
                     )
                 },
                 if (containsBreakOrContinue) {
+                    // Cannot wrap statements in a loop when the statements contain a `break` or `continue`
                     null
                 } else {
                     // Single iteration for loop control flow wrapper
@@ -194,6 +232,7 @@ private class ControlFlowWrapping(
                             listOf(
                                 1 to {
                                     // A loop which uses addition to update the loop counter
+                                    // `for (var counter = <x>; counter != <x+y>; counter += <y>) { <original statements> }`
                                     val updateValue = fuzzerSettings.randomInt(1000) + 1
                                     integerCounterForLoop(
                                         counterName = "counter_${abs(originalStatements.hashCode())}",
@@ -212,6 +251,8 @@ private class ControlFlowWrapping(
                                 },
                                 1 to {
                                     // A loop which uses subtraction to update the loop counter
+                                    // `for (var counter = <x>; counter != <x-y>; counter -= y) { <original statements> }`
+                                    // Or similar depending on if y is bigger than or smaller than x
                                     val updateValue = fuzzerSettings.randomInt(1000) + 1
                                     integerCounterForLoop(
                                         counterName = "counter_${abs(originalStatements.hashCode())}",
@@ -247,6 +288,7 @@ private class ControlFlowWrapping(
                                 },
                                 1 to {
                                     // A simple loop which increments the loop counter
+                                    // `for (var counter = <x>; counter != <x+1>; counter++) { <original statements> }`
                                     integerCounterForLoop(
                                         counterName = "counter_${abs(originalStatements.hashCode())}",
                                         depth = depth,
