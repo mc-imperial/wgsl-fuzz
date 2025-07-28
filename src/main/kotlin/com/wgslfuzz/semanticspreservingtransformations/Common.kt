@@ -110,7 +110,7 @@ interface FuzzerSettings {
 
     val controlFlowWrappingWeights: ControlFlowWrappingWeights
         get() = ControlFlowWrappingWeights()
-        
+
     class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
         val or: (depth: Int) -> Int = { 2 },
@@ -836,14 +836,14 @@ private fun getNumericValueWithAdjustedExpression(
     // Performs type cast and wraps in truncation if necessary
     // Type casts to integer involve truncation and hence do not need to a call wgsl trunc function in addition to their type cast
     val outputExpressionWithCastIfNeeded =
-        if (outputType is Type.U32) {
+        if (valueExpressionType !is Type.U32 && outputType is Type.U32) {
             // This truncates - https://www.w3.org/TR/WGSL/#u32-builtin
             Expression.U32ValueConstructor(listOf(valueExpression))
         } else if (valueExpressionType is Type.Integer && outputType is Type.Float) {
             // Should not have to truncate a scalar of type Integer
             assert(!truncate)
             Expression.F32ValueConstructor(listOf(valueExpression))
-        } else if (valueExpressionType is Type.Float && outputType is Type.Integer) {
+        } else if (valueExpressionType !is Type.I32 && outputType is Type.I32) {
             // This truncates https://www.w3.org/TR/WGSL/#i32-builtin
             Expression.I32ValueConstructor(listOf(valueExpression))
         } else if (truncate) {
@@ -862,8 +862,9 @@ private fun getNumericValueWithAdjustedExpression(
         ) {
             val largestIntegerInPreciseFloatRangeExpression =
                 when (outputType) {
-                    is Type.U32, is Type.I32 -> Expression.IntLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString())
-                    is Type.F32 -> Expression.FloatLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString())
+                    is Type.U32 -> Expression.IntLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString() + "u")
+                    is Type.I32 -> Expression.IntLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString() + "i")
+                    is Type.F32 -> Expression.FloatLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString() + "f")
                     else -> throw UnsupportedOperationException("Cannot create a expression of this type")
                 }
             Pair(
