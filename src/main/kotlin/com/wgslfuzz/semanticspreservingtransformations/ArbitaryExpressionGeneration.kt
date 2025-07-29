@@ -273,7 +273,38 @@ private fun generateArbitraryInt(
     // Overflow characteristics of i32 and u32 are define here: https://www.w3.org/TR/WGSL/#integer-types
     // Since generating an arbitrary expression do not care what they are just that they exist.
     val recursiveChoices: List<Pair<Int, () -> Expression>> =
-        listOf(
+        listOfNotNull(
+            fuzzerSettings.arbitraryIntExpressionWeights.swapIntType(depth) to {
+                when (outputType) {
+                    Type.AbstractInteger -> throw RuntimeException("outputType cannot be AbstractInteger")
+                    Type.I32 ->
+                        Expression.U32ValueConstructor(
+                            listOf(
+                                generateArbitraryInt(
+                                    depth = depth + 1,
+                                    sideEffectsAllowed,
+                                    fuzzerSettings,
+                                    shaderJob,
+                                    scope,
+                                    Type.U32,
+                                ),
+                            ),
+                        )
+                    Type.U32 ->
+                        Expression.I32ValueConstructor(
+                            listOf(
+                                generateArbitraryInt(
+                                    depth = depth + 1,
+                                    sideEffectsAllowed,
+                                    fuzzerSettings,
+                                    shaderJob,
+                                    scope,
+                                    Type.I32,
+                                ),
+                            ),
+                        )
+                }
+            },
             fuzzerSettings.arbitraryIntExpressionWeights.binaryOr(depth) to {
                 arbitraryBinaryOperation(BinaryOperator.BINARY_OR)
             },
@@ -311,6 +342,51 @@ private fun generateArbitraryInt(
             },
             fuzzerSettings.arbitraryIntExpressionWeights.modulo(depth) to {
                 arbitraryBinaryOperation(BinaryOperator.MODULO)
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.abs(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.clamp(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.countLeadingZeros(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.countOneBits(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.countTrailingZeros(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.dot4U8Packed(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.dot4I8Packed(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.extractBits(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.firstLeadingBit(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.firstTrailingBit(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.insertBits(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.max(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.min(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.reverseBits(depth) to {
+                TODO()
+            },
+            fuzzerSettings.arbitraryIntExpressionWeights.sign(depth) to {
+                TODO()
             },
         )
 

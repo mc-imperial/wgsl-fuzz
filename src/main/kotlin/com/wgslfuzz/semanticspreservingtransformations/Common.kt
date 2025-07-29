@@ -115,6 +115,7 @@ interface FuzzerSettings {
         get() = ArbitraryBooleanExpressionWeights()
 
     data class ArbitraryIntExpressionWeights(
+        val swapIntType: (depth: Int) -> Int = { 1 },
         val binaryOr: (depth: Int) -> Int = { 1 },
         val binaryAnd: (depth: Int) -> Int = { 1 },
         val binaryXor: (depth: Int) -> Int = { 1 },
@@ -124,6 +125,21 @@ interface FuzzerSettings {
         val multiplication: (depth: Int) -> Int = { 1 },
         val division: (depth: Int) -> Int = { 1 },
         val modulo: (depth: Int) -> Int = { 1 },
+        val abs: (depth: Int) -> Int = { 1 },
+        val clamp: (depth: Int) -> Int = { 1 },
+        val countLeadingZeros: (depth: Int) -> Int = { 1 },
+        val countOneBits: (depth: Int) -> Int = { 1 },
+        val countTrailingZeros: (depth: Int) -> Int = { 1 },
+        val dot4U8Packed: (depth: Int) -> Int = { 1 },
+        val dot4I8Packed: (depth: Int) -> Int = { 1 },
+        val extractBits: (depth: Int) -> Int = { 1 },
+        val firstLeadingBit: (depth: Int) -> Int = { 1 },
+        val firstTrailingBit: (depth: Int) -> Int = { 1 },
+        val insertBits: (depth: Int) -> Int = { 1 },
+        val max: (depth: Int) -> Int = { 1 },
+        val min: (depth: Int) -> Int = { 1 },
+        val reverseBits: (depth: Int) -> Int = { 1 },
+        val sign: (depth: Int) -> Int = { 1 },
         val variableFromScope: (depth: Int) -> Int = { 1 },
         val literal: (depth: Int) -> Int = { 1 },
     )
