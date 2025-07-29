@@ -407,7 +407,7 @@ private fun generateArbitraryInt(
                         knownValue =
                             Expression.IntLiteral(
                                 fuzzerSettings
-                                    .randomElement(0..<countValue)
+                                    .randomElement(0..bitWidth - countValue)
                                     .toString() + literalSuffix,
                             ),
                         type = outputType,
@@ -459,7 +459,7 @@ private fun generateArbitraryInt(
                         knownValue =
                             Expression.IntLiteral(
                                 fuzzerSettings
-                                    .randomElement(0..<countValue)
+                                    .randomElement(0..bitWidth - countValue)
                                     .toString() + literalSuffix,
                             ),
                         type = outputType,
