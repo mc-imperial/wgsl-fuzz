@@ -97,16 +97,55 @@ interface FuzzerSettings {
     val knownValueWeights: KnownValueWeights
         get() = KnownValueWeights()
 
-    class ArbitraryBooleanExpressionWeights(
+    data class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
         val or: (depth: Int) -> Int = { 2 },
         val and: (depth: Int) -> Int = { 2 },
+        val lessThan: (depth: Int) -> Int = { 1 },
+        val greaterThan: (depth: Int) -> Int = { 1 },
+        val lessThanOrEqual: (depth: Int) -> Int = { 1 },
+        val greaterThanOrEqual: (depth: Int) -> Int = { 1 },
+        val equal: (depth: Int) -> Int = { 1 },
+        val notEqual: (depth: Int) -> Int = { 1 },
         val variableFromScope: (depth: Int) -> Int = { 1 },
         val literal: (depth: Int) -> Int = { 1 },
     )
 
     val arbitraryBooleanExpressionWeights: ArbitraryBooleanExpressionWeights
         get() = ArbitraryBooleanExpressionWeights()
+
+    data class ArbitraryIntExpressionWeights(
+        val swapIntType: (depth: Int) -> Int = { 1 },
+        val binaryOr: (depth: Int) -> Int = { 1 },
+        val binaryAnd: (depth: Int) -> Int = { 1 },
+        val binaryXor: (depth: Int) -> Int = { 1 },
+        val negate: (depth: Int) -> Int = { 1 },
+        val addition: (depth: Int) -> Int = { 1 },
+        val subtraction: (depth: Int) -> Int = { 1 },
+        val multiplication: (depth: Int) -> Int = { 1 },
+        val division: (depth: Int) -> Int = { 1 },
+        val modulo: (depth: Int) -> Int = { 1 },
+        val abs: (depth: Int) -> Int = { 1 },
+        val clamp: (depth: Int) -> Int = { 1 },
+        val countLeadingZeros: (depth: Int) -> Int = { 1 },
+        val countOneBits: (depth: Int) -> Int = { 1 },
+        val countTrailingZeros: (depth: Int) -> Int = { 1 },
+        val dot4U8Packed: (depth: Int) -> Int = { 1 },
+        val dot4I8Packed: (depth: Int) -> Int = { 1 },
+        val extractBits: (depth: Int) -> Int = { 1 },
+        val firstLeadingBit: (depth: Int) -> Int = { 1 },
+        val firstTrailingBit: (depth: Int) -> Int = { 1 },
+        val insertBits: (depth: Int) -> Int = { 1 },
+        val max: (depth: Int) -> Int = { 1 },
+        val min: (depth: Int) -> Int = { 1 },
+        val reverseBits: (depth: Int) -> Int = { 1 },
+        val sign: (depth: Int) -> Int = { 1 },
+        val variableFromScope: (depth: Int) -> Int = { 1 },
+        val literal: (depth: Int) -> Int = { 1 },
+    )
+
+    val arbitraryIntExpressionWeights: ArbitraryIntExpressionWeights
+        get() = ArbitraryIntExpressionWeights()
 
     fun injectDeadBreak(): Boolean = randomInt(100) < 50
 
@@ -813,14 +852,14 @@ private fun getNumericValueWithAdjustedExpression(
     // Performs type cast and wraps in truncation if necessary
     // Type casts to integer involve truncation and hence do not need to a call wgsl trunc function in addition to their type cast
     val outputExpressionWithCastIfNeeded =
-        if (outputType is Type.U32) {
+        if (valueExpressionType !is Type.U32 && outputType is Type.U32) {
             // This truncates - https://www.w3.org/TR/WGSL/#u32-builtin
             Expression.U32ValueConstructor(listOf(valueExpression))
         } else if (valueExpressionType is Type.Integer && outputType is Type.Float) {
             // Should not have to truncate a scalar of type Integer
             assert(!truncate)
             Expression.F32ValueConstructor(listOf(valueExpression))
-        } else if (valueExpressionType is Type.Float && outputType is Type.Integer) {
+        } else if (valueExpressionType !is Type.I32 && outputType is Type.I32) {
             // This truncates https://www.w3.org/TR/WGSL/#i32-builtin
             Expression.I32ValueConstructor(listOf(valueExpression))
         } else if (truncate) {
@@ -854,7 +893,7 @@ private fun getNumericValueWithAdjustedExpression(
     return Pair(outputValueInRangeAndInteger.toInt(), outputExpressionWithCastAndInRange)
 }
 
-private fun getValueAsDoubleFromConstant(constantExpression: Expression): Double =
+fun getValueAsDoubleFromConstant(constantExpression: Expression): Double =
     when (constantExpression) {
         is Expression.FloatLiteral -> constantExpression.text.trimEnd('f', 'h').toDouble()
         is Expression.IntLiteral -> constantExpression.text.trimEnd('i', 'u').toDouble()
@@ -884,7 +923,7 @@ private fun absExpression(expression: Expression) =
         args = listOf(expression),
     )
 
-private fun binaryExpressionRandomOperandOrder(
+fun binaryExpressionRandomOperandOrder(
     fuzzerSettings: FuzzerSettings,
     operator: BinaryOperator,
     operand1: Expression,

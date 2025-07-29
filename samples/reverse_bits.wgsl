@@ -16,7 +16,7 @@
 
 @group(0) @binding(0) var<uniform> expectedResult: u32;
 
-fn reverseBits(input: u32) -> u32 {
+fn myReverseBits(input: u32) -> u32 {
   var currentValue: u32 = input;
   var output: u32 = 0;
   var i = 0;
@@ -36,7 +36,7 @@ fn vertexMain(@location(0) pos: vec2f) -> @builtin(position) vec4f {
   var scaleFactor = 0.5;
 
   let input: u32 = 321094389;
-  if (reverseBits(input) != expectedResult) {
+  if (myReverseBits(input) != expectedResult) {
     scaleFactor = 1;
   }
 
