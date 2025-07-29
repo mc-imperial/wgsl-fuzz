@@ -248,7 +248,7 @@ private fun generateArbitraryInt(
             },
         )
 
-    fun genIntExpression(type: Type.Integer) =
+    fun generateArbitraryIntHelper(type: Type.Integer) =
         generateArbitraryInt(
             depth = depth + 1,
             sideEffectsAllowed,
@@ -261,8 +261,8 @@ private fun generateArbitraryInt(
     fun arbitraryBinaryOperation(operator: BinaryOperator) =
         Expression.Binary(
             operator = operator,
-            lhs = genIntExpression(outputType),
-            rhs = genIntExpression(outputType),
+            lhs = generateArbitraryIntHelper(outputType),
+            rhs = generateArbitraryIntHelper(outputType),
         )
 
     // Overflow characteristics of i32 and u32 are define here: https://www.w3.org/TR/WGSL/#integer-types
@@ -272,8 +272,8 @@ private fun generateArbitraryInt(
             fuzzerSettings.arbitraryIntExpressionWeights.swapIntType(depth) to {
                 when (outputType) {
                     Type.AbstractInteger -> throw RuntimeException("outputType cannot be AbstractInteger")
-                    Type.I32 -> Expression.I32ValueConstructor(listOf(genIntExpression(Type.U32)))
-                    Type.U32 -> Expression.U32ValueConstructor(listOf(genIntExpression(Type.I32)))
+                    Type.I32 -> Expression.I32ValueConstructor(listOf(generateArbitraryIntHelper(Type.U32)))
+                    Type.U32 -> Expression.U32ValueConstructor(listOf(generateArbitraryIntHelper(Type.I32)))
                 }
             },
             fuzzerSettings.arbitraryIntExpressionWeights.binaryOr(depth) to {
@@ -288,7 +288,7 @@ private fun generateArbitraryInt(
             fuzzerSettings.arbitraryIntExpressionWeights.negate(depth) to {
                 Expression.Unary(
                     operator = UnaryOperator.MINUS,
-                    target = genIntExpression(outputType),
+                    target = generateArbitraryIntHelper(outputType),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.addition(depth) to {
@@ -310,7 +310,7 @@ private fun generateArbitraryInt(
                 Expression.FunctionCall(
                     callee = "abs",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType)),
+                    args = listOf(generateArbitraryIntHelper(outputType)),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.clamp(depth) to {
@@ -340,28 +340,28 @@ private fun generateArbitraryInt(
                 Expression.FunctionCall(
                     callee = "clamp",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType), min, max),
+                    args = listOf(generateArbitraryIntHelper(outputType), min, max),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.countLeadingZeros(depth) to {
                 Expression.FunctionCall(
                     callee = "countLeadingZeros",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType)),
+                    args = listOf(generateArbitraryIntHelper(outputType)),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.countOneBits(depth) to {
                 Expression.FunctionCall(
                     callee = "countOneBits",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType)),
+                    args = listOf(generateArbitraryIntHelper(outputType)),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.countTrailingZeros(depth) to {
                 Expression.FunctionCall(
                     callee = "countTrailingZeros",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType)),
+                    args = listOf(generateArbitraryIntHelper(outputType)),
                 )
             },
             if (outputType is Type.U32) {
@@ -369,7 +369,7 @@ private fun generateArbitraryInt(
                     Expression.FunctionCall(
                         callee = "dot4U8Packed",
                         templateParameter = null,
-                        args = listOf(genIntExpression(Type.U32), genIntExpression(Type.U32)),
+                        args = listOf(generateArbitraryIntHelper(Type.U32), generateArbitraryIntHelper(Type.U32)),
                     )
                 }
             } else {
@@ -380,7 +380,7 @@ private fun generateArbitraryInt(
                     Expression.FunctionCall(
                         callee = "dot4I8Packed",
                         templateParameter = null,
-                        args = listOf(genIntExpression(Type.U32), genIntExpression(Type.U32)),
+                        args = listOf(generateArbitraryIntHelper(Type.U32), generateArbitraryIntHelper(Type.U32)),
                     )
                 }
             } else {
@@ -419,7 +419,7 @@ private fun generateArbitraryInt(
                     templateParameter = null,
                     args =
                         listOf(
-                            genIntExpression(outputType),
+                            generateArbitraryIntHelper(outputType),
                             offset,
                             count,
                         ),
@@ -429,14 +429,14 @@ private fun generateArbitraryInt(
                 Expression.FunctionCall(
                     callee = "firstLeadingBit",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType)),
+                    args = listOf(generateArbitraryIntHelper(outputType)),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.firstTrailingBit(depth) to {
                 Expression.FunctionCall(
                     callee = "firstTrailingBit",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType)),
+                    args = listOf(generateArbitraryIntHelper(outputType)),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.insertBits(depth) to {
@@ -471,8 +471,8 @@ private fun generateArbitraryInt(
                     templateParameter = null,
                     args =
                         listOf(
-                            genIntExpression(outputType), // e: T
-                            genIntExpression(outputType), // newBits: T
+                            generateArbitraryIntHelper(outputType), // e: T
+                            generateArbitraryIntHelper(outputType), // newBits: T
                             offset,
                             count,
                         ),
@@ -484,8 +484,8 @@ private fun generateArbitraryInt(
                     templateParameter = null,
                     args =
                         listOf(
-                            genIntExpression(outputType),
-                            genIntExpression(outputType),
+                            generateArbitraryIntHelper(outputType),
+                            generateArbitraryIntHelper(outputType),
                         ),
                 )
             },
@@ -495,8 +495,8 @@ private fun generateArbitraryInt(
                     templateParameter = null,
                     args =
                         listOf(
-                            genIntExpression(outputType),
-                            genIntExpression(outputType),
+                            generateArbitraryIntHelper(outputType),
+                            generateArbitraryIntHelper(outputType),
                         ),
                 )
             },
@@ -504,7 +504,7 @@ private fun generateArbitraryInt(
                 Expression.FunctionCall(
                     callee = "reverseBits",
                     templateParameter = null,
-                    args = listOf(genIntExpression(outputType)),
+                    args = listOf(generateArbitraryIntHelper(outputType)),
                 )
             },
             if (outputType is Type.I32) {
@@ -512,7 +512,7 @@ private fun generateArbitraryInt(
                     Expression.FunctionCall(
                         callee = "sign",
                         templateParameter = null,
-                        args = listOf(genIntExpression(outputType)),
+                        args = listOf(generateArbitraryIntHelper(outputType)),
                     )
                 }
             } else {
