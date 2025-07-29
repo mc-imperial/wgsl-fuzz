@@ -893,7 +893,7 @@ private fun getNumericValueWithAdjustedExpression(
     return Pair(outputValueInRangeAndInteger.toInt(), outputExpressionWithCastAndInRange)
 }
 
-private fun getValueAsDoubleFromConstant(constantExpression: Expression): Double =
+fun getValueAsDoubleFromConstant(constantExpression: Expression): Double =
     when (constantExpression) {
         is Expression.FloatLiteral -> constantExpression.text.trimEnd('f', 'h').toDouble()
         is Expression.IntLiteral -> constantExpression.text.trimEnd('i', 'u').toDouble()
