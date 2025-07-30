@@ -234,7 +234,7 @@ private fun generateArbitraryInt(
             fuzzerSettings.arbitraryIntExpressionWeights.literal(depth) to {
                 Expression.IntLiteral(
                     fuzzerSettings
-                        .randomElement(outputTypeNumRange)
+                        .randomElementFromRange(outputTypeNumRange)
                         .toString() + literalSuffix,
                 )
             },
@@ -285,11 +285,15 @@ private fun generateArbitraryInt(
             fuzzerSettings.arbitraryIntExpressionWeights.binaryXor(depth) to {
                 arbitraryBinaryOperation(BinaryOperator.BINARY_XOR)
             },
-            fuzzerSettings.arbitraryIntExpressionWeights.negate(depth) to {
-                Expression.Unary(
-                    operator = UnaryOperator.MINUS,
-                    target = generateArbitraryIntHelper(outputType),
-                )
+            if (outputType is Type.I32) {
+                fuzzerSettings.arbitraryIntExpressionWeights.negate(depth) to {
+                    Expression.Unary(
+                        operator = UnaryOperator.MINUS,
+                        target = generateArbitraryIntHelper(outputType),
+                    )
+                }
+            } else {
+                null
             },
             fuzzerSettings.arbitraryIntExpressionWeights.addition(depth) to {
                 arbitraryBinaryOperation(BinaryOperator.PLUS)
@@ -301,10 +305,42 @@ private fun generateArbitraryInt(
                 arbitraryBinaryOperation(BinaryOperator.TIMES)
             },
             fuzzerSettings.arbitraryIntExpressionWeights.division(depth) to {
-                arbitraryBinaryOperation(BinaryOperator.DIVIDE)
+                Expression.Binary(
+                    operator = BinaryOperator.DIVIDE,
+                    lhs = generateArbitraryIntHelper(outputType),
+                    rhs =
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue =
+                                Expression.IntLiteral(
+                                    fuzzerSettings
+                                        .randomElementFromRange(1..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
+                                        .toString() + literalSuffix,
+                                ),
+                            type = outputType,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                        ),
+                )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.modulo(depth) to {
-                arbitraryBinaryOperation(BinaryOperator.MODULO)
+                Expression.Binary(
+                    operator = BinaryOperator.MODULO,
+                    lhs = generateArbitraryIntHelper(outputType),
+                    rhs =
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue =
+                                Expression.IntLiteral(
+                                    fuzzerSettings
+                                        .randomElementFromRange(1..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
+                                        .toString() + literalSuffix,
+                                ),
+                            type = outputType,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                        ),
+                )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.abs(depth) to {
                 Expression.FunctionCall(
@@ -314,7 +350,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.clamp(depth) to {
-                val maxValue = fuzzerSettings.randomElement(0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
+                val maxValue = fuzzerSettings.randomElementFromRange(0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
                 val max =
                     generateKnownValueExpression(
                         depth = depth + 1,
@@ -329,7 +365,7 @@ private fun generateArbitraryInt(
                         knownValue =
                             Expression.IntLiteral(
                                 fuzzerSettings
-                                    .randomElement(0..<maxValue)
+                                    .randomElementFromRange(0..<maxValue)
                                     .toString() + literalSuffix,
                             ),
                         type = outputType,
@@ -389,15 +425,15 @@ private fun generateArbitraryInt(
             fuzzerSettings.arbitraryIntExpressionWeights.extractBits(depth) to {
                 // sign extends if i32 and does not sign extend for u32
                 val bitWidth = 32
-                val countValue = fuzzerSettings.randomElement(1..bitWidth)
+                val countValue = fuzzerSettings.randomElementFromRange(1..bitWidth)
                 val count =
                     generateKnownValueExpression(
                         depth = depth + 1,
                         knownValue =
                             Expression.IntLiteral(
-                                countValue.toString() + literalSuffix,
+                                countValue.toString() + "u",
                             ),
-                        type = outputType,
+                        type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
                     )
@@ -407,10 +443,10 @@ private fun generateArbitraryInt(
                         knownValue =
                             Expression.IntLiteral(
                                 fuzzerSettings
-                                    .randomElement(0..bitWidth - countValue)
-                                    .toString() + literalSuffix,
+                                    .randomElementFromRange(0..bitWidth - countValue)
+                                    .toString() + "u",
                             ),
-                        type = outputType,
+                        type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
                     )
@@ -441,15 +477,15 @@ private fun generateArbitraryInt(
             },
             fuzzerSettings.arbitraryIntExpressionWeights.insertBits(depth) to {
                 val bitWidth = 32
-                val countValue = fuzzerSettings.randomElement(1..bitWidth)
+                val countValue = fuzzerSettings.randomElementFromRange(1..bitWidth)
                 val count =
                     generateKnownValueExpression(
                         depth = depth + 1,
                         knownValue =
                             Expression.IntLiteral(
-                                countValue.toString() + literalSuffix,
+                                countValue.toString() + "u",
                             ),
-                        type = outputType,
+                        type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
                     )
@@ -459,10 +495,10 @@ private fun generateArbitraryInt(
                         knownValue =
                             Expression.IntLiteral(
                                 fuzzerSettings
-                                    .randomElement(0..bitWidth - countValue)
-                                    .toString() + literalSuffix,
+                                    .randomElementFromRange(0..bitWidth - countValue)
+                                    .toString() + "u",
                             ),
-                        type = outputType,
+                        type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
                     )
@@ -529,6 +565,6 @@ private fun generateArbitraryInt(
     )
 }
 
-private fun FuzzerSettings.randomElement(range: IntRange): Int = range.random(Random(this.randomInt(Int.MAX_VALUE)))
+private fun FuzzerSettings.randomElementFromRange(range: IntRange): Int = range.random(Random(this.randomInt(Int.MAX_VALUE)))
 
-private fun FuzzerSettings.randomElement(range: LongRange): Long = range.random(Random(this.randomInt(Int.MAX_VALUE)))
+private fun FuzzerSettings.randomElementFromRange(range: LongRange): Long = range.random(Random(this.randomInt(Int.MAX_VALUE)))
