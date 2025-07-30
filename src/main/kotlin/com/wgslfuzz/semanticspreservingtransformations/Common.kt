@@ -111,16 +111,55 @@ interface FuzzerSettings {
     val controlFlowWrappingWeights: ControlFlowWrappingWeights
         get() = ControlFlowWrappingWeights()
 
-    class ArbitraryBooleanExpressionWeights(
+    data class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
         val or: (depth: Int) -> Int = { 2 },
         val and: (depth: Int) -> Int = { 2 },
+        val lessThan: (depth: Int) -> Int = { 1 },
+        val greaterThan: (depth: Int) -> Int = { 1 },
+        val lessThanOrEqual: (depth: Int) -> Int = { 1 },
+        val greaterThanOrEqual: (depth: Int) -> Int = { 1 },
+        val equal: (depth: Int) -> Int = { 1 },
+        val notEqual: (depth: Int) -> Int = { 1 },
         val variableFromScope: (depth: Int) -> Int = { 1 },
         val literal: (depth: Int) -> Int = { 1 },
     )
 
     val arbitraryBooleanExpressionWeights: ArbitraryBooleanExpressionWeights
         get() = ArbitraryBooleanExpressionWeights()
+
+    data class ArbitraryIntExpressionWeights(
+        val swapIntType: (depth: Int) -> Int = { 1 },
+        val binaryOr: (depth: Int) -> Int = { 1 },
+        val binaryAnd: (depth: Int) -> Int = { 1 },
+        val binaryXor: (depth: Int) -> Int = { 1 },
+        val negate: (depth: Int) -> Int = { 1 },
+        val addition: (depth: Int) -> Int = { 1 },
+        val subtraction: (depth: Int) -> Int = { 1 },
+        val multiplication: (depth: Int) -> Int = { 1 },
+        val division: (depth: Int) -> Int = { 1 },
+        val modulo: (depth: Int) -> Int = { 1 },
+        val abs: (depth: Int) -> Int = { 1 },
+        val clamp: (depth: Int) -> Int = { 1 },
+        val countLeadingZeros: (depth: Int) -> Int = { 1 },
+        val countOneBits: (depth: Int) -> Int = { 1 },
+        val countTrailingZeros: (depth: Int) -> Int = { 1 },
+        val dot4U8Packed: (depth: Int) -> Int = { 1 },
+        val dot4I8Packed: (depth: Int) -> Int = { 1 },
+        val extractBits: (depth: Int) -> Int = { 1 },
+        val firstLeadingBit: (depth: Int) -> Int = { 1 },
+        val firstTrailingBit: (depth: Int) -> Int = { 1 },
+        val insertBits: (depth: Int) -> Int = { 1 },
+        val max: (depth: Int) -> Int = { 1 },
+        val min: (depth: Int) -> Int = { 1 },
+        val reverseBits: (depth: Int) -> Int = { 1 },
+        val sign: (depth: Int) -> Int = { 1 },
+        val variableFromScope: (depth: Int) -> Int = { 1 },
+        val literal: (depth: Int) -> Int = { 1 },
+    )
+
+    val arbitraryIntExpressionWeights: ArbitraryIntExpressionWeights
+        get() = ArbitraryIntExpressionWeights()
 
     fun injectDeadBreak(): Boolean = randomInt(100) < 50
 
@@ -878,7 +917,7 @@ private fun getNumericValueWithAdjustedExpression(
     return Pair(outputValueInRangeAndInteger.toInt(), outputExpressionWithCastAndInRange)
 }
 
-private fun getValueAsDoubleFromConstant(constantExpression: Expression): Double =
+fun getValueAsDoubleFromConstant(constantExpression: Expression): Double =
     when (constantExpression) {
         is Expression.FloatLiteral -> constantExpression.text.trimEnd('f', 'h').toDouble()
         is Expression.IntLiteral -> constantExpression.text.trimEnd('i', 'u').toDouble()
