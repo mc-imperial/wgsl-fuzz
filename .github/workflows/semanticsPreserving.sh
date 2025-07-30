@@ -22,13 +22,17 @@
 #
 #uname
 
+ignoreList=("./samples/counting_sort.wgsl")
+
 mkdir generated
 
 for file in ./samples/*.wgsl; do
-  name=$(basename "$file" .wgsl)
-  outputDir="generated/$name"
-  mkdir "$outputDir"
-  ./scripts/runGenerator --originalShader "$file" --numVariants 5 --outputDir "$outputDir" --seed 53
+  if [[ ! " ${ignoreList[@]} " =~ " $file " ]]; then
+    name=$(basename "$file" .wgsl)
+    outputDir="generated/$name"
+    mkdir "$outputDir"
+    ./scripts/runGenerator --originalShader "$file" --numVariants 5 --outputDir "$outputDir" --seed 53
+  fi
 done
 
 echo "Generated: "
