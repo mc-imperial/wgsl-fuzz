@@ -249,6 +249,9 @@ fun <T> traverse(
         is AugmentedStatement.ControlFlowWrapper -> {
             actionWithState(node.statement)
         }
+        is AugmentedStatement.ControlFlowWrapReturn -> {
+            actionWithState(node.statement)
+        }
         is StructMember -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.typeDecl)

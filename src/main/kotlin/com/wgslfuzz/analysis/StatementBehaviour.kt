@@ -187,7 +187,8 @@ private fun statementBehaviour(
 
             // NON-STANDARD: the code here is statically unreachable so has behaviour next.
             is AugmentedStatement.DeadCodeFragment -> setOf(StatementBehaviour.NEXT)
-            is AugmentedStatement.ControlFlowWrapper -> setOf(StatementBehaviour.NEXT)
+            is AugmentedStatement.ControlFlowWrapper -> TODO("Not implemented ControlFlowWrapper in statementBehaviour")
+            is AugmentedStatement.ControlFlowWrapReturn -> TODO("Not implemented ControlFlowWrapReturn in statementBehaviour")
         }
 
     behaviourMap.put(statement, behaviour)

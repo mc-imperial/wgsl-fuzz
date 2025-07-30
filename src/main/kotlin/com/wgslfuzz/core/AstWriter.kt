@@ -907,6 +907,12 @@ class AstWriter(
         emitStatement(statement.statement)
     }
 
+    private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
+        emitIndent()
+        out.print("/* control flow wrap return: */\n")
+        emitStatement(statement.statement)
+    }
+
     private fun emitStatement(
         statement: Statement,
         inForLoopHeader: Boolean = false,
@@ -944,6 +950,7 @@ class AstWriter(
             is Statement.While -> emitStatementWhile(statement)
             is AugmentedStatement.DeadCodeFragment -> emitMetamorphicStatementDeadCodeFragment(statement)
             is AugmentedStatement.ControlFlowWrapper -> emitMetamorphicStatementControlFlowWrapped(statement)
+            is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
         }
     }
 

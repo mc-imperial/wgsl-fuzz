@@ -1205,6 +1205,32 @@ sealed interface AugmentedStatement :
         // The ids purpose is to associate the two together using a unique identifier.
         val id: Int,
     ) : AugmentedStatement
+
+    /**
+     * This is a wrapper that works with ControlFlowWrapper to enable wrapping of return statements.
+     * ControlFlowWrapReturn has an id property that connects it to a ControlFlowWrapper. If the ControlFlowWrapper is
+     * removed then the corresponding ControlFlowWrapReturn should be removed. The reason it exists is that if a
+     * return is wrapped then another return must be inserted to make all code paths contain a return otherwise a
+     * compiler error will occur. The compiler error that would occur otherwise is: missing return at end of function
+     *
+     * Example:
+     * Original Code
+     * let x = 0;
+     * return x;
+     *
+     * Control Flow Wrapped Code
+     * let x = 0;
+     * if (x == 0) {
+     *   /* Control flow wrapped */
+     *   return x;
+     * }
+     * return 19023 // ControlFlowWrapReturn
+     */
+    @Serializable
+    class ControlFlowWrapReturn(
+        val statement: Statement.Return,
+        val id: Int,
+    ) : AugmentedStatement
 }
 
 @Serializable

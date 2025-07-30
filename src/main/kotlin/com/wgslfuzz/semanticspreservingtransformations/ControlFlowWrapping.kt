@@ -27,6 +27,7 @@ import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
+import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
@@ -63,6 +64,7 @@ private class ControlFlowWrapping(
                         // values from this list.
                         .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
                         .map { i ->
+                            // TODO(Optimise this)
                             var x = node.statements.size
                             while (x - 1 > i &&
                                 checkDeclarations(
@@ -169,14 +171,13 @@ private class ControlFlowWrapping(
     private fun wrapInControlFlow(
         originalStatements: List<Statement>,
         injections: ControlFlowWrappingsInjections,
+        uniqueId: Int,
         depth: Int = 0,
     ): AugmentedStatement.ControlFlowWrapper {
         require(originalStatements.isNotEmpty()) { "Cannot control flow wrap an empty list of statements" }
 
         val containsBreakOrContinue =
             originalStatements.any { stmt -> nodesPreOrder(stmt).any { it is Statement.Break || it is Statement.Continue } }
-
-        val uniqueId = fuzzerSettings.getUniqueId()
 
         val originalStatementCompound =
             Statement.Compound(
@@ -405,18 +406,45 @@ private class ControlFlowWrapping(
 
             val newBody = mutableListOf<Statement>()
 
+            // This is the id of the control flow wrapped statements that contain the return
+            var wrappedReturnUniqueId: Int? = null
+
             var i = 0
             for ((x, y) in locations) {
                 while (i < x) {
                     newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections) })
                     i++
                 }
-                newBody.add(wrapInControlFlow(node.statements.subList(x, y), injections))
+
+                val uniqueId = fuzzerSettings.getUniqueId()
+                val originalStatements = node.statements.subList(x, y)
+                if (originalStatements.any { it is Statement.Return }) wrappedReturnUniqueId = uniqueId
+                newBody.add(wrapInControlFlow(originalStatements, injections, uniqueId))
+
                 i = y
             }
             while (i < compound.statements.size) {
                 newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections) })
                 i++
+            }
+
+            val originalBodyReturn = node.statements.filterIsInstance<Statement.Return>().firstOrNull()
+            if (wrappedReturnUniqueId != null && originalBodyReturn?.expression != null) {
+                newBody.add(
+                    AugmentedStatement.ControlFlowWrapReturn(
+                        Statement.Return(
+                            generateArbitraryExpression(
+                                depth = 0,
+                                type = shaderJob.environment.typeOf(originalBodyReturn.expression).asStoreTypeIfReference(),
+                                sideEffectsAllowed = true,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = shaderJob.environment.globalScope,
+                            ),
+                        ),
+                        wrappedReturnUniqueId,
+                    ),
+                )
             }
 
             Statement.Compound(newBody, compound.metadata)

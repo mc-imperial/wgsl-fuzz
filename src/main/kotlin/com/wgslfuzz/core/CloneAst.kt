@@ -331,6 +331,11 @@ private fun cloneHelper(
                     statement.clone(replacements),
                     id,
                 )
+            is AugmentedStatement.ControlFlowWrapReturn ->
+                AugmentedStatement.ControlFlowWrapReturn(
+                    statement.clone(replacements),
+                    id,
+                )
             is AugmentedExpression.ArbitraryExpression ->
                 AugmentedExpression.ArbitraryExpression(
                     expression.clone(replacements),

@@ -219,7 +219,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
         fun replaceControlFlowWrapped(node: AstNode): AstNode? {
             if (node is Statement.Compound) {
                 // This flattens compounds within compounds if they occur
-                val newStatements =
+                val flattenedStatements =
                     node.statements.clone(::replaceControlFlowWrapped).flatMap {
                         if (it is Statement.Compound) {
                             assert(it.metadata == null)
@@ -228,8 +228,20 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                             listOf(it)
                         }
                     }
+
+                // Remove ControlFlowReturns if possible
+                val wrappedReturnWithoutControlFlowWrapper =
+                    flattenedStatements
+                        .filterIsInstance<AugmentedStatement.ControlFlowWrapReturn>()
+                        .filter { wrappedReturn ->
+                            val uniqueId = wrappedReturn.id
+
+                            !flattenedStatements.any { it is AugmentedStatement.ControlFlowWrapper && it.id == uniqueId }
+                        }
+                val statementsWithReturnsRemoved = flattenedStatements.filter { it !in wrappedReturnWithoutControlFlowWrapper }
+
                 return Statement.Compound(
-                    statements = newStatements,
+                    statements = statementsWithReturnsRemoved,
                     metadata = node.metadata,
                 )
             }
