@@ -107,11 +107,29 @@ fun main(args: Array<String>) {
             description = "Reference image for bad image reduction",
         )
 
+    val nonDeterministic by parser
+        .option(
+            ArgType.Boolean,
+            fullName = "nonDeterministic",
+            description = "Check for non determinism for it to be deemed interesting",
+        ).default(false)
+
     parser.parse(args)
 
     println("Parsing shader job from file")
     val shaderJob = Json.decodeFromString<ShaderJob>(File(jobFile.removeSuffix(".wgsl") + ".shaderjob.json").readText())
     println("Parsing complete")
+
+    val compareOn =
+        if (expectedOutputText != null && referenceImage == null && !nonDeterministic) {
+            CompareOn.ExpectedOutputText(expectedOutputText!!)
+        } else if (expectedOutputText == null && referenceImage != null && !nonDeterministic) {
+            CompareOn.ReferenceImage(referenceImage!!)
+        } else if (expectedOutputText == null && referenceImage == null && nonDeterministic) {
+            CompareOn.NonDeterminism
+        } else {
+            throw IllegalArgumentException("Did not set expectedOutputText, referenceImage and nonDeterministic correctly")
+        }
 
     createClient(
         developerMode = developerMode,
@@ -128,8 +146,7 @@ fun main(args: Array<String>) {
                 repetitions = repetitions,
                 workerName = workerName,
                 timeoutMillis = timeoutMillis,
-                expectedOutputText = expectedOutputText,
-                referenceImage = referenceImage,
+                compareOn = compareOn,
             )
         ) {
             throw RuntimeException("Original shader job not interesting.")
@@ -146,8 +163,7 @@ fun main(args: Array<String>) {
                 workerName = workerName,
                 timeoutMillis = timeoutMillis,
                 repetitions = repetitions,
-                expectedOutputText = expectedOutputText,
-                referenceImage = referenceImage,
+                compareOn = compareOn,
             )
         }
     }
@@ -162,8 +178,7 @@ private fun isInteresting(
     httpClient: HttpClient,
     repetitions: Int,
     timeoutMillis: Int,
-    expectedOutputText: String?,
-    referenceImage: String?,
+    compareOn: CompareOn,
 ): Boolean {
     val prettyJson = Json { prettyPrint = true }
 
@@ -190,34 +205,43 @@ private fun isInteresting(
         timeoutMillis = timeoutMillis,
         outputDirPath = Path.of(reductionWorkDir),
     )
-    if (expectedOutputText != null) {
-        if (expectedOutputText !in File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".result.json").readText()) {
-            println(1)
-            return false
+
+    when (compareOn) {
+        is CompareOn.ExpectedOutputText -> {
+            if (compareOn.text !in File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".result.json").readText()) {
+                return false
+            }
+        }
+        is CompareOn.ReferenceImage -> {
+            if (File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".nondet").exists()) {
+                // Nondeterministic output
+                return false
+            }
+            val resultImage = jobFilename.removeSuffix(".wgsl") + ".png"
+            if (!File(reductionWorkDir, resultImage).exists()) {
+                // No image - not interesting
+                println("$resultImage does not exist")
+                return false
+            }
+            val referenceImageFile = File(compareOn.referenceImagePath)
+            val resultImageFile = File(reductionWorkDir, resultImage)
+            println(referenceImageFile)
+            println(resultImageFile)
+
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/191)
+            if (identicalImages(referenceImageFile, resultImageFile)) {
+                // Identical images - not interesting
+                return false
+            }
+        }
+        CompareOn.NonDeterminism -> {
+            if (!File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".nondet").exists()) {
+                // Deterministic output
+                return false
+            }
         }
     }
-    if (referenceImage != null) {
-        if (File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".nondet").exists()) {
-            // Nondeterministic output - we would need a separate test for this
-            println(2)
-            return false
-        }
-        val resultImage = jobFilename.removeSuffix(".wgsl") + ".png"
-        if (!File(reductionWorkDir, resultImage).exists()) {
-            // No image - not interesting
-            println(resultImage + " does not exist")
-            return false
-        }
-        val referenceImageFile = File(referenceImage)
-        val resultImageFile = File(reductionWorkDir, resultImage)
-        println(referenceImageFile)
-        println(resultImageFile)
-        if (identicalImages(referenceImageFile, resultImageFile)) {
-            // Identical images - not interesting
-            println(4)
-            return false
-        }
-    }
+
     AstWriter(
         out = PrintStream(FileOutputStream(File(reductionWorkDir, "best_annotated.wgsl"))),
         emitCommentary = true,
@@ -255,4 +279,16 @@ private fun isInteresting(
         )
     }
     return true
+}
+
+private sealed interface CompareOn {
+    class ExpectedOutputText(
+        val text: String,
+    ) : CompareOn
+
+    class ReferenceImage(
+        val referenceImagePath: String,
+    ) : CompareOn
+
+    object NonDeterminism : CompareOn
 }
