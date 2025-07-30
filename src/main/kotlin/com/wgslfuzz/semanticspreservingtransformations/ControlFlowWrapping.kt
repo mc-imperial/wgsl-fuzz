@@ -33,6 +33,7 @@ import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
 import java.util.SortedSet
 import kotlin.math.abs
+import kotlin.math.min
 import kotlin.random.Random
 
 private typealias ControlFlowWrappingsInjections = MutableMap<Statement.Compound, SortedSet<Pair<Int, Int>>>
@@ -56,7 +57,7 @@ private class ControlFlowWrapping(
 
                 // This sequence contains a subset of all start and end points where injection of control flow wrappings can occur
                 // The sequences ordering is random.
-                var allPossibleAcceptableSectionsOfStatements: Sequence<Pair<Int, Sequence<Int>>> =
+                var allPossibleAcceptableSectionsOfStatements: Sequence<Pair<Int, Lazy<IntRange>>> =
                     (0..<node.statements.size)
                         // Sequence so that map operations is lazy when generating elements
                         .asSequence()
@@ -64,18 +65,19 @@ private class ControlFlowWrapping(
                         // values from this list.
                         .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
                         .map { i ->
-                            // TODO(Optimise this)
-                            var x = node.statements.size
-                            while (x - 1 > i &&
-                                checkDeclarations(
-                                    declarations = node.statements.subList(i, x - 1),
-                                    statementsToCheck = node.statements.subList(x - 1, node.statements.size),
-                                )
-                            ) {
-                                x--
-                            }
-
-                            i to (x..node.statements.size).asSequence()
+                            i to
+                                lazy {
+                                    var x = node.statements.size
+                                    while (x - 1 > i &&
+                                        checkDeclarations(
+                                            declarations = node.statements.subList(i, x - 1),
+                                            statementsToCheck = node.statements.subList(x - 1, node.statements.size),
+                                        )
+                                    ) {
+                                        x--
+                                    }
+                                    x..node.statements.size
+                                }
                         }
 
                 // Add injection locations to the compound
@@ -83,7 +85,9 @@ private class ControlFlowWrapping(
                     // If null then no more injection locations
                     val (x, ySequence) = allPossibleAcceptableSectionsOfStatements.firstOrNull() ?: break
 
-                    val injectionLocation: Pair<Int, Int> = Pair(x, fuzzerSettings.randomElement(ySequence.toList()))
+                    val random = Random(fuzzerSettings.randomInt(Int.MAX_VALUE))
+                    val injectionLocation: Pair<Int, Int> = Pair(x, ySequence.value.random(random))
+
                     injections.getOrPut(node) { sortedSetOf(compareBy { it.first }) }.add(injectionLocation)
 
                     // Remove all invalid injection locations given that injectionLocation has got a control flow wrapping it
@@ -157,12 +161,14 @@ private class ControlFlowWrapping(
 
     private fun removeOverlapping(
         indexRange: Pair<Int, Int>,
-        ranges: Sequence<Pair<Int, Sequence<Int>>>,
-    ): Sequence<Pair<Int, Sequence<Int>>> =
+        ranges: Sequence<Pair<Int, Lazy<IntRange>>>,
+    ): Sequence<Pair<Int, Lazy<IntRange>>> =
         ranges.mapNotNull {
-            val endPointSequence = it.second.filter { endPoint -> endPoint <= indexRange.first }
-            if (indexRange.second <= it.first && endPointSequence.any()) {
-                it.first to endPointSequence
+            val endPointRangeStart = it.second.value.start // .filter { endPoint -> endPoint <= indexRange.first }
+            val endPointRangeEnd = it.second.value.endInclusive
+            val newEndPointRangeEnd = min(endPointRangeEnd, indexRange.first)
+            if (indexRange.second <= it.first && endPointRangeStart <= newEndPointRangeEnd) {
+                it.first to lazy { endPointRangeStart..newEndPointRangeEnd }
             } else {
                 null
             }
