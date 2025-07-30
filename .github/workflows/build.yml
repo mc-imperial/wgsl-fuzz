@@ -49,6 +49,10 @@ jobs:
         with:
           python-version: '3.9'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: cancel_previous
         uses: styfle/cancel-workflow-action@0.8.0
         with:
@@ -64,6 +68,20 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           "C:\Program Files\Git\bin\bash.EXE" --noprofile --norc -e -o pipefail .github/workflows/build.sh
+        shell: cmd
+        if: |
+          startsWith(matrix.os, 'windows')
+
+      - name: semantics_preserving_check
+        run: |
+          .github/workflows/semanticsPreserving.sh
+        shell: bash
+        if: |
+          !startsWith(matrix.os, 'windows')
+      - name: semantics_preserving_check
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          "C:\Program Files\Git\bin\bash.EXE" --noprofile --norc -e -o pipefail .github/workflows/semanticsPreserving.sh
         shell: cmd
         if: |
           startsWith(matrix.os, 'windows')
