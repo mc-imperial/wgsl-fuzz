@@ -688,6 +688,13 @@ class AstWriter(
             emitIndent()
             out.print("{\n")
             increaseIndent()
+            when (compound.metadata) {
+                is AugmentedMetadata.ControlFlowWrapperMetaData -> {
+                    emitIndent()
+                    out.print("/* wrapped original statements: */\n")
+                }
+                else -> {}
+            }
             statements.forEach(::emitStatement)
             decreaseIndent()
             emitIndent()
@@ -894,6 +901,18 @@ class AstWriter(
         emitStatement(deadCodeFragment.statement)
     }
 
+    private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
+        emitIndent()
+        out.print("/* control flow wrapped: */\n")
+        emitStatement(statement.statement)
+    }
+
+    private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
+        emitIndent()
+        out.print("/* control flow wrap return: */\n")
+        emitStatement(statement.statement)
+    }
+
     private fun emitStatement(
         statement: Statement,
         inForLoopHeader: Boolean = false,
@@ -930,6 +949,8 @@ class AstWriter(
             is Statement.Variable -> emitStatementVariable(statement, inForLoopHeader)
             is Statement.While -> emitStatementWhile(statement)
             is AugmentedStatement.DeadCodeFragment -> emitMetamorphicStatementDeadCodeFragment(statement)
+            is AugmentedStatement.ControlFlowWrapper -> emitMetamorphicStatementControlFlowWrapped(statement)
+            is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
         }
     }
 

@@ -928,6 +928,9 @@ sealed interface Statement : AstNode {
     @Serializable
     class Compound(
         val statements: List<Statement>,
+        // metadata is not need for standard WGSL parsing and analysis and so will be null in most situations,
+        // but can be used to carry extra information associated with the compound for transformations.
+        val metadata: AugmentedMetadata? = null,
     ) : ElseBranch
 
     @Serializable
@@ -1178,4 +1181,64 @@ sealed interface AugmentedStatement :
     class DeadCodeFragment(
         val statement: Statement,
     ) : AugmentedStatement
+
+    /**
+     * ControlFlowWrapper wraps a child compound with semantics preserving transformation that runs the wrapped code
+     * exactly once.
+     * Examples of transformations:
+     * - `if (true) { <original code> }`
+     *   where true can be any expression that evaluates to true
+     * - `if (false) { <random code> } else { <original code> }`
+     *   where false can be any expression that evaluates to false
+     * - `for (var i = 0; i < 1; i++) { <original code> }`
+     *   the loop control code could be anything that cause the loop to execute once
+     *
+     * @param statement is the statement that contain the control flow wrapping code and original statements.
+     * @param id is the `id` of control flow wrapper. `id` matches to a corresponding child compound which contains the
+     * original statements that are being wrapped.
+     */
+    @Serializable
+    class ControlFlowWrapper(
+        val statement: Statement,
+        // ControlFlowWrapper has a child compound found within statement that has metadata containing this id.
+        // This compound contains the original set of statements of the transformation.
+        // The ids purpose is to associate the two together using a unique identifier.
+        val id: Int,
+    ) : AugmentedStatement
+
+    /**
+     * This is a wrapper that works with ControlFlowWrapper to enable wrapping of return statements.
+     * ControlFlowWrapReturn has an id property that connects it to a ControlFlowWrapper. If the ControlFlowWrapper is
+     * removed then the corresponding ControlFlowWrapReturn should be removed. The reason it exists is that if a
+     * return is wrapped then another return must be inserted to make all code paths contain a return otherwise a
+     * compiler error will occur. The compiler error that would occur otherwise is: missing return at end of function
+     *
+     * Example:
+     * Original Code
+     * let x = 0;
+     * return x;
+     *
+     * Control Flow Wrapped Code
+     * let x = 0;
+     * if (x == 0) {
+     *   /* Control flow wrapped */
+     *   return x;
+     * }
+     * return 19023 // ControlFlowWrapReturn
+     */
+    @Serializable
+    class ControlFlowWrapReturn(
+        val statement: Statement.Return,
+        val id: Int,
+    ) : AugmentedStatement
+}
+
+@Serializable
+sealed interface AugmentedMetadata {
+    @Serializable
+    data class ControlFlowWrapperMetaData(
+        // id uniquely corresponds to a parent ControlFlowWrapper node.
+        // For more information look at the comments of ControlFlowWrapper.
+        val id: Int,
+    ) : AugmentedMetadata
 }
