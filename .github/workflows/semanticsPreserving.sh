@@ -38,4 +38,9 @@ done
 echo "Generated: "
 ls generated
 
+mkdir shaderHtml
 
+for folder in $(ls generated); do
+  mkdir "shaderHtml/$folder"
+  ./scripts/standAloneShaderHtml --shaderFolderPath "generated/$folder" --output "shaderHtml/$folder"
+done
