@@ -45,6 +45,10 @@ for folder in $(ls generated); do
   ./scripts/standAloneShaderHtml --shaderFolderPath "generated/$folder" --output "shaderHtml/$folder"
 done
 
+pushd src/main/checkSemanticsPreserving
+  npm install
+popd
+
 mkdir resultPng
 for folder in $(ls shaderHtml); do
   mkdir "resultPng/$folder"
