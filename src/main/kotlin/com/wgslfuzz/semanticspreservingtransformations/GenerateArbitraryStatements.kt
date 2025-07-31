@@ -16,16 +16,22 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
+import com.wgslfuzz.core.Statement
 
-typealias MetamorphicTransformation = (shaderJob: ShaderJob, fuzzerSettings: FuzzerSettings) -> ShaderJob
+// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/186)
+fun generateArbitraryElseBranch(
+    sideEffectsAllowed: Boolean,
+    fuzzerSettings: FuzzerSettings,
+    shaderJob: ShaderJob,
+    scope: Scope,
+): Statement.ElseBranch? = null
 
-val metamorphicTransformations: List<MetamorphicTransformation> =
-    listOf(
-        ::addDeadDiscards,
-        ::addDeadBreaks,
-        ::addDeadContinues,
-        ::addDeadReturns,
-        ::addIdentityOperations,
-        ::addControlFlowWrappers,
-    )
+// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/186)
+fun generateArbitraryCompound(
+    sideEffectsAllowed: Boolean,
+    fuzzerSettings: FuzzerSettings,
+    shaderJob: ShaderJob,
+    scope: Scope,
+): Statement.Compound = Statement.Compound(emptyList())

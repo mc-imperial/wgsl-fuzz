@@ -66,6 +66,15 @@ abstract class TransformReduceTests {
     }
 
     @Test
+    open fun testControlFlowWrapping() {
+        testTransformationAndReduction(
+            45,
+            filenameNoExtension,
+            ::addControlFlowWrappers,
+        )
+    }
+
+    @Test
     open fun testMultipleTransformations() {
         testTransformationAndReduction(
             45,

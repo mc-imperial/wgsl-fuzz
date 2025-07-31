@@ -19,6 +19,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
+import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LhsExpression
@@ -83,6 +84,7 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
             ReduceDeadCodeFragments(),
             UndoIdentityOperations(),
             ReplaceKnownValues(),
+            ReduceControlFlowWrapped(),
         )
     var someReductionWorked = false
     var reducedShaderJob = this
@@ -150,7 +152,7 @@ private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>
                         }
                         newStatements.add(node.statements[i])
                     }
-                    Statement.Compound(newStatements)
+                    Statement.Compound(newStatements, node.metadata)
                 }
             },
             originalShaderJob.pipelineState,
@@ -199,6 +201,68 @@ private class ReplaceKnownValues : ReductionPass<AugmentedExpression.KnownValue>
         }
         return ShaderJob(
             originalShaderJob.tu.clone(::replaceKnownValue),
+            originalShaderJob.pipelineState,
+        )
+    }
+}
+
+private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.ControlFlowWrapper>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedStatement.ControlFlowWrapper> =
+        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedStatement.ControlFlowWrapper>()
+
+    override fun removeOpportunities(
+        originalShaderJob: ShaderJob,
+        opportunities: List<AugmentedStatement.ControlFlowWrapper>,
+    ): ShaderJob {
+        val opportunitiesAsSet = opportunities.toSet()
+
+        fun replaceControlFlowWrapped(node: AstNode): AstNode? {
+            if (node is Statement.Compound) {
+                // This flattens compounds within compounds if they occur
+                val flattenedStatements =
+                    node.statements.clone(::replaceControlFlowWrapped).flatMap {
+                        if (it is Statement.Compound) {
+                            assert(it.metadata == null)
+                            it.statements
+                        } else {
+                            listOf(it)
+                        }
+                    }
+
+                // Remove ControlFlowReturns if possible
+                val wrappedReturnWithoutControlFlowWrapper =
+                    flattenedStatements
+                        .filterIsInstance<AugmentedStatement.ControlFlowWrapReturn>()
+                        .filter { wrappedReturn ->
+                            val uniqueId = wrappedReturn.id
+
+                            !flattenedStatements.any { it is AugmentedStatement.ControlFlowWrapper && it.id == uniqueId }
+                        }
+                val statementsWithReturnsRemoved = flattenedStatements.filter { it !in wrappedReturnWithoutControlFlowWrapper }
+
+                return Statement.Compound(
+                    statements = statementsWithReturnsRemoved,
+                    metadata = node.metadata,
+                )
+            }
+
+            if (node !is AugmentedStatement.ControlFlowWrapper || node !in opportunitiesAsSet) {
+                return null
+            }
+
+            val originalStatementNode =
+                nodesPreOrder(originalShaderJob.tu)
+                    .asSequence()
+                    .filterIsInstance<Statement.Compound>()
+                    .firstOrNull {
+                        (it.metadata as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id
+                    } ?: throw AssertionError("Could not find the matching original statement compound for: $node")
+
+            return Statement.Compound(originalStatementNode.statements.clone(::replaceControlFlowWrapped))
+        }
+
+        return ShaderJob(
+            originalShaderJob.tu.clone(::replaceControlFlowWrapped),
             originalShaderJob.pipelineState,
         )
     }
