@@ -53,7 +53,6 @@ jobs:
           access_token: ${{ github.token }}
 
       - run: npx @puppeteer/browsers install chrome@stable
-      - run: which chrome
       - run: which chromium-browser
 
       - name: semantics_preserving_check
