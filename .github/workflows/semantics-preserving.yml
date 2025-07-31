@@ -23,8 +23,6 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-13
-          - windows-latest
           - ubuntu-24.04
         config:
           - Release
@@ -45,25 +43,20 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: '3.9'
+          node-version: 22
 
       - name: cancel_previous
         uses: styfle/cancel-workflow-action@0.8.0
         with:
           access_token: ${{ github.token }}
 
-      - name: build_step_nix
+      - run: npx @puppeteer/browsers install chrome@stable
+      - run: which chrome
+      - run: which chromium-browser
+
+      - name: semantics_preserving_check
         run: |
-          .github/workflows/build.sh
+          .github/workflows/semanticsPreserving.sh
         shell: bash
-        if: |
-          !startsWith(matrix.os, 'windows')
-      - name: build_step_windows
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          "C:\Program Files\Git\bin\bash.EXE" --noprofile --norc -e -o pipefail .github/workflows/build.sh
-        shell: cmd
-        if: |
-          startsWith(matrix.os, 'windows')

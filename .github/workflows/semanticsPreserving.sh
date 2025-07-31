@@ -14,13 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#set -x
-#set -e
-#set -u
-#
-#help | head
-#
-#uname
+set -x
+set -e
+set -u
+
+help | head
+
+uname
 
 ignoreList=("./samples/counting_sort.wgsl")
 
@@ -52,5 +52,5 @@ popd
 mkdir resultPng
 for folder in $(ls shaderHtml); do
   mkdir "resultPng/$folder"
-  node ./src/main/checkSemanticsPreserving/cli.js --chrome "/usr/bin/chromium-browser" --chromeArgs "--enable-unsafe-webgpu" --jobDir "shaderHtml/$folder" --outputDir "resultPng/$folder"
+  node ./src/main/checkSemanticsPreserving/cli.js --chrome "$(which chromium-browser)" --chromeArgs "--enable-unsafe-webgpu" --jobDir "shaderHtml/$folder" --outputDir "resultPng/$folder"
 done
