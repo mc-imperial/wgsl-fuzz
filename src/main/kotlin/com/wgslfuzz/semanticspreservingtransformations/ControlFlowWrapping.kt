@@ -263,6 +263,7 @@ private class ControlFlowWrapping(
                                                 rhs = intToExpression(updateValue),
                                             )
                                         },
+                                        conditions = listOf(BinaryOperator.LESS_THAN, BinaryOperator.NOT_EQUAL),
                                     )
                                 },
                                 1 to {
@@ -300,6 +301,7 @@ private class ControlFlowWrapping(
                                                 )
                                             }
                                         },
+                                        conditions = listOf(BinaryOperator.NOT_EQUAL),
                                     )
                                 },
                                 1 to {
@@ -314,6 +316,7 @@ private class ControlFlowWrapping(
                                         computeForUpdate = { _, counterName, _ ->
                                             Statement.Increment(LhsExpression.Identifier(counterName))
                                         },
+                                        conditions = listOf(BinaryOperator.LESS_THAN, BinaryOperator.NOT_EQUAL),
                                     )
                                 },
                             )
@@ -345,6 +348,7 @@ private class ControlFlowWrapping(
         computeFinalValue: (Int) -> Int,
         // Called computeForUpdate(initialValue, counterName, intToExpression)
         computeForUpdate: (Int, String, (Int) -> Expression) -> Statement.ForUpdate,
+        conditions: List<BinaryOperator>,
     ): Triple<Statement.ForInit, Expression, Statement.ForUpdate> {
         val initialValue = fuzzerSettings.randomInt(1000)
         val finalValue = computeFinalValue(initialValue)
@@ -380,16 +384,10 @@ private class ControlFlowWrapping(
 
         // condition expression that evaluates to false after running the loop.
         val condition =
-            binaryExpressionRandomOperandOrder(
-                fuzzerSettings = fuzzerSettings,
-                operator =
-                    fuzzerSettings.randomElement(
-                        BinaryOperator.NOT_EQUAL,
-                        BinaryOperator.LESS_THAN,
-                        BinaryOperator.GREATER_THAN,
-                    ),
-                operand1 = Expression.Identifier(counterName),
-                operand2 =
+            Expression.Binary(
+                operator = fuzzerSettings.randomElement(conditions),
+                lhs = Expression.Identifier(counterName),
+                rhs =
                     generateKnownValueExpression(
                         depth = depth + 1,
                         knownValue = intToExpression(finalValue),
