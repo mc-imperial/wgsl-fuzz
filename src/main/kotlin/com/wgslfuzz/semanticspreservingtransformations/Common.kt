@@ -39,6 +39,9 @@ const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 4.0 / (currentDepth.toDouble() + 2.0) && currentDepth < 18
 
+    // Get a unique identifiers for transformation such as `ControlFlowWrapper`
+    fun getUniqueId(): Int
+
     // Yields a random integer in the range [0, limit)
     fun randomInt(limit: Int): Int
 
@@ -51,6 +54,8 @@ interface FuzzerSettings {
         require(list.isNotEmpty()) { "Cannot get random element of an empty list" }
         return list[randomInt(list.size)]
     }
+
+    fun <T> randomElement(vararg elements: T): T = randomElement(elements.toList())
 
     data class FalseByConstructionWeights(
         val plainFalse: (depth: Int) -> Int = { 1 },
@@ -96,6 +101,15 @@ interface FuzzerSettings {
 
     val knownValueWeights: KnownValueWeights
         get() = KnownValueWeights()
+
+    data class ControlFlowWrappingWeights(
+        val ifTrueWrapping: Int = 1,
+        val ifFalseWrapping: Int = 1,
+        val singleIterForLoop: Int = 1,
+    )
+
+    val controlFlowWrappingWeights: ControlFlowWrappingWeights
+        get() = ControlFlowWrappingWeights()
 
     data class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
@@ -156,11 +170,20 @@ interface FuzzerSettings {
     fun injectDeadReturn(): Boolean = randomInt(100) < 50
 
     fun applyIdentityOperation(): Boolean = randomInt(100) < 50
+
+    fun controlFlowWrap(): Boolean = randomInt(100) < 50
 }
 
 class DefaultFuzzerSettings(
     private val generator: Random,
 ) : FuzzerSettings {
+    private var nextId: Int = 0
+
+    override fun getUniqueId(): Int {
+        nextId++
+        return nextId
+    }
+
     override fun randomInt(limit: Int): Int = generator.nextInt(limit)
 
     override fun randomDouble(): Double = generator.nextDouble()
@@ -878,8 +901,9 @@ private fun getNumericValueWithAdjustedExpression(
         ) {
             val largestIntegerInPreciseFloatRangeExpression =
                 when (outputType) {
-                    is Type.U32, is Type.I32 -> Expression.IntLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString())
-                    is Type.F32 -> Expression.FloatLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString())
+                    is Type.U32 -> Expression.IntLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString() + "u")
+                    is Type.I32 -> Expression.IntLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString() + "i")
+                    is Type.F32 -> Expression.FloatLiteral(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.toString() + "f")
                     else -> throw UnsupportedOperationException("Cannot create a expression of this type")
                 }
             Pair(
