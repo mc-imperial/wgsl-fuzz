@@ -44,3 +44,9 @@ for folder in $(ls generated); do
   mkdir "shaderHtml/$folder"
   ./scripts/standAloneShaderHtml --shaderFolderPath "generated/$folder" --output "shaderHtml/$folder"
 done
+
+mkdir resultPng
+for folder in $(ls shaderHtml); do
+  mkdir "resultPng/$folder"
+  node ./src/main/checkSemanticsPreserving/cli.js --chrome "/usr/bin/chromium-browser" --chromeArgs "--enable-unsafe-webgpu" --jobDir "shaderHtml/$folder" --outputDir "resultPng/$folder"
+done
