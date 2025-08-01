@@ -206,40 +206,8 @@ private fun isInteresting(
         outputDirPath = Path.of(reductionWorkDir),
     )
 
-    when (compareOn) {
-        is CompareOn.ExpectedOutputText -> {
-            if (compareOn.text !in File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".result.json").readText()) {
-                return false
-            }
-        }
-        is CompareOn.ReferenceImage -> {
-            if (File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".nondet").exists()) {
-                // Nondeterministic output
-                return false
-            }
-            val resultImage = jobFilename.removeSuffix(".wgsl") + ".png"
-            if (!File(reductionWorkDir, resultImage).exists()) {
-                // No image - not interesting
-                println("$resultImage does not exist")
-                return false
-            }
-            val referenceImageFile = File(compareOn.referenceImagePath)
-            val resultImageFile = File(reductionWorkDir, resultImage)
-            println(referenceImageFile)
-            println(resultImageFile)
-
-            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/191)
-            if (identicalImages(referenceImageFile, resultImageFile)) {
-                // Identical images - not interesting
-                return false
-            }
-        }
-        CompareOn.NonDeterminism -> {
-            if (!File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".nondet").exists()) {
-                // Deterministic output
-                return false
-            }
-        }
+    if (!compareOn.checkInteresting(reductionWorkDir, jobFilename)) {
+        return false
     }
 
     AstWriter(
@@ -282,13 +250,55 @@ private fun isInteresting(
 }
 
 private sealed interface CompareOn {
+    fun checkInteresting(
+        reductionWorkDir: String,
+        jobFilename: String,
+    ): Boolean
+
     class ExpectedOutputText(
-        val text: String,
-    ) : CompareOn
+        private val text: String,
+    ) : CompareOn {
+        override fun checkInteresting(
+            reductionWorkDir: String,
+            jobFilename: String,
+        ): Boolean = text in File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".result.json").readText()
+    }
 
     class ReferenceImage(
-        val referenceImagePath: String,
-    ) : CompareOn
+        private val referenceImagePath: String,
+    ) : CompareOn {
+        override fun checkInteresting(
+            reductionWorkDir: String,
+            jobFilename: String,
+        ): Boolean {
+            if (NonDeterminism.checkInteresting(reductionWorkDir, jobFilename)) {
+                // Nondeterministic output
+                return false
+            }
+            val resultImage = jobFilename.removeSuffix(".wgsl") + ".png"
+            if (!File(reductionWorkDir, resultImage).exists()) {
+                // No image - not interesting
+                println("$resultImage does not exist")
+                return false
+            }
+            val referenceImageFile = File(referenceImagePath)
+            val resultImageFile = File(reductionWorkDir, resultImage)
+            println(referenceImageFile)
+            println(resultImageFile)
 
-    object NonDeterminism : CompareOn
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/191)
+            if (identicalImages(referenceImageFile, resultImageFile)) {
+                // Identical images - not interesting
+                return false
+            }
+            return true
+        }
+    }
+
+    object NonDeterminism : CompareOn {
+        override fun checkInteresting(
+            reductionWorkDir: String,
+            jobFilename: String,
+        ): Boolean = File(reductionWorkDir, jobFilename.removeSuffix(".wgsl") + ".nondet").exists()
+    }
 }
