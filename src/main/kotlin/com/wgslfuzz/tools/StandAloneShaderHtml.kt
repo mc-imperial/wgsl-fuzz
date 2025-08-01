@@ -19,7 +19,6 @@ package com.wgslfuzz.tools
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
-import kotlinx.cli.required
 import java.io.File
 
 fun main(args: Array<String>) {
