@@ -33,10 +33,11 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintStream
-import java.util.Random
 import kotlin.math.ceil
 import kotlin.math.log10
 import kotlin.math.max
+import kotlin.random.Random
+import kotlin.random.asJavaRandom
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
@@ -101,10 +102,9 @@ fun main(args: Array<String>) {
     val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(File(uniforms).readText())
     val shaderJob = createShaderJob(shaderText, uniformBuffers)
 
-    val generator =
-        seed?.let {
-            Random(it.toLong())
-        } ?: Random()
+    val seedAsLong = seed?.toLong() ?: Random.nextLong() // If a seed is not passed in get a random seed from the default Random object
+    println("Using seed: $seedAsLong")
+    val generator = Random(seedAsLong).asJavaRandom()
 
     val fuzzerSettings: FuzzerSettings = DefaultFuzzerSettings(generator)
 
