@@ -52,8 +52,10 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - run: npx @puppeteer/browsers install chrome@stable
-      - run: which chromium-browser
+      - name: Install Chromium browser
+        run: |
+          sudo apt-get update
+          sudo apt-get install chromium-browser
 
       - name: semantics_preserving_check
         run: |
