@@ -25,8 +25,6 @@ function canvasToPngJson(canvas) {
 
 async function renderImage(job, device, canvas) {
 
-  const preferredFormat = navigator.gpu.getPreferredCanvasFormat();
-
   const vertices = new Float32Array([
     -1.0,
     -1.0, // Triangle 1
@@ -45,7 +43,7 @@ async function renderImage(job, device, canvas) {
 
   const renderTarget = device.createTexture({
     size: [canvas.width, canvas.height],
-    format: preferredFormat,
+    format: "rgba8unorm",
     usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
   });
 
@@ -125,7 +123,7 @@ async function renderImage(job, device, canvas) {
       entryPoint: "fragmentMain",
       targets: [
         {
-          format: preferredFormat,
+          format: "rgba8unorm",
         },
       ],
     },
