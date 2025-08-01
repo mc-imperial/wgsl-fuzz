@@ -5,6 +5,7 @@ import kotlinx.cli.ArgType
 import kotlinx.cli.default
 import kotlinx.cli.required
 import java.io.File
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     val parser = ArgParser("image compare")
@@ -26,7 +27,7 @@ fun main(args: Array<String>) {
     val file2Dir by parser
         .option(
             ArgType.String,
-            fullName = "fil2Dir",
+            fullName = "file2Dir",
             description = "Path to directory of second images to compare relative to file1",
         )
 
@@ -62,6 +63,10 @@ fun runComparisons(
 ) {
     if (identicalImageCompare) {
         val identical = IdenticalImageCompare.equivalentImages(file1, file2)
-        println("The images are: ${if (identical) "identical" else "not identical"}")
+        if (!identical) {
+            println("Found two images that are not identical")
+            exitProcess(1)
+        }
+        println("All images where identical")
     }
 }

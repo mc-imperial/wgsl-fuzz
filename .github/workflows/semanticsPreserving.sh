@@ -22,7 +22,7 @@ help | head
 
 uname
 
-ignoreList=("./samples/counting_sort.wgsl")
+ignoreList=("./samples/counting_sort.wgsl", "./samples/counting_sort.png")
 
 mkdir generated
 
@@ -53,4 +53,12 @@ mkdir resultPng
 for folder in $(ls shaderHtml); do
   mkdir "resultPng/$folder"
   node ./src/main/checkSemanticsPreserving/cli.js --chrome "$(which chromium-browser)" --chromeArgs "--enable-unsafe-webgpu" --jobDir "shaderHtml/$folder" --outputDir "resultPng/$folder"
+done
+
+./scripts/generateReferenceImages
+
+for file in ./referenceImages/*.png; do
+  if [[ ! " ${ignoreList[@]} " =~ " $file " ]]; then
+    ./scripts/compareImages --file1Path "$file" --file2Dir "resultPng/$(basename "$file" .png)" --identicalImageCompare
+  fi
 done

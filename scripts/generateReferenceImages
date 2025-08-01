@@ -14,4 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-./gradlew compareImages --args="$*"
+mkdir sampleShaderHtml
+mkdir referenceImages
+
+./scripts/standAloneShaderHtml --shaderFolderPath samples --output sampleShaderHtml
+
+pushd src/main/checkSemanticsPreserving
+  npm install
+popd
+
+node ./src/main/checkSemanticsPreserving/cli.js --chrome "$(which chromium-browser)" --chromeArgs "--enable-unsafe-webgpu" --jobDir "sampleShaderHtml" --outputDir "referenceImages"
