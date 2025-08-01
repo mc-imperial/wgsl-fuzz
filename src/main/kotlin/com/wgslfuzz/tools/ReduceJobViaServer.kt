@@ -212,7 +212,7 @@ private fun isInteresting(
         val resultImageFile = File(reductionWorkDir, resultImage)
         println(referenceImageFile)
         println(resultImageFile)
-        if (identicalImages(referenceImageFile, resultImageFile)) {
+        if (IdenticalImageCompare.equivalentImages(referenceImageFile, resultImageFile)) {
             // Identical images - not interesting
             println(4)
             return false

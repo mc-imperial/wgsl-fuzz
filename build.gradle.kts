@@ -112,3 +112,8 @@ tasks.register<JavaExec>("standAloneShaderHtml") {
     mainClass.set("com.wgslfuzz.tools.StandAloneShaderHtmlKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("compareImages") {
+    mainClass.set("com.wgslfuzz.tools.CompareImagesKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}

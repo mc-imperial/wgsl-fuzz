@@ -4,3 +4,4 @@
 .gradle
 build
 keystore.jks
+/src/main/checkSemanticsPreserving/node_modules/

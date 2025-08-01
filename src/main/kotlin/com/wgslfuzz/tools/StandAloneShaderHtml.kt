@@ -19,7 +19,6 @@ package com.wgslfuzz.tools
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
-import kotlinx.cli.required
 import java.io.File
 
 fun main(args: Array<String>) {
@@ -30,14 +29,21 @@ fun main(args: Array<String>) {
             ArgType.String,
             fullName = "wgslFile",
             description = "Wgsl sample shader to generate html file for",
-        ).required()
+        )
 
     val uniformJsonPath by parser
         .option(
             ArgType.String,
             fullName = "uniformJson",
             description = "Json file to read uniform data from",
-        ).required()
+        )
+
+    val shaderFolderPath by parser
+        .option(
+            ArgType.String,
+            fullName = "shaderFolderPath",
+            description = "Folder that contains both the wgsl and uniform json files to convert",
+        )
 
     val outputFilePath by parser
         .option(
@@ -56,21 +62,36 @@ fun main(args: Array<String>) {
 
     parser.parse(args)
 
-    var wgslCode = File(wgslFilePath).readText()
-    var uniformJson = File(uniformJsonPath).readText()
-    outputHtml(wgslCode, uniformJson, outputFilePath)
+    if (wgslFilePath != null && uniformJsonPath != null && shaderFolderPath == null) {
+        println("Converting a single file")
+        var wgslCode = File(wgslFilePath!!).readText()
+        var uniformJson = File(uniformJsonPath!!).readText()
+        outputHtml(wgslCode, uniformJson, outputFilePath)
 
-    if (watch) {
-        while (true) {
-            Thread.sleep(500) // 0.5 seconds
-            val newWgslCode = File(wgslFilePath).readText()
-            val newUniformJson = File(uniformJsonPath).readText()
-            if (wgslCode != newWgslCode || uniformJson != newUniformJson) {
-                wgslCode = newWgslCode
-                uniformJson = newUniformJson
-                outputHtml(wgslCode, uniformJson, outputFilePath)
+        if (watch) {
+            while (true) {
+                Thread.sleep(500) // 0.5 seconds
+                val newWgslCode = File(wgslFilePath!!).readText()
+                val newUniformJson = File(uniformJsonPath!!).readText()
+                if (wgslCode != newWgslCode || uniformJson != newUniformJson) {
+                    wgslCode = newWgslCode
+                    uniformJson = newUniformJson
+                    outputHtml(wgslCode, uniformJson, outputFilePath)
+                }
             }
         }
+    } else if (shaderFolderPath != null && wgslFilePath == null && uniformJsonPath == null) {
+        println("Converting a folder")
+        File(shaderFolderPath!!).walk().forEach {
+            if (it.isDirectory || it.extension != "wgsl") {
+                return@forEach
+            }
+            val wgslCode = File(it.path).readText()
+            val uniformJson = File(it.path.removeSuffix(".wgsl") + ".uniforms.json").readText()
+            outputHtml(wgslCode, uniformJson, "$outputFilePath/${it.name.removeSuffix(".wgsl")}.html")
+        }
+    } else {
+        throw IllegalArgumentException("Invalid setting of wgslFilePath, uniformJsonPath and shaderFolderPath")
     }
 }
 
