@@ -1198,7 +1198,7 @@ private fun resolveTypeOfMatrixValueConstructor(
                     }
                 }
                 if (candidateElementType == null || candidateElementType.isAbstractionOf(elementTypeForArg)) {
-                    candidateElementType = elementTypeForArg
+                    candidateElementType = elementTypeForArg as Type.Scalar
                 } else if (!elementTypeForArg.isAbstractionOf(candidateElementType)) {
                     throw RuntimeException("Matrix constructed from incompatible mix of element types")
                 }
