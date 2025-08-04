@@ -266,43 +266,67 @@ async function renderImage(job, device, canvas) {
   }
 
 async function executeJob(job, repetitions) {
+
+  const jobResult = {
+    fatalErrors: [],
+    renderImageResults: [],
+    adapterInfo: null,
+    deviceLostReason: null,
+  };
+
   const canvas = document.querySelector("canvas");
 
   if (!navigator.gpu) {
-    throw new Error("WebGPU not supported on this browser.");
+    jobResult.fatalErrors.push("WebGPU not supported on this browser.");
+    return jobResult;
   }
 
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) {
-    throw new Error("No appropriate GPUAdapter found.");
+    jobResult.fatalErrors.push("No appropriate GPUAdapter found.");
+    return jobResult;
   }
 
   const adapterInfo = adapter.info;
-
-  var jobResult = {
-    adapterInfo: {
-      vendor: adapterInfo.vendor,
-      architecture: adapterInfo.architecture,
-      device: adapterInfo.device,
-      description: adapterInfo.description,
-    },
-    renderImageResults: [],
-  }
+  jobResult.adapterInfo = {
+    vendor: adapterInfo.vendor,
+    architecture: adapterInfo.architecture,
+    device: adapterInfo.device,
+    description: adapterInfo.description,
+  };
 
   const device = await adapter.requestDevice();
 
-  var uncapturedErrors = []
+  const deviceLostPromise = device.lost.then((info) => {
+    jobResult.deviceLostReason = info.reason;
+    jobResult.fatalErrors.push(`Device lost: ${info.message}`);
+  });  
 
   device.addEventListener('uncapturederror', (event) => {
     console.error('A WebGPU error was not captured: ', event.error)
-    uncapturedErrors.push(event.error.message)
+    jobResult.fatalErrors.push(event.error.message)
   })
 
-  for (var i = 0; i < repetitions; i++) {
-    jobResult.renderImageResults.push(await renderImage(job, device, canvas));
+  for (let i = 0; i < repetitions; i++) {
+    if (jobResult.fatalErrors.length > 0) {
+      break;
+    }
+    try {
+      jobResult.renderImageResults.push(await renderImage(job, device, canvas));
+    } catch (err) {
+      jobResult.fatalErrors.push(err?.message || String(err));      
+    }
   }
 
-  device.destroy()
+  await deviceLostPromise.catch(() => {});
+  
+  if (jobResult.deviceLostReason != 'destroyed') {
+    try {
+      device.destroy();
+    } catch (err) {
+      console.warn("Failed to destroy device:", err);
+    }
+  }
 
   return jobResult;
 }
