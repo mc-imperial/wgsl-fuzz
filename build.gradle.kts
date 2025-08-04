@@ -112,3 +112,13 @@ tasks.register<JavaExec>("standAloneShaderHtml") {
     mainClass.set("com.wgslfuzz.tools.StandAloneShaderHtmlKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("parseAndPrettyPrint") {
+    mainClass.set("com.wgslfuzz.tools.ParseAndPrettyPrintKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("printShaderWithCommentary") {
+    mainClass.set("com.wgslfuzz.tools.PrintShaderWithCommentaryKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
