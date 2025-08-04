@@ -269,9 +269,9 @@ async function executeJob(job, repetitions) {
 
   const jobResult = {
     fatalErrors: [],
-    renderImageResults: [],
-    adapterInfo: null,
     deviceLostReason: null,
+    adapterInfo: null,
+    renderImageResults: [],
   };
 
   const canvas = document.querySelector("canvas");
