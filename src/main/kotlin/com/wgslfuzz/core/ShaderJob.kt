@@ -244,7 +244,13 @@ private fun literalExprFromBytes(
         is Type.I32, is Type.U32 -> {
             return Pair(
                 Expression.IntLiteral(
-                    text = wordFromBytes(bufferBytes, bufferByteIndex).toString(),
+                    text =
+                        wordFromBytes(bufferBytes, bufferByteIndex).toString() +
+                            if (type is Type.I32) {
+                                "i"
+                            } else {
+                                "u"
+                            },
                 ),
                 bufferByteIndex + 4,
             )
@@ -252,7 +258,7 @@ private fun literalExprFromBytes(
         is Type.F32 -> {
             return Pair(
                 Expression.FloatLiteral(
-                    text = Float.fromBits(wordFromBytes(bufferBytes, bufferByteIndex)).toString(),
+                    text = Float.fromBits(wordFromBytes(bufferBytes, bufferByteIndex)).toString() + "f",
                 ),
                 bufferByteIndex + 4,
             )

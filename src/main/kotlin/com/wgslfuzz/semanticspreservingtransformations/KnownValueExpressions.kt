@@ -69,15 +69,7 @@ fun generateKnownValueExpression(
     if (knownValueAsInt !in 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE) {
         throw UnsupportedOperationException("Known values are currently only supported within a limited range.")
     }
-    val literalSuffix =
-        when (type) {
-            is Type.I32 -> "i"
-            is Type.U32 -> "u"
-            is Type.AbstractInteger -> ""
-            is Type.F32 -> "f"
-            is Type.AbstractFloat -> ""
-            else -> throw RuntimeException("Unsupported type.")
-        }
+    val literalSuffix = getNumericLiteralSuffix(type)
 
     val choices: List<Pair<Int, () -> AugmentedExpression.KnownValue>> =
         listOfNotNull(
@@ -258,7 +250,7 @@ fun generateKnownValueExpression(
                     // valueOfUniformAdjusted is the underlying int value of uniformScalarAdjusted.
                     // valueOfUniformAdjusted is in the range 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE and by extension so is the underlying value of uniformScalarAdjusted.
                     // uniformScalarAdjusted is uniformScalar wrapped in type casts, truncate and/or abs(x) % LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.
-                    val (valueOfUniformAdjusted, uniformScalarAdjusted) =
+                    val (valueOfUniformAdjusted: Int, uniformScalarAdjusted: Expression) =
                         getNumericValueWithAdjustedExpression(
                             valueExpression = uniformScalar,
                             valueExpressionType = scalarType,
@@ -333,6 +325,16 @@ fun generateKnownValueExpression(
     return choose(fuzzerSettings, choices)
 }
 
+private fun getNumericLiteralSuffix(type: Type.Scalar) =
+    when (type) {
+        is Type.I32 -> "i"
+        is Type.U32 -> "u"
+        is Type.AbstractInteger -> ""
+        is Type.F32 -> "f"
+        is Type.AbstractFloat -> ""
+        else -> throw RuntimeException("Unsupported type.")
+    }
+
 fun generateFalseByConstructionExpression(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
@@ -401,25 +403,12 @@ private fun generateFalseByConstructionExpression(
                 )
             },
             fuzzerSettings.falseByConstructionWeights.opaqueFalseFromUniformValues(depth) to {
-                val (uniformScalarExpr, literalExpr, type) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
-                val knownValue =
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = literalExpr,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        shaderJob = shaderJob,
-                        scope = scope,
-                    )
-                // Choose a random suitable operator.
-                // No need for custom weights for this choice.
-                val operators = listOf(BinaryOperator.NOT_EQUAL, BinaryOperator.LESS_THAN, BinaryOperator.GREATER_THAN)
-                // Choose randomly on which side of the expression the uniform access should appear.
-                binaryExpressionRandomOperandOrder(
-                    fuzzerSettings,
-                    fuzzerSettings.randomElement(operators),
-                    uniformScalarExpr,
-                    knownValue,
+                compareUniformWithKnownValue(
+                    depth = depth,
+                    fuzzerSettings = fuzzerSettings,
+                    shaderJob = shaderJob,
+                    scope = scope,
+                    comparisonOperators = listOf(BinaryOperator.NOT_EQUAL, BinaryOperator.LESS_THAN, BinaryOperator.GREATER_THAN),
                 )
             },
         )
@@ -485,31 +474,64 @@ private fun generateTrueByConstructionExpression(
                 )
             },
             fuzzerSettings.trueByConstructionWeights.opaqueTrueFromUniformValues(depth) to {
-                val (uniformScalarExpr, literalExpr, type) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
-                val knownValue =
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = literalExpr,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        shaderJob = shaderJob,
-                        scope = scope,
-                    )
-                // Choose a random suitable operator.
-                // No need for custom weights for this choice.
-                val operators = listOf(BinaryOperator.EQUAL_EQUAL, BinaryOperator.LESS_THAN_EQUAL, BinaryOperator.GREATER_THAN_EQUAL)
-                // Choose randomly on which side of the expression the uniform access should appear.
-                binaryExpressionRandomOperandOrder(
-                    fuzzerSettings,
-                    fuzzerSettings.randomElement(operators),
-                    uniformScalarExpr,
-                    knownValue,
+                compareUniformWithKnownValue(
+                    depth = depth,
+                    fuzzerSettings = fuzzerSettings,
+                    shaderJob = shaderJob,
+                    scope = scope,
+                    comparisonOperators =
+                        listOf(
+                            BinaryOperator.EQUAL_EQUAL,
+                            BinaryOperator.LESS_THAN_EQUAL,
+                            BinaryOperator.GREATER_THAN_EQUAL,
+                        ),
                 )
             },
         )
     return AugmentedExpression.KnownValue(
         expression = choose(fuzzerSettings, choices),
         knownValue = Expression.BoolLiteral("true"),
+    )
+}
+
+private fun compareUniformWithKnownValue(
+    depth: Int,
+    fuzzerSettings: FuzzerSettings,
+    shaderJob: ShaderJob,
+    scope: Scope,
+    comparisonOperators: List<BinaryOperator>,
+): Expression {
+    val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
+    val (valueOfUniformAdjusted: Int, uniformScalarAdjusted: Expression) =
+        getNumericValueWithAdjustedExpression(
+            valueExpression = uniformScalar,
+            valueExpressionType = scalarType,
+            constantExpression = valueOfUniform,
+            outputType = scalarType,
+        )
+    val adjustedValueAsLiteralExpr =
+        when (scalarType) {
+            is Type.F32 -> Expression.FloatLiteral("${valueOfUniformAdjusted}f")
+            is Type.I32 -> Expression.IntLiteral("${valueOfUniformAdjusted}i")
+            is Type.U32 -> Expression.IntLiteral("${valueOfUniformAdjusted}u")
+            else -> throw UnsupportedOperationException("Unsupported scalar type $scalarType")
+        }
+    val knownValue =
+        generateKnownValueExpression(
+            depth = depth + 1,
+            knownValue = adjustedValueAsLiteralExpr,
+            type = scalarType,
+            fuzzerSettings = fuzzerSettings,
+            shaderJob = shaderJob,
+            scope = scope,
+        )
+    // Choose a random suitable operator and choose randomly on which side of the expression the uniform access should appear.
+    // No need for custom weights for these choices.
+    return binaryExpressionRandomOperandOrder(
+        fuzzerSettings,
+        fuzzerSettings.randomElement(comparisonOperators),
+        uniformScalarAdjusted,
+        knownValue,
     )
 }
 

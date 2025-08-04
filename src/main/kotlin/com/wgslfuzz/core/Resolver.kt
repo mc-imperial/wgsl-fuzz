@@ -2300,12 +2300,16 @@ private fun resolveFunctionBody(
                     ),
                 )
         }
+        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(
+            statement = functionDecl.body,
+            scope = resolverState.currentScope,
+        )
         functionDecl.body.statements.forEach {
             resolveAstNode(it, resolverState)
         }
         resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
-            functionDecl.body,
-            resolverState.currentScope,
+            compound = functionDecl.body,
+            scope = resolverState.currentScope,
         )
     }
 }
@@ -2317,7 +2321,7 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
     val resolverState =
         ResolverState()
 
-// Resolve name-introducing global decls in order, then other global decls
+    // Resolve name-introducing global decls in order, then other global decls
     for (name in orderedGlobalDecls) {
         val astNode = nameToDecl[name]!!
         if (astNode is GlobalDecl.Function) {
