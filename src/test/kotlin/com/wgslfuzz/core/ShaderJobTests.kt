@@ -129,21 +129,21 @@ class ShaderJobTests {
         assertEquals(uniformBuffers, shaderJob.getByteLevelContentsForUniformBuffers())
         val structValue = shaderJob.pipelineState.getUniformValue(0, 0) as Expression.StructValueConstructor
         val aExpr = structValue.args[0] as Expression.IntLiteral
-        assertEquals("1", aExpr.text)
+        assertEquals("1i", aExpr.text)
         val bExpr = structValue.args[1] as Expression.Vec2ValueConstructor
-        assertEquals("2", (bExpr.args[0] as Expression.IntLiteral).text)
-        assertEquals("3", (bExpr.args[1] as Expression.IntLiteral).text)
+        assertEquals("2i", (bExpr.args[0] as Expression.IntLiteral).text)
+        assertEquals("3i", (bExpr.args[1] as Expression.IntLiteral).text)
         val cExpr = structValue.args[2] as Expression.IntLiteral
-        assertEquals("4", cExpr.text)
+        assertEquals("4i", cExpr.text)
         val dExpr = structValue.args[3] as Expression.Vec3ValueConstructor
-        assertEquals("5", (dExpr.args[0] as Expression.IntLiteral).text)
-        assertEquals("6", (dExpr.args[1] as Expression.IntLiteral).text)
-        assertEquals("7", (dExpr.args[2] as Expression.IntLiteral).text)
+        assertEquals("5i", (dExpr.args[0] as Expression.IntLiteral).text)
+        assertEquals("6i", (dExpr.args[1] as Expression.IntLiteral).text)
+        assertEquals("7i", (dExpr.args[2] as Expression.IntLiteral).text)
         val eExpr = structValue.args[4] as Expression.Vec4ValueConstructor
-        assertEquals("8", (eExpr.args[0] as Expression.IntLiteral).text)
-        assertEquals("9", (eExpr.args[1] as Expression.IntLiteral).text)
-        assertEquals("10", (eExpr.args[2] as Expression.IntLiteral).text)
-        assertEquals("11", (eExpr.args[3] as Expression.IntLiteral).text)
+        assertEquals("8i", (eExpr.args[0] as Expression.IntLiteral).text)
+        assertEquals("9i", (eExpr.args[1] as Expression.IntLiteral).text)
+        assertEquals("10i", (eExpr.args[2] as Expression.IntLiteral).text)
+        assertEquals("11i", (eExpr.args[3] as Expression.IntLiteral).text)
     }
 
     @Test
@@ -157,11 +157,11 @@ class ShaderJobTests {
         assertEquals(uniformBuffers, shaderJob.getByteLevelContentsForUniformBuffers())
 
         val a = shaderJob.pipelineState.getUniformValue(group = 0, binding = 0) as Expression.Vec3ValueConstructor
-        assertEquals("1", (a.args[0] as Expression.IntLiteral).text)
-        assertEquals("2", (a.args[1] as Expression.IntLiteral).text)
-        assertEquals("3", (a.args[2] as Expression.IntLiteral).text)
+        assertEquals("1i", (a.args[0] as Expression.IntLiteral).text)
+        assertEquals("2i", (a.args[1] as Expression.IntLiteral).text)
+        assertEquals("3i", (a.args[2] as Expression.IntLiteral).text)
 
         val b = shaderJob.pipelineState.getUniformValue(group = 0, binding = 1) as Expression.IntLiteral
-        assertEquals("4", b.text)
+        assertEquals("4i", b.text)
     }
 }

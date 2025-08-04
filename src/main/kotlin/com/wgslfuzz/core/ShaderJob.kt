@@ -162,7 +162,11 @@ class ShaderJob(
 
 private fun intLiteralToBytes(value: Expression): List<Int> {
     val intValue = value as Expression.IntLiteral
-    val parsedInt: Int = intValue.text.toInt()
+    val parsedInt: Int =
+        intValue.text
+            .removeSuffix("i")
+            .removeSuffix("u")
+            .toInt()
     val byteArray =
         ByteBuffer
             .allocate(4)
