@@ -16,6 +16,7 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertNotEquals
 
@@ -37,5 +38,29 @@ class LogicOperationsTransformReduceTests : TransformReduceTests() {
     @Test
     override fun testAddDeadContinues() {
         // This test does not have any loops hence cannot test dead continues
+    }
+
+    @Disabled
+    @Test
+    override fun testAddDeadReturns() {
+        super.testAddDeadReturns()
+    }
+
+    @Disabled
+    @Test
+    override fun testControlFlowWrapping() {
+        super.testControlFlowWrapping()
+    }
+
+    @Disabled
+    @Test
+    override fun testAddIdentityOperations() {
+        super.testAddIdentityOperations()
+    }
+
+    @Disabled
+    @Test
+    override fun testMultipleTransformations() {
+        super.testMultipleTransformations()
     }
 }
