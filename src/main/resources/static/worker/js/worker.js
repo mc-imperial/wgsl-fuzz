@@ -281,7 +281,14 @@ async function executeJob(job, repetitions) {
     return jobResult;
   }
 
-  const adapter = await navigator.gpu.requestAdapter();
+  let adapter;
+  try {
+    adapter = await navigator.gpu.requestAdapter();
+  } catch (err) {
+      jobResult.fatalErrors.push(`Failed to request GPU adapter: ${err?.message || String(err)}`);
+      return jobResult;
+  }
+
   if (!adapter) {
     jobResult.fatalErrors.push("No appropriate GPUAdapter found.");
     return jobResult;
@@ -295,9 +302,15 @@ async function executeJob(job, repetitions) {
     description: adapterInfo.description,
   };
 
-  const device = await adapter.requestDevice();
+    let device;
+    try {
+	device = await adapter.requestDevice();
+    } catch (err) {
+      jobResult.fatalErrors.push(`Failed to request device: ${err?.message || String(err)}`);
+      return jobResult;
+    }
 
-  const deviceLostPromise = device.lost.then((info) => {
+  device.lost.then((info) => {
     jobResult.deviceLostReason = info.reason;
     jobResult.fatalErrors.push(`Device lost: ${info.message}`);
   });  
@@ -318,8 +331,6 @@ async function executeJob(job, repetitions) {
     }
   }
 
-  await deviceLostPromise.catch(() => {});
-  
   if (jobResult.deviceLostReason != 'destroyed') {
     try {
       device.destroy();
