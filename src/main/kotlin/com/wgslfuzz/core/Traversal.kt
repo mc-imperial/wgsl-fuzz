@@ -104,12 +104,6 @@ fun <T> traverse(
             }
             node.args.forEach(actionWithState)
         }
-        is AugmentedExpression.FalseByConstruction -> {
-            actionWithState(node.falseExpression)
-        }
-        is AugmentedExpression.TrueByConstruction -> {
-            actionWithState(node.trueExpression)
-        }
         is AugmentedExpression.ArbitraryExpression -> {
             actionWithState(node.expression)
         }

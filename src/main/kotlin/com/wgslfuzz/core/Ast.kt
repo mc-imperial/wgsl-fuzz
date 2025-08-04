@@ -1071,26 +1071,6 @@ sealed interface AugmentedAstNode : AstNode
 sealed interface AugmentedExpression :
     AugmentedAstNode,
     Expression {
-    /**
-     * An expression that is guaranteed to evaluate to false, without observable side effects.
-     *
-     * It is up to the client that creates such an expression to ensure that evaluation to false is guaranteed and that
-     * there are no observable side effects. The augmented node merely serves as marker in the AST to indicate that this
-     * could be replaced with a literal "false" expression without changing semantics.
-     */
-    @Serializable
-    class FalseByConstruction(
-        val falseExpression: Expression,
-    ) : AugmentedExpression
-
-    /**
-     * Similar to [FalseByConstruction], but for an expression that is guaranteed to evaluate to true.
-     */
-    @Serializable
-    class TrueByConstruction(
-        val trueExpression: Expression,
-    ) : AugmentedExpression
-
     @Serializable
     class ArbitraryExpression(
         val expression: Expression,

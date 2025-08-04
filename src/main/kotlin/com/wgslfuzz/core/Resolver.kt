@@ -722,8 +722,6 @@ private fun resolveExpressionType(
                     expression.constructorName,
                 ) as ScopeEntry.TypeAlias
             ).type
-        is AugmentedExpression.FalseByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.falseExpression)
-        is AugmentedExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
         is AugmentedExpression.IdentityOperation -> resolverState.resolvedEnvironment.typeOf(expression.originalExpression)
         is AugmentedExpression.ArbitraryExpression -> resolverState.resolvedEnvironment.typeOf(expression.expression)
         is AugmentedExpression.KnownValue -> {

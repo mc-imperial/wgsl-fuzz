@@ -20,7 +20,9 @@ import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
+import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
@@ -32,6 +34,8 @@ private class AddIdentityOperations(
     private val shaderJob: ShaderJob,
     private val fuzzerSettings: FuzzerSettings,
 ) {
+    private var scope: Scope = shaderJob.environment.globalScope
+
     private fun selectIdentityOperationReplacements(
         node: AstNode,
         identityReplacements: IdentityOperationReplacements,
@@ -50,7 +54,18 @@ private class AddIdentityOperations(
             traverse(::selectIdentityOperationReplacements, node.expression, identityReplacements)
             return
         }
+        if (node is Statement) {
+            // Recording the scope to be the scope available right before this statement sets the scene for generating
+            // identity operations for expressions occurring directly inside the statement, if any.
+            scope = shaderJob.environment.scopeAvailableBefore(node)
+        }
         traverse(::selectIdentityOperationReplacements, node, identityReplacements)
+        if (node is Statement) {
+            // Resetting the scope to global scope on leaving a statement is fine because if expressions in a
+            // subsequent statement are to be mutated, that statement will be hit before such generation takes place,
+            // while if mutation of globally-scoped expressions will occur instead then global scope is appropriate.
+            scope = shaderJob.environment.globalScope
+        }
         if (node !is Expression || !fuzzerSettings.applyIdentityOperation()) {
             // Identity operations only apply to expressions, and we randomly select which
             // expressions to mutate.
@@ -117,6 +132,7 @@ private class AddIdentityOperations(
             type = type,
             fuzzerSettings = fuzzerSettings,
             shaderJob = shaderJob,
+            scope = scope,
         )
 
     private fun generateZero(type: Type) =
@@ -126,6 +142,7 @@ private class AddIdentityOperations(
             type = type,
             fuzzerSettings = fuzzerSettings,
             shaderJob = shaderJob,
+            scope = scope,
         )
 
     fun apply(): ShaderJob {
