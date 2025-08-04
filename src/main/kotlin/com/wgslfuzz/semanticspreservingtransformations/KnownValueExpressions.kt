@@ -24,6 +24,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.clone
+import com.wgslfuzz.core.getUniformDeclaration
 import kotlin.math.max
 import kotlin.math.truncate
 
@@ -245,16 +246,16 @@ fun generateKnownValueExpression(
             } else {
                 // Deriving a known value from a uniform while adjusting as necessary using addition and subtraction.
                 fuzzerSettings.knownValueWeights.knownValueDerivedFromUniform(depth) to {
-                    val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
+                    val (knownScalarFromUniform, scalarType) = randomKnownScalarValueFromUniform(shaderJob, fuzzerSettings)
 
                     // valueOfUniformAdjusted is the underlying int value of uniformScalarAdjusted.
                     // valueOfUniformAdjusted is in the range 0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE and by extension so is the underlying value of uniformScalarAdjusted.
                     // uniformScalarAdjusted is uniformScalar wrapped in type casts, truncate and/or abs(x) % LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.
                     val (valueOfUniformAdjusted: Int, uniformScalarAdjusted: Expression) =
                         getNumericValueWithAdjustedExpression(
-                            valueExpression = uniformScalar,
+                            valueExpression = knownScalarFromUniform.expression,
                             valueExpressionType = scalarType,
-                            constantExpression = valueOfUniform,
+                            constantExpression = knownScalarFromUniform.knownValue,
                             outputType = type,
                         )
 
@@ -494,6 +495,70 @@ private fun generateTrueByConstructionExpression(
     )
 }
 
+fun randomKnownScalarValueFromUniform(
+    shaderJob: ShaderJob,
+    fuzzerSettings: FuzzerSettings,
+): Pair<AugmentedExpression.KnownValue, Type> {
+    val groups =
+        shaderJob.pipelineState
+            .getUniformGroups()
+            .toList()
+            .sorted()
+    val group = fuzzerSettings.randomElement(groups)
+    val bindings =
+        shaderJob.pipelineState
+            .getUniformBindingsForGroup(group)
+            .toList()
+            .sorted()
+    val binding = fuzzerSettings.randomElement(bindings)
+    val uniformDeclaration = shaderJob.tu.getUniformDeclaration(group, binding)
+
+    var currentType: Type =
+        uniformDeclaration.typeDecl?.toType(shaderJob.environment)
+            ?: throw IllegalStateException("Uniform should have type")
+
+    var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)
+    var currentValueExpr: Expression = shaderJob.pipelineState.getUniformValue(group, binding)
+
+    while (true) {
+        when (currentType) {
+            is Type.I32, is Type.F32, is Type.U32 -> break
+
+            is Type.Vector -> {
+                val randomVectorIndex = fuzzerSettings.randomInt(currentType.width)
+                currentType = currentType.elementType
+                currentUniformExpr = Expression.IndexLookup(currentUniformExpr, Expression.IntLiteral(randomVectorIndex.toString()))
+                currentValueExpr = (currentValueExpr as Expression.VectorValueConstructor).args[randomVectorIndex]
+            }
+            is Type.Struct -> {
+                val randomMemberIndex = fuzzerSettings.randomInt(currentType.members.size)
+                val randomMember = currentType.members[randomMemberIndex]
+                currentType = randomMember.second
+                currentUniformExpr = Expression.MemberLookup(currentUniformExpr, randomMember.first)
+                currentValueExpr = (currentValueExpr as Expression.StructValueConstructor).args[randomMemberIndex]
+            }
+            is Type.Array -> {
+                val randomElementIndex = fuzzerSettings.randomInt(currentType.elementCount!!)
+                currentType = currentType.elementType
+                currentUniformExpr =
+                    Expression.IndexLookup(
+                        currentUniformExpr,
+                        Expression.IntLiteral(randomElementIndex.toString()),
+                    )
+                currentValueExpr = (currentValueExpr as Expression.ArrayValueConstructor).args[randomElementIndex]
+            }
+            else -> TODO()
+        }
+    }
+    return Pair(
+        AugmentedExpression.KnownValue(
+            knownValue = currentValueExpr,
+            expression = currentUniformExpr,
+        ),
+        currentType,
+    )
+}
+
 private fun compareUniformWithKnownValue(
     depth: Int,
     fuzzerSettings: FuzzerSettings,
@@ -501,12 +566,12 @@ private fun compareUniformWithKnownValue(
     scope: Scope,
     comparisonOperators: List<BinaryOperator>,
 ): Expression {
-    val (uniformScalar, valueOfUniform, scalarType) = randomUniformScalarWithValue(shaderJob, fuzzerSettings)
+    val (knownScalarFromUniform, scalarType) = randomKnownScalarValueFromUniform(shaderJob, fuzzerSettings)
     val (valueOfUniformAdjusted: Int, uniformScalarAdjusted: Expression) =
         getNumericValueWithAdjustedExpression(
-            valueExpression = uniformScalar,
+            valueExpression = knownScalarFromUniform.expression,
             valueExpressionType = scalarType,
-            constantExpression = valueOfUniform,
+            constantExpression = knownScalarFromUniform.knownValue,
             outputType = scalarType,
         )
     val adjustedValueAsLiteralExpr =

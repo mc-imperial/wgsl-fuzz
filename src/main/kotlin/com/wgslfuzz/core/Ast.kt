@@ -1084,10 +1084,14 @@ sealed interface AugmentedExpression :
         init {
             if (knownValue is Expression.FloatLiteral) {
                 val doubleValue = knownValue.text.removeSuffix("f").toDouble()
-                val preciseIntegerFloatingPointRange = -16777216.0..16777216.0
-                if (doubleValue !in preciseIntegerFloatingPointRange || doubleValue != doubleValue.toInt().toDouble()) {
+                val floatValue =
+                    knownValue.text
+                        .removeSuffix("f")
+                        .toFloat()
+                        .toDouble()
+                if (doubleValue != floatValue) {
                     throw UnsupportedOperationException(
-                        "A floating-point known value must be representable as an integer; found value $doubleValue.",
+                        "A floating-point known value must be exactly representable; found value $doubleValue which does not match float representation $floatValue.",
                     )
                 }
             }

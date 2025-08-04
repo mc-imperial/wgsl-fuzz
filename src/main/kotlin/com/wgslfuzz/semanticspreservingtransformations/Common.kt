@@ -21,12 +21,10 @@ import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.ResolvedEnvironment
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
-import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.evaluateToInt
-import com.wgslfuzz.core.getUniformDeclaration
 import java.util.Random
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
@@ -237,65 +235,7 @@ fun scopeEntryTypedDeclToExpression(scopeEntry: ScopeEntry.TypedDecl): Expressio
         name = scopeEntry.declName,
     )
 
-fun randomUniformScalarWithValue(
-    shaderJob: ShaderJob,
-    fuzzerSettings: FuzzerSettings,
-): Triple<Expression, Expression, Type> {
-    val groups =
-        shaderJob.pipelineState
-            .getUniformGroups()
-            .toList()
-            .sorted()
-    val group = fuzzerSettings.randomElement(groups)
-    val bindings =
-        shaderJob.pipelineState
-            .getUniformBindingsForGroup(group)
-            .toList()
-            .sorted()
-    val binding = fuzzerSettings.randomElement(bindings)
-    val uniformDeclaration = shaderJob.tu.getUniformDeclaration(group, binding)
-
-    var currentType: Type =
-        uniformDeclaration.typeDecl?.toType(shaderJob.environment)
-            ?: throw IllegalStateException("Uniform should have type")
-
-    var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)
-    var currentValueExpr: Expression = shaderJob.pipelineState.getUniformValue(group, binding)
-
-    while (true) {
-        when (currentType) {
-            is Type.I32, is Type.F32, is Type.U32 -> break
-
-            is Type.Vector -> {
-                val randomVectorIndex = fuzzerSettings.randomInt(currentType.width)
-                currentType = currentType.elementType
-                currentUniformExpr = Expression.IndexLookup(currentUniformExpr, Expression.IntLiteral(randomVectorIndex.toString()))
-                currentValueExpr = (currentValueExpr as Expression.VectorValueConstructor).args[randomVectorIndex]
-            }
-            is Type.Struct -> {
-                val randomMemberIndex = fuzzerSettings.randomInt(currentType.members.size)
-                val randomMember = currentType.members[randomMemberIndex]
-                currentType = randomMember.second
-                currentUniformExpr = Expression.MemberLookup(currentUniformExpr, randomMember.first)
-                currentValueExpr = (currentValueExpr as Expression.StructValueConstructor).args[randomMemberIndex]
-            }
-            is Type.Array -> {
-                val randomElementIndex = fuzzerSettings.randomInt(currentType.elementCount!!)
-                currentType = currentType.elementType
-                currentUniformExpr =
-                    Expression.IndexLookup(
-                        currentUniformExpr,
-                        Expression.IntLiteral(randomElementIndex.toString()),
-                    )
-                currentValueExpr = (currentValueExpr as Expression.ArrayValueConstructor).args[randomElementIndex]
-            }
-            else -> TODO()
-        }
-    }
-    return Triple(currentUniformExpr, currentValueExpr, currentType)
-}
-
-private fun TypeDecl.toType(resolvedEnvironment: ResolvedEnvironment): Type =
+fun TypeDecl.toType(resolvedEnvironment: ResolvedEnvironment): Type =
     when (this) {
         is TypeDecl.Array ->
             Type.Array(
