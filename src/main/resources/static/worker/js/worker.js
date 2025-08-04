@@ -23,7 +23,7 @@ function canvasToPngJson(canvas) {
   };
 }
 
-async function renderImage(job, device, canvas, canvasFormat, context) {
+async function renderImage(job, device, canvas) {
 
   const vertices = new Float32Array([
     -1.0,
@@ -40,6 +40,14 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
     -1.0,
     1.0,
   ]);
+
+  const renderTarget = device.createTexture({
+    size: [canvas.width, canvas.height],
+    format: "rgba8unorm",
+    usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+  });
+
+  const renderTargetView = renderTarget.createView();
 
   const vertexBuffer = device.createBuffer({
     label: "Vertices",
@@ -115,25 +123,28 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
       entryPoint: "fragmentMain",
       targets: [
         {
-          format: canvasFormat,
+          format: "rgba8unorm",
         },
       ],
     },
   });
 
-  const encoder = device.createCommandEncoder();
-
-  const pass = encoder.beginRenderPass({
+  const renderToTextureEncoder = device.createCommandEncoder({
+          label: "Render to texture encoder",
+  });
+  
+  const pass = renderToTextureEncoder.beginRenderPass({
+    label: "Render pass",
     colorAttachments: [
       {
-        view: context.getCurrentTexture().createView(),
-        loadOp: "clear",
+        view: renderTargetView,
         clearValue: { r: 0.5, g: 0, b: 0.5, a: 1.0 },
-        storeOp: "store",
+        loadOp: 'clear',
+        storeOp: 'store',
       },
     ],
   });
-
+ 
   pass.setPipeline(pipeline);
   pass.setVertexBuffer(0, vertexBuffer);
 
@@ -153,7 +164,7 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
   pass.draw(vertices.length / 2);
   pass.end();
 
-  device.queue.submit([encoder.finish()]);
+  device.queue.submit([renderToTextureEncoder.finish()]);
 
   const compilationInfo = await shaderModule.getCompilationInfo()
 
@@ -219,27 +230,40 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
   })
 
   if (!errorOccurred) {
-    renderImageResult.frame = canvasToPngJson(canvas);
-  }
-
-  return renderImageResult;
-}
-
-function clearCanvas(device, context) {
-  const encoder = device.createCommandEncoder();
-  const pass = encoder.beginRenderPass({
-    colorAttachments: [
+    const copyFromTextureEncoder = device.createCommandEncoder({
+            label: "Copy from texture encoder",
+    });
+     const outputBuffer = device.createBuffer({
+      size: canvas.width * canvas.height * 4, // 4 bytes per pixel
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    copyFromTextureEncoder.copyTextureToBuffer(
+      { texture: renderTarget },
       {
-        view: context.getCurrentTexture().createView(),
-        loadOp: "clear",
-        clearValue: { r: 0, g: 0, b: 0.4, a: 1 },
-        storeOp: "store",
-      },
-    ],
-  });
-  pass.end();
-  device.queue.submit([encoder.finish()]);
-}
+          buffer: outputBuffer,
+          bytesPerRow: canvas.width * 4,
+          rowsPerImage: canvas.height,
+        },
+        { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 }
+      );
+      device.queue.submit([copyFromTextureEncoder.finish()]);
+      await outputBuffer.mapAsync(GPUMapMode.READ);
+      const arrayBuffer = outputBuffer.getMappedRange();
+      const pixelBytes = new Uint8Array(arrayBuffer.slice(0)); // Copy it out
+      outputBuffer.unmap();
+  
+      const imageData = new ImageData(
+        new Uint8ClampedArray(pixelBytes), // must be Uint8ClampedArray
+        canvas.width,
+        canvas.height
+      );
+      const context = canvas.getContext('2d');
+      context.putImageData(imageData, 0, 0);
+      renderImageResult.frame = canvasToPngJson(canvas);
+    }
+  
+    return renderImageResult;
+  }
 
 async function executeJob(job, repetitions) {
   const canvas = document.querySelector("canvas");
@@ -274,16 +298,8 @@ async function executeJob(job, repetitions) {
     uncapturedErrors.push(event.error.message)
   })
 
-  const context = canvas.getContext("webgpu");
-  const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({
-    device: device,
-    format: canvasFormat,
-  });
-
   for (var i = 0; i < repetitions; i++) {
-    clearCanvas(device, context);
-    jobResult.renderImageResults.push(await renderImage(job, device, canvas, canvasFormat, context));
+    jobResult.renderImageResults.push(await renderImage(job, device, canvas));
   }
 
   device.destroy()
