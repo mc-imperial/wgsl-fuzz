@@ -24,6 +24,7 @@ import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LhsExpression
+import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
@@ -264,6 +265,7 @@ private class ControlFlowWrapping(
                                             )
                                         },
                                         conditions = listOf(BinaryOperator.LESS_THAN, BinaryOperator.NOT_EQUAL),
+                                        scope = scope,
                                     )
                                 },
                                 1 to {
@@ -302,6 +304,7 @@ private class ControlFlowWrapping(
                                             }
                                         },
                                         conditions = listOf(BinaryOperator.NOT_EQUAL),
+                                        scope = scope,
                                     )
                                 },
                                 1 to {
@@ -317,6 +320,7 @@ private class ControlFlowWrapping(
                                             Statement.Increment(LhsExpression.Identifier(counterName))
                                         },
                                         conditions = listOf(BinaryOperator.LESS_THAN, BinaryOperator.NOT_EQUAL),
+                                        scope = scope,
                                     )
                                 },
                             )
@@ -349,6 +353,7 @@ private class ControlFlowWrapping(
         // Called computeForUpdate(initialValue, counterName, intToExpression)
         computeForUpdate: (Int, String, (Int) -> Expression) -> Statement.ForUpdate,
         conditions: List<BinaryOperator>,
+        scope: Scope,
     ): Triple<Statement.ForInit, Expression, Statement.ForUpdate> {
         val initialValue = fuzzerSettings.randomInt(1000)
         val finalValue = computeFinalValue(initialValue)
@@ -377,6 +382,7 @@ private class ControlFlowWrapping(
                         type = type,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     ),
             )
 
@@ -394,6 +400,7 @@ private class ControlFlowWrapping(
                         type = type,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     ),
             )
 

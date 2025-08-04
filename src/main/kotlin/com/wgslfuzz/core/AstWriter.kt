@@ -438,22 +438,6 @@ class AstWriter(
                 emitExpression(expression.receiver)
                 out.print(".${expression.memberName}")
             }
-            is AugmentedExpression.FalseByConstruction -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* false by construction: */ ")
-                }
-                emitExpression(expression.falseExpression)
-                out.print(")")
-            }
-            is AugmentedExpression.TrueByConstruction -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* true by construction: */ ")
-                }
-                emitExpression(expression.trueExpression)
-                out.print(")")
-            }
             is AugmentedExpression.ArbitraryExpression -> {
                 out.print("(")
                 if (emitCommentary) {

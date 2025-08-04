@@ -151,18 +151,6 @@ private fun cloneHelper(
                     elementType?.clone(replacements),
                     args.clone(replacements),
                 )
-            is AugmentedExpression.FalseByConstruction ->
-                AugmentedExpression.FalseByConstruction(
-                    falseExpression.clone(
-                        replacements,
-                    ),
-                )
-            is AugmentedExpression.TrueByConstruction ->
-                AugmentedExpression.TrueByConstruction(
-                    trueExpression.clone(
-                        replacements,
-                    ),
-                )
             is GlobalDecl.ConstAssert -> GlobalDecl.ConstAssert(expression.clone(replacements))
             is GlobalDecl.Constant -> GlobalDecl.Constant(name, typeDecl?.clone(replacements), initializer.clone(replacements))
             is GlobalDecl.Empty -> GlobalDecl.Empty()

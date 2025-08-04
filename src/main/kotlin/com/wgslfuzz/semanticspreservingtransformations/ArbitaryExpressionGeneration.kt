@@ -55,6 +55,7 @@ fun generateArbitraryExpression(
                 type = type,
                 fuzzerSettings = fuzzerSettings,
                 shaderJob = shaderJob,
+                scope = scope,
             ).clone(::replaceKnownValueWithArbitraryExpression)
         }
         // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
@@ -320,6 +321,7 @@ private fun generateArbitraryInt(
                             type = outputType,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
+                            scope = scope,
                         ),
                 )
             },
@@ -339,6 +341,7 @@ private fun generateArbitraryInt(
                             type = outputType,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
+                            scope = scope,
                         ),
                 )
             },
@@ -358,6 +361,7 @@ private fun generateArbitraryInt(
                         type = outputType,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     )
                 val min =
                     generateKnownValueExpression(
@@ -371,6 +375,7 @@ private fun generateArbitraryInt(
                         type = outputType,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     )
 
                 Expression.FunctionCall(
@@ -436,6 +441,7 @@ private fun generateArbitraryInt(
                         type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     )
                 val offset =
                     generateKnownValueExpression(
@@ -449,6 +455,7 @@ private fun generateArbitraryInt(
                         type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     )
                 Expression.FunctionCall(
                     callee = "extractBits",
@@ -488,6 +495,7 @@ private fun generateArbitraryInt(
                         type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     )
                 val offset =
                     generateKnownValueExpression(
@@ -501,6 +509,7 @@ private fun generateArbitraryInt(
                         type = Type.U32,
                         fuzzerSettings = fuzzerSettings,
                         shaderJob = shaderJob,
+                        scope = scope,
                     )
                 Expression.FunctionCall(
                     callee = "insertBits",
