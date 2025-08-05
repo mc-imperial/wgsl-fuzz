@@ -34,9 +34,36 @@ jobs:
       OS: ${{ matrix.os }}
       CONFIG: ${{ matrix.config }}
     steps:
+      - name: cancel_previous
+        uses: styfle/cancel-workflow-action@0.8.0
+        with:
+          access_token: ${{ github.token }}
+
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Prettier check
+        run: npx prettier --check src
+
+      - name: Run ESLint
+        run: npx eslint src
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -49,17 +76,13 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: cancel_previous
-        uses: styfle/cancel-workflow-action@0.8.0
-        with:
-          access_token: ${{ github.token }}
-
       - name: build_step_nix
         run: |
           .github/workflows/build.sh
         shell: bash
         if: |
           !startsWith(matrix.os, 'windows')
+  
       - name: build_step_windows
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64

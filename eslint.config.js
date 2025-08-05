@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-const MAX_LOG_LINES = 100;
-const logLines = [];
-const logContainer = document.getElementById("output");
-
-export function log(msg) {
-  logLines.push(msg);
-  if (logLines.length > MAX_LOG_LINES) {
-    logLines.shift(); // Drop oldest
-  }
-  logContainer.textContent = logLines.join("\n");
-}
+export default [
+  {
+    files: ["src/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+    },
+    rules: {
+      "no-unused-vars": "warn",
+      "no-console": "off",
+    },
+  },
+]

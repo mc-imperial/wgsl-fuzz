@@ -2,5 +2,8 @@
 *.bak
 .idea
 .gradle
+.kotlin
 build
+experiments
 keystore.jks
+node_modules
