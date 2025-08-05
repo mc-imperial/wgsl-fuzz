@@ -31,7 +31,11 @@ def exclude_dirname(f: str):
             ".gradle",
             ".kotlin",
             ".vscode",
+            "build",
+            "experiments",
             "external",
+            "node_modules",
+            "temp",
         ]
     )
 
@@ -39,10 +43,6 @@ def exclude_dirname(f: str):
 def exclude_dirpath(f: str):
     return (
         f in [
-            path(os.curdir, "build"),
-            path(os.curdir, "temp"),
-            path(os.curdir, "work", "shader_jobs"),
-            path(os.curdir, "work", "clients"),
         ])
 
 

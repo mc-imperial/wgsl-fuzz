@@ -77,7 +77,9 @@ data class RenderImageResult(
  * A render job leads to information obtained from the adapter, plus a number of results. This is because rendering is attempted multiple times to check for nondeterminism.
  */
 data class RenderJobResult(
-    val adapterInfo: AdapterInfo,
+    val fatalErrors: List<String>,
+    val deviceLostReason: String?,
+    val adapterInfo: AdapterInfo?,
     val renderImageResults: List<RenderImageResult>,
 )
 
