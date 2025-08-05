@@ -17,7 +17,6 @@
 package com.wgslfuzz.tools
 
 import com.wgslfuzz.core.AstWriter
-import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.UniformBufferInfoByteLevel
 import com.wgslfuzz.core.createShaderJob
@@ -70,6 +69,16 @@ fun main(args: Array<String>) {
         description = "Optional PRNG seed",
     )
 
+    val nodeLimit by parser
+        .option(
+            ArgType.Int,
+            fullName = "nodeLimit",
+            description =
+                "Optional limit on the number of AST nodes - once this limit is reached no further " +
+                    "transformations will be applied; however the limit might be exceeded due to a transformation being " +
+                    "applied before the limit was reached than then takes the number of nodes beyond the limit",
+        ).default(200000)
+
     parser.parse(args)
 
     println("Original shader file: $originalShader")
@@ -114,14 +123,11 @@ fun main(args: Array<String>) {
         var transformedShaderJob: ShaderJob =
             shaderJob
         do {
-            // This is for early debugging: ensure that every expression resolves to a type.
-            for (node in nodesPreOrder(
-                shaderJob.tu,
-            )) {
-                // Confirm that a type was found for every expression.
-                if (node is Expression) {
-                    shaderJob.environment.typeOf(node)
-                }
+            if (nodesPreOrder(
+                    transformedShaderJob.tu,
+                ).size > nodeLimit
+            ) {
+                break
             }
             transformedShaderJob =
                 fuzzerSettings.randomElement(metamorphicTransformations)(

@@ -2258,6 +2258,7 @@ private fun resolveFunctionHeader(
         parameter.attributes.forEach {
             resolveAstNode(it, resolverState)
         }
+        resolveAstNode(parameter.typeDecl, resolverState)
     }
 
     functionDecl.returnAttributes.forEach {
