@@ -137,9 +137,11 @@ fun main(args: Array<String>) {
                 System.err.println("Job directory $jobDir does not exist.")
                 return
             }
-            dir.listFiles { file ->
-                file.isFile && file.extension == "wgsl"
-            } ?: emptyArray()
+            (
+                dir.listFiles { file ->
+                    file.isFile && file.extension == "wgsl"
+                } ?: emptyArray()
+            ).sortedArray()
         } else {
             System.err.println("One of jobFile or jobDir must be provided.")
             return
