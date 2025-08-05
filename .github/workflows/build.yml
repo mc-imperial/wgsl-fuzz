@@ -59,8 +59,21 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Run Prettier and write changes
+        run: npx prettier --write src
+        # Used to generate a diff of formatting issues
+
+      - name: Show git diff after Prettier
+        run: git diff
+        # Shows what would be reformatted
+
+      - name: Revert any changes Prettier made
+        run: git checkout src
+        # Clean up so the tree is unchanged
+
       - name: Run Prettier check
         run: npx prettier --check src
+        # Actually fail CI if formatting is wrong
 
       - name: Run ESLint
         run: npx eslint src
