@@ -315,9 +315,13 @@ export async function executeJob(job, repetitions) {
     return jobResult;
   }
 
+  let destroyCalledExplicitly = false
+
   device.lost.then((info) => {
-    jobResult.deviceLostReason = info.reason;
-    jobResult.fatalErrors.push(`Device lost: ${info.message}`);
+    if (!destroyCalledExplicitly) {
+      jobResult.deviceLostReason = info.reason;
+      jobResult.fatalErrors.push(`Device lost: ${info.message}`);
+    }
   });
 
   device.addEventListener("uncapturederror", (event) => {
@@ -338,9 +342,13 @@ export async function executeJob(job, repetitions) {
 
   if (jobResult.deviceLostReason != "destroyed") {
     try {
+      // Record that we are intentionally destroying the device, so that we do
+      // not record this (expected) destruction event as a reason for device
+      // loss
+      destroyCalledExplicitly = true;	  
       device.destroy();
     } catch (err) {
-      console.warn("Failed to destroy device:", err);
+      jobResult.fatalErrors.push(err?.message || String(err));
     }
   }
 
