@@ -28,6 +28,7 @@ import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -41,16 +42,26 @@ abstract class ReductionPass<ReductionOpportunityT> {
         opportunities: List<ReductionOpportunityT>,
     ): ShaderJob
 
+    /**
+     * Runs the reduction pass on [originalShaderJob] using the given [interestingnessTest]
+     *
+     * @return null if the reduction pass made no progress. Otherwise, returns a pair whose first component is the
+     *  simplest interesting shader job that was encountered. If a simpler but not interesting shader job was also
+     *  encountered it is returned as the second component; this component will be null if the last thing it tried
+     *  turned out to be interesting.
+     */
     fun run(
         originalShaderJob: ShaderJob,
         interestingnessTest: InterestingnessTest,
-    ): Pair<ShaderJob, Boolean> {
+    ): Pair<ShaderJob, ShaderJob?>? {
         var fragments = findOpportunities(originalShaderJob)
         if (fragments.isEmpty()) {
-            return Pair(originalShaderJob, false)
+            return null
         }
         var progressMade = false
         var bestSoFar = originalShaderJob
+        var simplerButNotInteresting: ShaderJob? = null
+
         var granularity = fragments.size
         while (granularity > 0) {
             var offset = fragments.size - granularity
@@ -64,21 +75,39 @@ abstract class ReductionPass<ReductionOpportunityT> {
                     )
                 if (interestingnessTest(candidateReducedShaderJob)) {
                     bestSoFar = candidateReducedShaderJob
+                    simplerButNotInteresting = null
                     progressMade = true
                     fragments = findOpportunities(bestSoFar)
                     granularity = min(granularity, fragments.size)
                     offset = min(offset, fragments.size - granularity)
                 } else {
+                    if (simplerButNotInteresting == null ||
+                        nodeSizeDelta(bestSoFar, candidateReducedShaderJob) < nodeSizeDelta(bestSoFar, simplerButNotInteresting)
+                    ) {
+                        simplerButNotInteresting = candidateReducedShaderJob
+                    }
                     offset -= granularity
                 }
             }
             granularity /= 2
         }
-        return Pair(bestSoFar, progressMade)
+        if (!progressMade) {
+            return null
+        }
+        return Pair(bestSoFar, simplerButNotInteresting)
     }
 }
 
-fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, Boolean> {
+/**
+ * Reduces [this] using the given [interestingnessTest]
+ *
+ * @return null if the reduction had no effect -- i.e., no reduction attempt was interesting.
+ *  Otherwise, returns a pair whose first component is the simplest shader job that was encountered.
+ *  If a simpler but not interesting shader job was also encountered it is returned as the second component; this
+ *  component will be null if the very last reducing transformation tried during the reduction process turned out to be
+ *  interesting.
+ */
+fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, ShaderJob?>? {
     val passes: List<ReductionPass<*>> =
         listOf(
             ReduceDeadCodeFragments(),
@@ -88,19 +117,24 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
         )
     var someReductionWorked = false
     var reducedShaderJob = this
+    var simplerButNotInterestingShaderJob: ShaderJob? = null
     var continueReducing = true
     while (continueReducing) {
         continueReducing = false
         for (reductionPass in passes) {
-            val (newShaderJob, success) = reductionPass.run(reducedShaderJob, interestingnessTest)
-            if (success) {
+            val reductionPassResult = reductionPass.run(reducedShaderJob, interestingnessTest)
+            reductionPassResult?.let { (newReducedShaderJob: ShaderJob, newSimplerButNotInterestingShaderJob: ShaderJob?) ->
                 someReductionWorked = true
                 continueReducing = true
-                reducedShaderJob = newShaderJob
+                reducedShaderJob = newReducedShaderJob
+                simplerButNotInterestingShaderJob = newSimplerButNotInterestingShaderJob
             }
         }
     }
-    return Pair(reducedShaderJob, someReductionWorked)
+    if (!someReductionWorked) {
+        return null
+    }
+    return Pair(reducedShaderJob, second = simplerButNotInterestingShaderJob)
 }
 
 private class CandidateDeadCodeFragment(
@@ -267,3 +301,8 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
         )
     }
 }
+
+private fun nodeSizeDelta(
+    shaderJob1: ShaderJob,
+    shaderJob2: ShaderJob,
+): Int = abs(nodesPreOrder(shaderJob1.tu).size - nodesPreOrder(shaderJob2.tu).size)

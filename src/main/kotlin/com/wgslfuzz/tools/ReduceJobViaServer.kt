@@ -28,9 +28,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintStream
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.exists
 
@@ -152,19 +150,50 @@ fun main(args: Array<String>) {
             throw RuntimeException("Original shader job not interesting.")
         }
         println("Original shader job is interesting!")
+
+        AstWriter(
+            out = PrintStream(FileOutputStream(File(outputDir, "original_annotated.wgsl"))),
+            emitCommentary = true,
+        ).emit(
+            shaderJob.tu,
+        )
+
         val counter = AtomicInteger(0)
-        shaderJob.reduce { candidate: ShaderJob ->
-            isInteresting(
-                shaderJob = candidate,
-                jobFilename = "candidate${counter.getAndIncrement()}.wgsl",
-                reductionWorkDir = outputDir,
-                serverUrl = serverUrl,
-                httpClient = httpClient,
-                workerName = workerName,
-                timeoutMillis = timeoutMillis,
-                repetitions = repetitions,
-                compareOn = compareOn,
-            )
+        val reductionResult =
+            shaderJob.reduce { candidate: ShaderJob ->
+                isInteresting(
+                    shaderJob = candidate,
+                    jobFilename = "candidate${counter.getAndIncrement()}.wgsl",
+                    reductionWorkDir = outputDir,
+                    serverUrl = serverUrl,
+                    httpClient = httpClient,
+                    workerName = workerName,
+                    timeoutMillis = timeoutMillis,
+                    repetitions = repetitions,
+                    compareOn = compareOn,
+                )
+            }
+        reductionResult?.let { (simplest, maybeSimplerButNotInteresting) ->
+            val prettyJson = Json { prettyPrint = true }
+            AstWriter(
+                out = PrintStream(FileOutputStream(File(outputDir, "simplest.wgsl"))),
+            ).emit(simplest.tu)
+            AstWriter(
+                out = PrintStream(FileOutputStream(File(outputDir, "simplest_annotated.wgsl"))),
+                emitCommentary = true,
+            ).emit(simplest.tu)
+            File(outputDir, "simplest.shaderjob.json").writeText(prettyJson.encodeToString(simplest))
+
+            maybeSimplerButNotInteresting?.let { simplerButNotInteresting ->
+                AstWriter(
+                    out = PrintStream(FileOutputStream(File(outputDir, "simpler_but_not_interesting.wgsl"))),
+                ).emit(simplerButNotInteresting.tu)
+                AstWriter(
+                    out = PrintStream(FileOutputStream(File(outputDir, "simpler_but_not_interesting_annotated.wgsl"))),
+                    emitCommentary = true,
+                ).emit(simplerButNotInteresting.tu)
+                File(outputDir, "simpler_but_not_interesting.shaderjob.json").writeText(prettyJson.encodeToString(simplerButNotInteresting))
+            }
         }
     }
 }
@@ -210,42 +239,9 @@ private fun isInteresting(
         return false
     }
 
-    AstWriter(
-        out = PrintStream(FileOutputStream(File(reductionWorkDir, "best_annotated.wgsl"))),
-        emitCommentary = true,
-    ).emit(
-        shaderJob.tu,
+    File(reductionWorkDir, "best_so_far.txt").writeText(
+        Path.of(reductionWorkDir).resolve(jobFilename).toString(),
     )
-    Files.copy(
-        Path.of(reductionWorkDir).resolve(jobFilename),
-        Path.of(reductionWorkDir).resolve("best.wgsl"),
-        StandardCopyOption.REPLACE_EXISTING,
-    )
-    Files.copy(
-        Path.of(reductionWorkDir).resolve(jobFilename.removeSuffix(".wgsl") + ".uniforms.json"),
-        Path.of(reductionWorkDir).resolve("best.uniforms.json"),
-        StandardCopyOption.REPLACE_EXISTING,
-    )
-    File(
-        reductionWorkDir,
-        "best.shaderjob.json",
-    ).writeText(prettyJson.encodeToString(shaderJob))
-    val resultFile = Path.of(reductionWorkDir).resolve(jobFilename.removeSuffix(".wgsl") + ".result.json")
-    if (resultFile.exists()) {
-        Files.copy(
-            resultFile,
-            Path.of(reductionWorkDir).resolve("best.result.json"),
-            StandardCopyOption.REPLACE_EXISTING,
-        )
-    }
-    val imageFile = Path.of(reductionWorkDir).resolve(jobFilename.removeSuffix(".wgsl") + ".png")
-    if (resultFile.exists()) {
-        Files.copy(
-            imageFile,
-            Path.of(reductionWorkDir).resolve("best.png"),
-            StandardCopyOption.REPLACE_EXISTING,
-        )
-    }
     return true
 }
 
@@ -278,13 +274,10 @@ private sealed interface CompareOn {
             val resultImage = jobFilename.removeSuffix(".wgsl") + ".png"
             if (!File(reductionWorkDir, resultImage).exists()) {
                 // No image - not interesting
-                println("$resultImage does not exist")
                 return false
             }
             val referenceImageFile = File(referenceImagePath)
             val resultImageFile = File(reductionWorkDir, resultImage)
-            println(referenceImageFile)
-            println(resultImageFile)
 
             // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/191)
             if (identicalImages(referenceImageFile, resultImageFile)) {

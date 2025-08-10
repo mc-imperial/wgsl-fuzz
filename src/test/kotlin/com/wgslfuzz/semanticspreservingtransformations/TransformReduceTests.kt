@@ -23,7 +23,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.util.Random
@@ -108,8 +108,8 @@ abstract class TransformReduceTests {
                 transformedShaderJob.environment.typeOf(node)
             }
         }
-        val (reducedShaderJob, reductionMadeChanges) = transformedShaderJob.reduce { true }
-        assertTrue(reductionMadeChanges)
-        assertEquals(shaderJobAsJson, Json.encodeToJsonElement(reducedShaderJob))
+        val reductionResult = transformedShaderJob.reduce { true }
+        assertNotNull(reductionResult)
+        assertEquals(shaderJobAsJson, Json.encodeToJsonElement(reductionResult!!.first))
     }
 }
