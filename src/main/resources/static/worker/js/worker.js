@@ -315,7 +315,7 @@ export async function executeJob(job, repetitions) {
     return jobResult;
   }
 
-  let destroyCalledExplicitly = false
+  let destroyCalledExplicitly = false;
 
   device.lost.then((info) => {
     if (!destroyCalledExplicitly) {
@@ -345,7 +345,7 @@ export async function executeJob(job, repetitions) {
       // Record that we are intentionally destroying the device, so that we do
       // not record this (expected) destruction event as a reason for device
       // loss
-      destroyCalledExplicitly = true;	  
+      destroyCalledExplicitly = true;
       device.destroy();
     } catch (err) {
       jobResult.fatalErrors.push(err?.message || String(err));
