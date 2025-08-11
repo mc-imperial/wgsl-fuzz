@@ -40,11 +40,11 @@ const page = await browser.newPage();
 page.on("console", async (message) => {
   for (const log of message.args()) {
     console.log(
-      "================== Web browser console message ======================"
+      "================== Web browser console message ======================",
     );
     console.log(await log.jsonValue());
     console.log(
-      "====================================================================="
+      "=====================================================================",
     );
   }
 });
