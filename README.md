@@ -89,3 +89,15 @@ Notice that the name of the worker to which the job should be issued is passed v
 To execute all of the shader jobs in a particular directory, instead of the `--jobFile` argument use `--jobDir` and specify the name of the directory.
 
 Either way, outputs from running the job(s) will be in the directory specified via `--outputDir`.
+
+## Notes on the reducer
+
+The reducer can be executed via the `scripts/reduceJobViaServer` script.
+
+At the end of reduction, the simplest shader that was found will be in `simplest.wgsl`, with an annotated version including commentary about the transformations that remain in `simplest_annotated.wgsl`.
+
+To help understand the transformations that could not be removed, the reducer will also try to save out a "one-step-simpler" shader that is not interesting - i.e. that does not trigger the bug. If available, this will be in `simpler_but_not_interesting.wgsl` and `simpler_but_not_interesting_annotated.wgsl`.
+
+It can also be useful to compare `simplest.wgsl` or `simplest_annotated.wgsl` with the sample shader that was used to create the bug-inducing variant. The `scripts/parseAndPrettyPrint` script can be used to get the original sample shader into a pretty-printed form that helps when comparing against `simplest.wgsl`.
+
+To perform comparisons, a visual diffing tool such as `meld` or `WinMerge` is recommended.

@@ -146,7 +146,7 @@ private class InjectDeadDiscards(
                     )
                 }
             }
-            Statement.Compound(newBody)
+            Statement.Compound(newBody, compound.metadata)
         }
 
     /**

@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package com.wgslfuzz.semanticspreservingtransformations
-
-import com.wgslfuzz.core.ShaderJob
-
-typealias MetamorphicTransformation = (shaderJob: ShaderJob, fuzzerSettings: FuzzerSettings) -> ShaderJob
-
-val metamorphicTransformations: List<MetamorphicTransformation> =
-    listOf(
-        ::addDeadDiscards,
-        ::addDeadBreaks,
-        ::addDeadContinues,
-        ::addDeadReturns,
-        ::addIdentityOperations,
-        ::addControlFlowWrappers,
-    )
+export default [
+  {
+    files: ["src/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+    },
+    rules: {
+      "no-unused-vars": "warn",
+      "no-console": "off",
+    },
+  },
+]

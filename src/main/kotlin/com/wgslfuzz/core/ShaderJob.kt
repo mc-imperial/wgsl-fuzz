@@ -162,7 +162,11 @@ class ShaderJob(
 
 private fun intLiteralToBytes(value: Expression): List<Int> {
     val intValue = value as Expression.IntLiteral
-    val parsedInt: Int = intValue.text.toInt()
+    val parsedInt: Int =
+        intValue.text
+            .removeSuffix("i")
+            .removeSuffix("u")
+            .toInt()
     val byteArray =
         ByteBuffer
             .allocate(4)
@@ -185,7 +189,6 @@ fun createShaderJob(
         val bufferBytes: List<UByte> = uniformBuffer.data.map(Int::toUByte)
 
         val uniformType: Type = getUniformStoreType(environment, tu.getUniformDeclaration(group, binding))
-        println(uniformType)
 
         val (literalExpr, newBufferByteIndex) =
             literalExprFromBytes(
@@ -245,7 +248,13 @@ private fun literalExprFromBytes(
         is Type.I32, is Type.U32 -> {
             return Pair(
                 Expression.IntLiteral(
-                    text = wordFromBytes(bufferBytes, bufferByteIndex).toString(),
+                    text =
+                        wordFromBytes(bufferBytes, bufferByteIndex).toString() +
+                            if (type is Type.I32) {
+                                "i"
+                            } else {
+                                "u"
+                            },
                 ),
                 bufferByteIndex + 4,
             )
@@ -253,7 +262,7 @@ private fun literalExprFromBytes(
         is Type.F32 -> {
             return Pair(
                 Expression.FloatLiteral(
-                    text = Float.fromBits(wordFromBytes(bufferBytes, bufferByteIndex)).toString(),
+                    text = Float.fromBits(wordFromBytes(bufferBytes, bufferByteIndex)).toString() + "f",
                 ),
                 bufferByteIndex + 4,
             )

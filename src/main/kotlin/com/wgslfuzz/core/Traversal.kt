@@ -104,12 +104,6 @@ fun <T> traverse(
             }
             node.args.forEach(actionWithState)
         }
-        is AugmentedExpression.FalseByConstruction -> {
-            actionWithState(node.falseExpression)
-        }
-        is AugmentedExpression.TrueByConstruction -> {
-            actionWithState(node.trueExpression)
-        }
         is AugmentedExpression.ArbitraryExpression -> {
             actionWithState(node.expression)
         }
@@ -244,6 +238,12 @@ fun <T> traverse(
             actionWithState(node.body)
         }
         is AugmentedStatement.DeadCodeFragment -> {
+            actionWithState(node.statement)
+        }
+        is AugmentedStatement.ControlFlowWrapper -> {
+            actionWithState(node.statement)
+        }
+        is AugmentedStatement.ControlFlowWrapReturn -> {
             actionWithState(node.statement)
         }
         is StructMember -> {

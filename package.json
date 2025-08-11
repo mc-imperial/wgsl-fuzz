@@ -1,0 +1,25 @@
+{
+  "type": "module",
+  "name": "wgsl-fuzz",
+  "version": "1.0.0",
+  "description": "Technology for fuzzing tooling for the WebGPU shading language",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mc-imperial/wgsl-fuzz.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mc-imperial/wgsl-fuzz/issues"
+  },
+  "homepage": "https://github.com/mc-imperial/wgsl-fuzz#readme",
+  "devDependencies": {
+    "eslint": "^9.32.0",
+    "prettier": "^3.6.2"
+  }
+}

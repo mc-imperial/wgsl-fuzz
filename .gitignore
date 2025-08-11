@@ -2,6 +2,8 @@
 *.bak
 .idea
 .gradle
+.kotlin
 build
+experiments
 keystore.jks
-/src/main/checkSemanticsPreserving/node_modules/
+node_modules/

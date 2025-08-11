@@ -41,7 +41,7 @@ import com.wgslfuzz.core.Statement
  * with an optional empty else branch.
  */
 fun createIfFalseThenDeadStatement(
-    falseCondition: AugmentedExpression.FalseByConstruction,
+    falseCondition: AugmentedExpression.KnownValue,
     deadStatement: Statement.Compound,
     includeEmptyElseBranch: Boolean,
 ): AugmentedStatement.DeadCodeFragment =
@@ -68,7 +68,7 @@ fun createIfFalseThenDeadStatement(
  * }
  */
 fun createIfTrueElseDeadStatement(
-    trueCondition: AugmentedExpression.TrueByConstruction,
+    trueCondition: AugmentedExpression.KnownValue,
     deadStatement: Statement.Compound,
 ): AugmentedStatement.DeadCodeFragment =
     AugmentedStatement.DeadCodeFragment(
@@ -87,7 +87,7 @@ fun createIfTrueElseDeadStatement(
  * }
  */
 fun createWhileFalseDeadStatement(
-    falseCondition: AugmentedExpression.FalseByConstruction,
+    falseCondition: AugmentedExpression.KnownValue,
     deadStatement: Statement.Compound,
 ): AugmentedStatement.DeadCodeFragment =
     AugmentedStatement.DeadCodeFragment(
@@ -105,7 +105,7 @@ fun createWhileFalseDeadStatement(
  * }
  */
 fun createForWithFalseConditionDeadStatement(
-    falseCondition: AugmentedExpression.FalseByConstruction,
+    falseCondition: AugmentedExpression.KnownValue,
     deadStatement: Statement.Compound,
     unreachableUpdate: Statement.ForUpdate?,
 ): AugmentedStatement.DeadCodeFragment =
@@ -133,7 +133,7 @@ fun createForWithFalseConditionDeadStatement(
  * }
  */
 fun createLoopWithUnconditionalBreakDeadStatement(
-    trueCondition: AugmentedExpression.TrueByConstruction,
+    trueCondition: AugmentedExpression.KnownValue,
     deadStatement: Statement.Compound,
     includeContinuingStatement: Boolean,
     breakIfExpr: Expression?,

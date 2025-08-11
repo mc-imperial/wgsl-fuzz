@@ -15,7 +15,7 @@
  */
 
 function canvasToPngJson(canvas) {
-  const [_, base64Data] = canvas.toDataURL("image/png").split(",", 2);
+  const [, base64Data] = canvas.toDataURL("image/png").split(",", 2);
   return {
     type: "image/png",
     encoding: "base64",
@@ -23,8 +23,7 @@ function canvasToPngJson(canvas) {
   };
 }
 
-async function renderImage(job, device, canvas, canvasFormat, context) {
-
+async function renderImage(job, device, canvas) {
   const vertices = new Float32Array([
     -1.0,
     -1.0, // Triangle 1
@@ -40,6 +39,17 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
     -1.0,
     1.0,
   ]);
+
+  const renderTarget = device.createTexture({
+    size: [canvas.width, canvas.height],
+    format: "rgba8unorm",
+    usage:
+      GPUTextureUsage.RENDER_ATTACHMENT |
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_SRC,
+  });
+
+  const renderTargetView = renderTarget.createView();
 
   const vertexBuffer = device.createBuffer({
     label: "Vertices",
@@ -67,9 +77,9 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
     label: "Shader",
     code: job.shaderText,
   });
-  const createShaderModuleErrorsInternal = device.popErrorScope()
-  const createShaderModuleErrorsOutOfMemory = device.popErrorScope()
-  const createShaderModuleErrorsValidation = device.popErrorScope()
+  const createShaderModuleErrorsInternal = device.popErrorScope();
+  const createShaderModuleErrorsOutOfMemory = device.popErrorScope();
+  const createShaderModuleErrorsValidation = device.popErrorScope();
 
   device.pushErrorScope("validation");
   device.pushErrorScope("out-of-memory");
@@ -115,20 +125,23 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
       entryPoint: "fragmentMain",
       targets: [
         {
-          format: canvasFormat,
+          format: "rgba8unorm",
         },
       ],
     },
   });
 
-  const encoder = device.createCommandEncoder();
+  const renderToTextureEncoder = device.createCommandEncoder({
+    label: "Render to texture encoder",
+  });
 
-  const pass = encoder.beginRenderPass({
+  const pass = renderToTextureEncoder.beginRenderPass({
+    label: "Render pass",
     colorAttachments: [
       {
-        view: context.getCurrentTexture().createView(),
-        loadOp: "clear",
+        view: renderTargetView,
         clearValue: { r: 0.5, g: 0, b: 0.5, a: 1.0 },
+        loadOp: "clear",
         storeOp: "store",
       },
     ],
@@ -153,26 +166,26 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
   pass.draw(vertices.length / 2);
   pass.end();
 
-  device.queue.submit([encoder.finish()]);
+  device.queue.submit([renderToTextureEncoder.finish()]);
 
-  const compilationInfo = await shaderModule.getCompilationInfo()
+  const compilationInfo = await shaderModule.getCompilationInfo();
 
-  vertexBuffer.destroy()
+  vertexBuffer.destroy();
 
-  const otherErrorsInternal = device.popErrorScope()
-  const otherErrorsOutOfMemory = device.popErrorScope()
-  const otherErrorsValidation = device.popErrorScope()
+  const otherErrorsInternal = device.popErrorScope();
+  const otherErrorsOutOfMemory = device.popErrorScope();
+  const otherErrorsValidation = device.popErrorScope();
 
   const renderImageResult = {
-    compilationMessages: compilationInfo.messages.map(message => ({
+    compilationMessages: compilationInfo.messages.map((message) => ({
       message: message.message,
       type: message.type.toString(),
       lineNum: message.lineNum,
       linePos: message.linePos,
       offset: message.offset,
       length: message.length,
-    }))
-  }
+    })),
+  };
 
   var errorOccurred = false;
 
@@ -181,112 +194,163 @@ async function renderImage(job, device, canvas, canvasFormat, context) {
       renderImageResult.createShaderModuleInternalError = error.message;
       errorOccurred = true;
     }
-  })
+  });
 
   await createShaderModuleErrorsOutOfMemory.then((error) => {
     if (error) {
       renderImageResult.createShaderModuleOutOfMemoryError = error.message;
       errorOccurred = true;
     }
-  })
+  });
 
   await createShaderModuleErrorsValidation.then((error) => {
     if (error) {
       renderImageResult.createShaderModuleValidationError = error.message;
       errorOccurred = true;
     }
-  })
+  });
 
   await otherErrorsInternal.then((error) => {
     if (error) {
       renderImageResult.otherInternalError = error.message;
       errorOccurred = true;
     }
-  })
+  });
 
   await otherErrorsOutOfMemory.then((error) => {
     if (error) {
       renderImageResult.otherOutOfMemoryError = error.message;
       errorOccurred = true;
     }
-  })
+  });
 
   await otherErrorsValidation.then((error) => {
     if (error) {
       renderImageResult.otherValidationError = error.message;
       errorOccurred = true;
     }
-  })
+  });
 
   if (!errorOccurred) {
+    const copyFromTextureEncoder = device.createCommandEncoder({
+      label: "Copy from texture encoder",
+    });
+    const outputBuffer = device.createBuffer({
+      size: canvas.width * canvas.height * 4, // 4 bytes per pixel
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    copyFromTextureEncoder.copyTextureToBuffer(
+      { texture: renderTarget },
+      {
+        buffer: outputBuffer,
+        bytesPerRow: canvas.width * 4,
+        rowsPerImage: canvas.height,
+      },
+      { width: canvas.width, height: canvas.height, depthOrArrayLayers: 1 },
+    );
+    device.queue.submit([copyFromTextureEncoder.finish()]);
+    await outputBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = outputBuffer.getMappedRange();
+    const pixelBytes = new Uint8Array(arrayBuffer.slice(0)); // Copy it out
+    outputBuffer.unmap();
+
+    const imageData = new ImageData(
+      new Uint8ClampedArray(pixelBytes), // must be Uint8ClampedArray
+      canvas.width,
+      canvas.height,
+    );
+    const context = canvas.getContext("2d");
+    context.putImageData(imageData, 0, 0);
     renderImageResult.frame = canvasToPngJson(canvas);
   }
 
   return renderImageResult;
 }
 
-function clearCanvas(device, context) {
-  const encoder = device.createCommandEncoder();
-  const pass = encoder.beginRenderPass({
-    colorAttachments: [
-      {
-        view: context.getCurrentTexture().createView(),
-        loadOp: "clear",
-        clearValue: { r: 0, g: 0, b: 0.4, a: 1 },
-        storeOp: "store",
-      },
-    ],
-  });
-  pass.end();
-  device.queue.submit([encoder.finish()]);
-}
+export async function executeJob(job, repetitions) {
+  const jobResult = {
+    fatalErrors: [],
+    deviceLostReason: null,
+    adapterInfo: null,
+    renderImageResults: [],
+  };
 
-async function executeJob(job, repetitions) {
   const canvas = document.querySelector("canvas");
 
   if (!navigator.gpu) {
-    throw new Error("WebGPU not supported on this browser.");
+    jobResult.fatalErrors.push("WebGPU not supported on this browser.");
+    return jobResult;
   }
 
-  const adapter = await navigator.gpu.requestAdapter();
+  let adapter;
+  try {
+    adapter = await navigator.gpu.requestAdapter();
+  } catch (err) {
+    jobResult.fatalErrors.push(
+      `Failed to request GPU adapter: ${err?.message || String(err)}`,
+    );
+    return jobResult;
+  }
+
   if (!adapter) {
-    throw new Error("No appropriate GPUAdapter found.");
+    jobResult.fatalErrors.push("No appropriate GPUAdapter found.");
+    return jobResult;
   }
 
   const adapterInfo = adapter.info;
+  jobResult.adapterInfo = {
+    vendor: adapterInfo.vendor,
+    architecture: adapterInfo.architecture,
+    device: adapterInfo.device,
+    description: adapterInfo.description,
+  };
 
-  var jobResult = {
-    adapterInfo: {
-      vendor: adapterInfo.vendor,
-      architecture: adapterInfo.architecture,
-      device: adapterInfo.device,
-      description: adapterInfo.description,
-    },
-    renderImageResults: [],
+  let device;
+  try {
+    device = await adapter.requestDevice();
+  } catch (err) {
+    jobResult.fatalErrors.push(
+      `Failed to request device: ${err?.message || String(err)}`,
+    );
+    return jobResult;
   }
 
-  const device = await adapter.requestDevice();
+  let destroyCalledExplicitly = false;
 
-  var uncapturedErrors = []
-
-  device.addEventListener('uncapturederror', (event) => {
-    console.error('A WebGPU error was not captured: ', event.error)
-    uncapturedErrors.push(event.error.message)
-  })
-
-  const context = canvas.getContext("webgpu");
-  const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({
-    device: device,
-    format: canvasFormat,
+  device.lost.then((info) => {
+    if (!destroyCalledExplicitly) {
+      jobResult.deviceLostReason = info.reason;
+      jobResult.fatalErrors.push(`Device lost: ${info.message}`);
+    }
   });
 
-  for (var i = 0; i < repetitions; i++) {
-    clearCanvas(device, context);
-    jobResult.renderImageResults.push(await renderImage(job, device, canvas, canvasFormat, context));
+  device.addEventListener("uncapturederror", (event) => {
+    console.error("A WebGPU error was not captured: ", event.error);
+    jobResult.fatalErrors.push(event.error.message);
+  });
+
+  for (let i = 0; i < repetitions; i++) {
+    if (jobResult.fatalErrors.length > 0) {
+      break;
+    }
+    try {
+      jobResult.renderImageResults.push(await renderImage(job, device, canvas));
+    } catch (err) {
+      jobResult.fatalErrors.push(err?.message || String(err));
+    }
   }
 
-  device.destroy()
+  if (jobResult.deviceLostReason != "destroyed") {
+    try {
+      // Record that we are intentionally destroying the device, so that we do
+      // not record this (expected) destruction event as a reason for device
+      // loss
+      destroyCalledExplicitly = true;
+      device.destroy();
+    } catch (err) {
+      jobResult.fatalErrors.push(err?.message || String(err));
+    }
+  }
 
   return jobResult;
 }

@@ -117,3 +117,18 @@ tasks.register<JavaExec>("compareImages") {
     mainClass.set("com.wgslfuzz.tools.CompareImagesKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("parseAndPrettyPrint") {
+    mainClass.set("com.wgslfuzz.tools.ParseAndPrettyPrintKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("printShaderWithCommentary") {
+    mainClass.set("com.wgslfuzz.tools.PrintShaderWithCommentaryKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
+
+tasks.register<JavaExec>("showNumberOfNodes") {
+    mainClass.set("com.wgslfuzz.tools.ShowNumberOfAstNodesKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}

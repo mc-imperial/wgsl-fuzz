@@ -722,8 +722,6 @@ private fun resolveExpressionType(
                     expression.constructorName,
                 ) as ScopeEntry.TypeAlias
             ).type
-        is AugmentedExpression.FalseByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.falseExpression)
-        is AugmentedExpression.TrueByConstruction -> resolverState.resolvedEnvironment.typeOf(expression.trueExpression)
         is AugmentedExpression.IdentityOperation -> resolverState.resolvedEnvironment.typeOf(expression.originalExpression)
         is AugmentedExpression.ArbitraryExpression -> resolverState.resolvedEnvironment.typeOf(expression.expression)
         is AugmentedExpression.KnownValue -> {
@@ -2260,6 +2258,7 @@ private fun resolveFunctionHeader(
         parameter.attributes.forEach {
             resolveAstNode(it, resolverState)
         }
+        resolveAstNode(parameter.typeDecl, resolverState)
     }
 
     functionDecl.returnAttributes.forEach {
@@ -2302,12 +2301,16 @@ private fun resolveFunctionBody(
                     ),
                 )
         }
+        resolverState.resolvedEnvironment.recordScopeAvailableBeforeStatement(
+            statement = functionDecl.body,
+            scope = resolverState.currentScope,
+        )
         functionDecl.body.statements.forEach {
             resolveAstNode(it, resolverState)
         }
         resolverState.resolvedEnvironment.recordScopeAvailableAtEndOfCompound(
-            functionDecl.body,
-            resolverState.currentScope,
+            compound = functionDecl.body,
+            scope = resolverState.currentScope,
         )
     }
 }
@@ -2319,7 +2322,7 @@ fun resolve(tu: TranslationUnit): ResolvedEnvironment {
     val resolverState =
         ResolverState()
 
-// Resolve name-introducing global decls in order, then other global decls
+    // Resolve name-introducing global decls in order, then other global decls
     for (name in orderedGlobalDecls) {
         val astNode = nameToDecl[name]!!
         if (astNode is GlobalDecl.Function) {

@@ -28,7 +28,7 @@ package com.wgslfuzz.core
 @Suppress("UNCHECKED_CAST")
 fun <T : AstNode> T.clone(replacements: (AstNode) -> AstNode? = { null }): T = cloneHelper(this, replacements) as T
 
-private fun <T : AstNode> List<T>.clone(replacements: (AstNode) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
+fun <T : AstNode> List<T>.clone(replacements: (AstNode) -> AstNode? = { null }): List<T> = map { it.clone(replacements) }
 
 private fun cloneHelper(
     node: AstNode,
@@ -151,18 +151,6 @@ private fun cloneHelper(
                     elementType?.clone(replacements),
                     args.clone(replacements),
                 )
-            is AugmentedExpression.FalseByConstruction ->
-                AugmentedExpression.FalseByConstruction(
-                    falseExpression.clone(
-                        replacements,
-                    ),
-                )
-            is AugmentedExpression.TrueByConstruction ->
-                AugmentedExpression.TrueByConstruction(
-                    trueExpression.clone(
-                        replacements,
-                    ),
-                )
             is GlobalDecl.ConstAssert -> GlobalDecl.ConstAssert(expression.clone(replacements))
             is GlobalDecl.Constant -> GlobalDecl.Constant(name, typeDecl?.clone(replacements), initializer.clone(replacements))
             is GlobalDecl.Empty -> GlobalDecl.Empty()
@@ -204,7 +192,7 @@ private fun cloneHelper(
             is Statement.ConstAssert -> Statement.ConstAssert(expression.clone(replacements))
             is Statement.Continue -> Statement.Continue()
             is Statement.Discard -> Statement.Discard()
-            is Statement.Compound -> Statement.Compound(statements.clone(replacements))
+            is Statement.Compound -> Statement.Compound(statements.clone(replacements), metadata)
             is Statement.If ->
                 Statement.If(
                     attributes.clone(replacements),
@@ -325,6 +313,16 @@ private fun cloneHelper(
                 AugmentedExpression.KnownValue(
                     knownValue.clone(replacements),
                     expression.clone(replacements),
+                )
+            is AugmentedStatement.ControlFlowWrapper ->
+                AugmentedStatement.ControlFlowWrapper(
+                    statement.clone(replacements),
+                    id,
+                )
+            is AugmentedStatement.ControlFlowWrapReturn ->
+                AugmentedStatement.ControlFlowWrapReturn(
+                    statement.clone(replacements),
+                    id,
                 )
             is AugmentedExpression.ArbitraryExpression ->
                 AugmentedExpression.ArbitraryExpression(

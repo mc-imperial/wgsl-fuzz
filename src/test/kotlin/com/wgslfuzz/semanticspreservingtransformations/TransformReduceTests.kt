@@ -16,12 +16,14 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.createShaderJob
+import com.wgslfuzz.core.nodesPreOrder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.util.Random
@@ -66,6 +68,15 @@ abstract class TransformReduceTests {
     }
 
     @Test
+    open fun testControlFlowWrapping() {
+        testTransformationAndReduction(
+            45,
+            filenameNoExtension,
+            ::addControlFlowWrappers,
+        )
+    }
+
+    @Test
     open fun testMultipleTransformations() {
         testTransformationAndReduction(
             45,
@@ -91,8 +102,14 @@ abstract class TransformReduceTests {
         val shaderJobAsJson = Json.encodeToJsonElement(shaderJob)
         val transformedShaderJob = transformation(shaderJob, DefaultFuzzerSettings(generator))
         assertNotEquals(shaderJobAsJson, Json.encodeToJsonElement(transformedShaderJob))
-        val (reducedShaderJob, reductionMadeChanges) = transformedShaderJob.reduce { true }
-        assertTrue(reductionMadeChanges)
-        assertEquals(shaderJobAsJson, Json.encodeToJsonElement(reducedShaderJob))
+        // Ensure that every expression resolves to a type.
+        for (node in nodesPreOrder(transformedShaderJob.tu)) {
+            if (node is Expression) {
+                transformedShaderJob.environment.typeOf(node)
+            }
+        }
+        val reductionResult = transformedShaderJob.reduce { true }
+        assertNotNull(reductionResult)
+        assertEquals(shaderJobAsJson, Json.encodeToJsonElement(reductionResult!!.first))
     }
 }
