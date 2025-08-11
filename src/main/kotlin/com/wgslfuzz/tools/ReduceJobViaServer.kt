@@ -19,6 +19,7 @@ package com.wgslfuzz.tools
 import com.wgslfuzz.core.AstWriter
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.semanticspreservingtransformations.reduce
+import com.wgslfuzz.utils.IdenticalImageCompare
 import io.ktor.client.HttpClient
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType

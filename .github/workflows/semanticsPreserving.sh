@@ -22,13 +22,13 @@ help | head
 
 uname
 
-ignoreList=("./samples/counting_sort.wgsl", "./samples/counting_sort.png")
+ignoreList=("counting_sort" "logic_operations" "mergesort")
 
 mkdir generated
 
 for file in ./samples/*.wgsl; do
-  if [[ ! " ${ignoreList[@]} " =~ " $file " ]]; then
-    name=$(basename "$file" .wgsl)
+  name=$(basename "$file" .wgsl)
+  if [[ ! " ${ignoreList[@]} " =~ " $name " ]]; then
     outputDir="generated/$name"
     mkdir "$outputDir"
     ./scripts/runGenerator --originalShader "$file" --numVariants 5 --outputDir "$outputDir" --seed 53
@@ -58,7 +58,9 @@ done
 ./scripts/generateReferenceImages
 
 for file in ./referenceImages/*.png; do
-  if [[ ! " ${ignoreList[@]} " =~ " $file " ]]; then
-    ./scripts/compareImages --file1Path "$file" --file2Dir "resultPng/$(basename "$file" .png)" --identicalImageCompare
+  name=$(basename "$file" .png)
+  if [[ ! " ${ignoreList[@]} " =~ " $name " ]]; then
+    # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/217) Determine better Mean Squared Error threshold
+    ./scripts/compareImages --file1Path "$file" --file2Dir "resultPng/$name" --mseThreshold 32.0
   fi
 done

@@ -144,9 +144,9 @@ private fun generateHtml(javascript: String): String =
     File(INDEX_HTML_PATH)
         .readText()
         .replace(
-            "<script src=\"js/worker.js\" defer></script>",
+            WORKER_JS,
             """
-            |<script>
+            |<script type="module">
             |  ${javascript.indent(2)}
             |</script>
             """.trimMargin(),
@@ -160,10 +160,10 @@ private fun String.removeAll(strings: Iterable<String>): String =
 private const val INDEX_HTML_PATH = "src/main/resources/static/worker/index.html"
 private const val WORKER_JS_PATH = "src/main/resources/static/worker/js/worker.js"
 
-private const val WORKER_JS = "<script src=\"js/worker.js\" defer></script>"
+private const val WORKER_JS = "<script type=\"module\" src=\"js/worker.js\"></script>"
 
 private val SCRIPT_TAGS =
     listOf(
-        "<script src=\"js/logger.js\" defer></script>",
-        "<script src=\"js/server.js\" defer></script>",
+        "<script type=\"module\" src=\"js/logger.js\"></script>",
+        "<script type=\"module\" src=\"js/server.js\"></script>",
     )

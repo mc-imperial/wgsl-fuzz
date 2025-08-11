@@ -16,6 +16,9 @@
 
 package com.wgslfuzz.tools
 
+import com.wgslfuzz.utils.CompareImages
+import com.wgslfuzz.utils.IdenticalImageCompare
+import com.wgslfuzz.utils.MSEImageCompare
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
@@ -54,12 +57,26 @@ fun main(args: Array<String>) {
             description = "Compare the images to see if they are identical",
         ).default(false)
 
+    val mseThreshold by parser
+        .option(
+            ArgType.Double,
+            fullName = "mseThreshold",
+            description = "Compare the images to see if their a mean squared error less than the threshold",
+        ).default(-1.0)
+
     parser.parse(args)
 
-    val compare: (File, File) -> Unit = { file1, file2 -> runComparisons(file1, file2, identicalImageCompare) }
+    val compare =
+        if (identicalImageCompare && mseThreshold == -1.0) {
+            IdenticalImageCompare
+        } else if (mseThreshold != -1.0 && !identicalImageCompare) {
+            MSEImageCompare(mseThreshold)
+        } else {
+            throw IllegalArgumentException("Did not set flags correctly for comparison operation")
+        }
 
     val file1 = File(file1Path)
-    file2Path?.let { runComparisons(file1, File(it), identicalImageCompare) }
+    file2Path?.let { runComparisons(file1, File(it), compare) }
 
     file2Dir?.let { dirPath ->
         File(dirPath).walk().forEach {
@@ -67,7 +84,7 @@ fun main(args: Array<String>) {
                 return@forEach
             }
 
-            runComparisons(file1, File(it.path), identicalImageCompare)
+            runComparisons(file1, File(it.path), compare)
         }
     }
 }
@@ -75,14 +92,12 @@ fun main(args: Array<String>) {
 fun runComparisons(
     file1: File,
     file2: File,
-    identicalImageCompare: Boolean,
+    imageCompareImages: CompareImages,
 ) {
-    if (identicalImageCompare) {
-        val identical = IdenticalImageCompare.equivalentImages(file1, file2)
-        if (!identical) {
-            println("Found two images that are not identical")
-            exitProcess(1)
-        }
-        println("All images where identical")
+    val equivalent = imageCompareImages.equivalentImages(file1, file2)
+    if (!equivalent) {
+        println("Found two images that are not equivalent")
+        exitProcess(1)
     }
+    println("All images where equivalent")
 }

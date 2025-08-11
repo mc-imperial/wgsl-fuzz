@@ -33,7 +33,7 @@ const options = program.opts();
 const browser = await puppeteer.launch({
   executablePath: options.chrome,
   args: options.chromeArgs || [],
-  // headless: false,
+  headless: false,
 });
 const page = await browser.newPage();
 
@@ -68,7 +68,7 @@ await browser.close();
 
 async function capturePage(pagePath, outputDir) {
   const fileName = path.basename(pagePath, path.extname(pagePath));
-
+  console.log(pagePath)
   await page.goto("file://" + pagePath);
 
   const canvas = await page.waitForSelector("#thecanvas", { timeout: 1000 });
