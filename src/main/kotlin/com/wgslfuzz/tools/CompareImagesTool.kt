@@ -92,9 +92,9 @@ fun main(args: Array<String>) {
 fun runComparisons(
     file1: File,
     file2: File,
-    imageCompareImages: CompareImages,
+    compareImages: CompareImages,
 ) {
-    val equivalent = imageCompareImages.equivalentImages(file1, file2)
+    val equivalent = compareImages.equivalentImages(file1, file2)
     if (!equivalent) {
         println("Found two images that are not equivalent")
         exitProcess(1)
