@@ -253,7 +253,7 @@ fun generateKnownValueExpression(
                     // uniformScalarAdjusted is uniformScalar wrapped in type casts, truncate and/or abs(x) % LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE.
                     val (valueOfUniformAdjusted: Int, uniformScalarAdjusted: Expression) =
                         getNumericValueWithAdjustedExpression(
-                            valueExpression = knownScalarFromUniform.expression,
+                            valueExpression = knownScalarFromUniform,
                             valueExpressionType = scalarType,
                             constantExpression = knownScalarFromUniform.knownValue,
                             outputType = type,
