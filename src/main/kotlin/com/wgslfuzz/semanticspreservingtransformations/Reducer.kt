@@ -43,24 +43,25 @@ abstract class ReductionPass<ReductionOpportunityT> {
     ): ShaderJob
 
     /**
-     * Runs the reduction pass on [originalShaderJob] using the given [interestingnessTest]
+     * Runs the reduction pass on [originalInterestingShaderJob] using the given [interestingnessTest]
      *
-     * @return null if the reduction pass made no progress. Otherwise, returns a pair whose first component is the
-     *  simplest interesting shader job that was encountered. If a simpler but not interesting shader job was also
-     *  encountered it is returned as the second component; this component will be null if the last thing it tried
-     *  turned out to be interesting.
+     * @return Returns a pair whose first component is the simplest interesting shader job that was encountered; this
+     *  will simply be [originalInterestingShaderJob] if no reduction attempt from this pass succeeds. The second
+     *  component of the pair is the closest non-interesting shader job that is simpler than the last interesting shader
+     *  job to be encountered. This component will be null if the last thing the pass tried turned out to be
+     *  interesting.
      */
     fun run(
-        originalShaderJob: ShaderJob,
+        originalInterestingShaderJob: ShaderJob,
+        originalSimplerButNotInterestingShaderJob: ShaderJob?,
         interestingnessTest: InterestingnessTest,
-    ): Pair<ShaderJob, ShaderJob?>? {
-        var fragments = findOpportunities(originalShaderJob)
+    ): Pair<ShaderJob, ShaderJob?> {
+        var fragments = findOpportunities(originalInterestingShaderJob)
         if (fragments.isEmpty()) {
-            return null
+            return Pair(originalInterestingShaderJob, originalSimplerButNotInterestingShaderJob)
         }
-        var progressMade = false
-        var bestSoFar = originalShaderJob
-        var simplerButNotInteresting: ShaderJob? = null
+        var bestSoFar = originalInterestingShaderJob
+        var simplerButNotInteresting: ShaderJob? = originalSimplerButNotInterestingShaderJob
 
         var granularity = fragments.size
         while (granularity > 0) {
@@ -76,7 +77,6 @@ abstract class ReductionPass<ReductionOpportunityT> {
                 if (interestingnessTest(candidateReducedShaderJob)) {
                     bestSoFar = candidateReducedShaderJob
                     simplerButNotInteresting = null
-                    progressMade = true
                     fragments = findOpportunities(bestSoFar)
                     granularity = min(granularity, fragments.size)
                     offset = min(offset, fragments.size - granularity)
@@ -90,9 +90,6 @@ abstract class ReductionPass<ReductionOpportunityT> {
                 }
             }
             granularity /= 2
-        }
-        if (!progressMade) {
-            return null
         }
         return Pair(bestSoFar, simplerButNotInteresting)
     }
@@ -115,23 +112,27 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
             ReplaceKnownValues(),
             ReduceControlFlowWrapped(),
         )
-    var someReductionWorked = false
     var reducedShaderJob = this
     var simplerButNotInterestingShaderJob: ShaderJob? = null
-    var continueReducing = true
-    while (continueReducing) {
-        continueReducing = false
+    var somePassWorkedOnLastRound = true
+    while (somePassWorkedOnLastRound) {
+        somePassWorkedOnLastRound = false
         for (reductionPass in passes) {
-            val reductionPassResult = reductionPass.run(reducedShaderJob, interestingnessTest)
-            reductionPassResult?.let { (newReducedShaderJob: ShaderJob, newSimplerButNotInterestingShaderJob: ShaderJob?) ->
-                someReductionWorked = true
-                continueReducing = true
+            val (newReducedShaderJob, newSimplerButNotInterestingShaderJob) =
+                reductionPass.run(
+                    originalInterestingShaderJob = reducedShaderJob,
+                    originalSimplerButNotInterestingShaderJob = simplerButNotInterestingShaderJob,
+                    interestingnessTest,
+                )
+            simplerButNotInterestingShaderJob = newSimplerButNotInterestingShaderJob
+            if (newReducedShaderJob !== reducedShaderJob) {
+                somePassWorkedOnLastRound = true
                 reducedShaderJob = newReducedShaderJob
                 simplerButNotInterestingShaderJob = newSimplerButNotInterestingShaderJob
             }
         }
     }
-    if (!someReductionWorked) {
+    if (reducedShaderJob === this) {
         return null
     }
     return Pair(reducedShaderJob, second = simplerButNotInterestingShaderJob)

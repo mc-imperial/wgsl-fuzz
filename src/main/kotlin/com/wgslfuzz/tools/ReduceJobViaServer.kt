@@ -225,6 +225,10 @@ private fun isInteresting(
         reductionWorkDir,
         jobFilename.removeSuffix(".wgsl") + ".uniforms.json",
     ).writeText(prettyJson.encodeToString(shaderJob.getByteLevelContentsForUniformBuffers()))
+    File(
+        reductionWorkDir,
+        jobFilename.removeSuffix(".wgsl") + ".shaderjob.json",
+    ).writeText(prettyJson.encodeToString(shaderJob))
     runJobViaServer(
         job = File(reductionWorkDir, jobFilename),
         serverUrl = serverUrl,

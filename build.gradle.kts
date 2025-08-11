@@ -122,3 +122,8 @@ tasks.register<JavaExec>("printShaderWithCommentary") {
     mainClass.set("com.wgslfuzz.tools.PrintShaderWithCommentaryKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
+
+tasks.register<JavaExec>("showNumberOfNodes") {
+    mainClass.set("com.wgslfuzz.tools.ShowNumberOfAstNodesKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
