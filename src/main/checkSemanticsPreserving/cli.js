@@ -33,7 +33,7 @@ const options = program.opts();
 const browser = await puppeteer.launch({
   executablePath: options.chrome,
   args: options.chromeArgs || [],
-  headless: false,
+  // headless: false,
 });
 const page = await browser.newPage();
 
