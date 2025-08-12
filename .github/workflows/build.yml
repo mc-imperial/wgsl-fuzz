@@ -72,7 +72,7 @@ jobs:
         # Clean up so the tree is unchanged
 
       - name: Run Prettier check
-        run: npx prettier --check src
+        run: npx prettier --check .
         # Actually fail CI if formatting is wrong
 
       - name: Run ESLint
