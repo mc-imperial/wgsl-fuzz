@@ -40,11 +40,11 @@ const page = await browser.newPage();
 page.on("console", async (message) => {
   for (const log of message.args()) {
     console.log(
-      "================== Web browser console message ======================"
+      "================== Web browser console message ======================",
     );
     console.log(await log.jsonValue());
     console.log(
-      "====================================================================="
+      "=====================================================================",
     );
   }
 });
@@ -68,7 +68,7 @@ await browser.close();
 
 async function capturePage(pagePath, outputDir) {
   const fileName = path.basename(pagePath, path.extname(pagePath));
-  console.log(pagePath)
+  console.log(pagePath);
   await page.goto("file://" + pagePath);
 
   const canvas = await page.waitForSelector("#thecanvas", { timeout: 1000 });
