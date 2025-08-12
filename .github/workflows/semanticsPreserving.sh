@@ -22,9 +22,11 @@ help | head
 
 uname
 
+# TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/220)
 ignoreList=("counting_sort" "logic_operations" "mergesort" "colorgrid_modulo" "pillars" "quicksort")
 
 numVariants=1
+# TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/217) Determine better Mean Squared Error threshold
 mseThreshold=32.0
 
 mkdir generated
@@ -64,7 +66,6 @@ for file in ./referenceImages/*.png; do
   name=$(basename "$file" .png)
   if [[ ! " ${ignoreList[@]} " =~ " $name " ]]; then
     echo "================ Checking $name ================"
-    # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/217) Determine better Mean Squared Error threshold
     ./scripts/compareImages --file1Path "$file" --file2Dir "resultPng/$name" --mseThreshold "$mseThreshold"
   fi
 done
