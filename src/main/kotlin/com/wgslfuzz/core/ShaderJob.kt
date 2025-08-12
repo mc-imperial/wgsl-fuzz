@@ -18,6 +18,7 @@ package com.wgslfuzz.core
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import java.math.BigDecimal
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -262,7 +263,17 @@ private fun literalExprFromBytes(
         is Type.F32 -> {
             return Pair(
                 Expression.FloatLiteral(
-                    text = Float.fromBits(wordFromBytes(bufferBytes, bufferByteIndex)).toString() + "f",
+                    text =
+                        BigDecimal
+                            .valueOf(
+                                Float
+                                    .fromBits(
+                                        wordFromBytes(
+                                            bufferBytes,
+                                            bufferByteIndex,
+                                        ),
+                                    ).toDouble(),
+                            ).toPlainString() + "f",
                 ),
                 bufferByteIndex + 4,
             )
