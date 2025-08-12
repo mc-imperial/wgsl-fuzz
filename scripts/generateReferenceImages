@@ -23,4 +23,4 @@ pushd src/main/checkSemanticsPreserving
   npm install
 popd
 
-node ./src/main/checkSemanticsPreserving/cli.js --chrome "$(which chromium-browser)" --chromeArgs "--enable-unsafe-webgpu" --jobDir "sampleShaderHtml" --outputDir "referenceImages"
+node ./scripts/renderShaderHtml/cli.js --chrome "$(which chromium-browser)" --chromeArgs "--enable-unsafe-webgpu" --jobDir "sampleShaderHtml" --outputDir "referenceImages"
