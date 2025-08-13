@@ -58,6 +58,7 @@ fun generateArbitraryCompound(
     )
 }
 
+// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/223)
 fun generateArbitraryStatement(
     depth: Int,
     sideEffectsAllowed: Boolean,
