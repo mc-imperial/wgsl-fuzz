@@ -1,0 +1,13 @@
+{
+  "name": "checksemanticspreserving",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "cli": "node cli.js"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "puppeteer-core": "^24.15.0"
+  }
+}
