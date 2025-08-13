@@ -25,6 +25,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
+import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
 
@@ -71,7 +72,7 @@ private class AddIdentityOperations(
             // expressions to mutate.
             return
         }
-        val type = shaderJob.environment.typeOf(node)
+        val type = shaderJob.environment.typeOf(node).asStoreTypeIfReference()
         if (type is Type.Integer || type is Type.Float) {
             val choices: List<Pair<Int, () -> AugmentedExpression.IdentityOperation>> =
                 listOf(
