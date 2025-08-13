@@ -132,6 +132,12 @@ private fun renderStandAloneTemplate(
         |  const result = await executeJob(job, 1);
         |
         |  console.log(result);
+        |  
+        |  console.log("Done rendering");
+        |  const doneRenderDiv = document.createElement('div');
+        |  doneRenderDiv.textContent = 'Done rendering';
+        |  doneRenderDiv.id = 'doneRender';
+        |  document.getElementById('thecanvas').after(doneRenderDiv);
         |}
         |
         |main();
