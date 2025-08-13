@@ -206,6 +206,7 @@ private class ControlFlowWrapping(
                             thenBranch = originalStatementCompound,
                             elseBranch =
                                 generateArbitraryElseBranch(
+                                    depth = 0,
                                     sideEffectsAllowed = true,
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
@@ -226,6 +227,7 @@ private class ControlFlowWrapping(
                             condition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                             thenBranch =
                                 generateArbitraryCompound(
+                                    depth = 0,
                                     sideEffectsAllowed = true,
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
