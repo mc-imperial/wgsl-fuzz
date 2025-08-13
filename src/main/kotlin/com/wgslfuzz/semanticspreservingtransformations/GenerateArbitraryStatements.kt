@@ -16,6 +16,8 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AugmentedMetadata
+import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
@@ -34,13 +36,18 @@ fun generateArbitraryElseBranch(
                 null
             },
             fuzzerSettings.arbitraryElseBranchWeights.ifStatement(depth) to {
-                generateArbitraryIfStatement(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
+                Statement.If(
+                    attributes = emptyList(),
+                    condition = generateArbitraryExpression(depth + 1, Type.Bool, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
+                    thenBranch = generateArbitraryCompound(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
+                    elseBranch = generateArbitraryElseBranch(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
+                )
             },
             fuzzerSettings.arbitraryElseBranchWeights.compound(depth) to {
                 generateArbitraryCompound(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
             },
         )
-    return choose(fuzzerSettings, choices)
+    return AugmentedStatement.ArbitraryElseBranch(choose(fuzzerSettings, choices))
 }
 
 fun generateArbitraryCompound(
@@ -52,9 +59,11 @@ fun generateArbitraryCompound(
 ): Statement.Compound {
     val compoundLength = fuzzerSettings.randomArbitraryCompoundLength(depth)
     return Statement.Compound(
-        List(compoundLength) {
-            generateArbitraryStatement(depth + 1, sideEffectsAllowed, shaderJob, scope)
-        },
+        statements =
+            List(compoundLength) {
+                generateArbitraryStatement(depth + 1, sideEffectsAllowed, shaderJob, scope)
+            },
+        metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
     )
 }
 
@@ -64,17 +73,4 @@ fun generateArbitraryStatement(
     sideEffectsAllowed: Boolean,
     shaderJob: ShaderJob,
     scope: Scope,
-): Statement = Statement.Empty()
-
-fun generateArbitraryIfStatement(
-    depth: Int,
-    sideEffectsAllowed: Boolean,
-    fuzzerSettings: FuzzerSettings,
-    shaderJob: ShaderJob,
-    scope: Scope,
-) = Statement.If(
-    attributes = emptyList(),
-    condition = generateArbitraryExpression(depth + 1, Type.Bool, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
-    thenBranch = generateArbitraryCompound(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
-    elseBranch = generateArbitraryElseBranch(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
-)
+): Statement = AugmentedStatement.ArbitraryStatement(Statement.Empty())
