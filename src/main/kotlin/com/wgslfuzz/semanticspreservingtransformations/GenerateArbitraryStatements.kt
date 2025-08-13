@@ -64,7 +64,7 @@ fun generateArbitraryStatement(
     sideEffectsAllowed: Boolean,
     shaderJob: ShaderJob,
     scope: Scope,
-): Statement = Statement.Compound(emptyList())
+): Statement = Statement.Empty()
 
 fun generateArbitraryIfStatement(
     depth: Int,
