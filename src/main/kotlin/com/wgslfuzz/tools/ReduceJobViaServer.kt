@@ -19,6 +19,7 @@ package com.wgslfuzz.tools
 import com.wgslfuzz.core.AstWriter
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.semanticspreservingtransformations.reduce
+import com.wgslfuzz.utils.IdenticalImageCompare
 import io.ktor.client.HttpClient
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
@@ -30,7 +31,6 @@ import java.io.FileOutputStream
 import java.io.PrintStream
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.io.path.exists
 
 fun main(args: Array<String>) {
     val username =
@@ -284,7 +284,7 @@ private sealed interface CompareOn {
             val resultImageFile = File(reductionWorkDir, resultImage)
 
             // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/191)
-            if (identicalImages(referenceImageFile, resultImageFile)) {
+            if (IdenticalImageCompare.equivalentImages(referenceImageFile, resultImageFile)) {
                 // Identical images - not interesting
                 return false
             }

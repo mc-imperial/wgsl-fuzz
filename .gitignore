@@ -6,4 +6,4 @@
 build
 experiments
 keystore.jks
-node_modules
+node_modules/
