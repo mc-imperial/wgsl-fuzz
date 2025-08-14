@@ -576,10 +576,10 @@ private fun randomVariableFromScope(
         scope.getAllEntries().filter { scopeEntry ->
             scopeEntry is ScopeEntry.TypedDecl &&
                 scopeEntry !is ScopeEntry.TypeAlias &&
+                scopeEntry !is ScopeEntry.Struct &&
                 scopeEntry.type
                     .asStoreTypeIfReference()
-                    .subTypes()
-                    .filter {
+                    .subTypes {
                         when (it) {
                             // Remove all runtime sized arrays since cannot pull random element out of them
                             is Type.Array -> it.elementCount != null
@@ -710,10 +710,11 @@ private fun getRandomExpressionOfType(
     }
 }
 
-private fun Type.subTypes(): Set<Type> {
+private fun Type.subTypes(fitlerPredicate: (Type) -> Boolean): Set<Type> {
     val subTypes = mutableSetOf<Type>()
 
     fun addSubTypes(type: Type) {
+        if (!fitlerPredicate(type)) return
         subTypes.add(type)
         when (type) {
             is Type.Array -> {
