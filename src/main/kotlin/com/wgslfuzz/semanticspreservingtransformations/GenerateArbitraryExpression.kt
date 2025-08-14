@@ -572,11 +572,32 @@ private fun randomVariableFromScope(
     type: Type,
     fuzzerSettings: FuzzerSettings,
 ): Expression? {
+    val pointerTypesInScope =
+        scope
+            .getAllEntries()
+            .filterIsInstance<ScopeEntry.TypedDecl>()
+            .flatMap { typeDecl ->
+                if (typeDecl is ScopeEntry.TypeAlias) {
+                    emptyList()
+                } else {
+                    typeDecl.type
+                        .subTypes()
+                        .filterIsInstance<Type.Pointer>()
+                        .map { it.pointeeType::class }
+                }
+            }
+
     val scopeEntries =
         scope.getAllEntries().filter { scopeEntry ->
             scopeEntry is ScopeEntry.TypedDecl &&
+                // Cannot create a valid identifier from TypeAlias or Struct scope entry
                 scopeEntry !is ScopeEntry.TypeAlias &&
                 scopeEntry !is ScopeEntry.Struct &&
+                // Remove types that have pointers to them in scope
+                // If not remove can in some cases cause the compiler to fail due to aliasing
+                // Only necessary since counting sort uses pointers
+                !scopeEntry.type.subTypes().any { pointerTypesInScope.contains(it::class) } &&
+                // Only allow scope entries that are either the correct type or contain the correct type via indexing
                 scopeEntry.type
                     .asStoreTypeIfReference()
                     .subTypes {
@@ -710,11 +731,11 @@ private fun getRandomExpressionOfType(
     }
 }
 
-private fun Type.subTypes(fitlerPredicate: (Type) -> Boolean): Set<Type> {
+private fun Type.subTypes(predicate: (Type) -> Boolean = { true }): Set<Type> {
     val subTypes = mutableSetOf<Type>()
 
     fun addSubTypes(type: Type) {
-        if (!fitlerPredicate(type)) return
+        if (!predicate(type)) return
         subTypes.add(type)
         when (type) {
             is Type.Array -> {
