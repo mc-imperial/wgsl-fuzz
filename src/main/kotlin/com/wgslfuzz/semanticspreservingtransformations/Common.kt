@@ -16,28 +16,42 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AccessMode
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.ResolvedEnvironment
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
+import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.evaluateToInt
+import kotlin.math.exp
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
-
-fun isVariableOfTypeInScope(
-    scope: Scope,
-    type: Type,
-): Boolean = scope.getAllEntries().any { it.variableOfTypeInScopeEntry(type) }
 
 fun randomVariableFromScope(
     scope: Scope,
     type: Type,
     fuzzerSettings: FuzzerSettings,
 ): Expression? {
-    val scopeEntries = scope.getAllEntries().filter { it.variableOfTypeInScopeEntry(type) }
+    val scopeEntries =
+        scope.getAllEntries().filter { scopeEntry ->
+            scopeEntry is ScopeEntry.TypedDecl &&
+                scopeEntry !is ScopeEntry.TypeAlias &&
+                scopeEntry.type
+                    .asStoreTypeIfReference()
+                    .subTypes()
+                    .filter {
+                        when (it) {
+                            // Remove all runtime sized arrays since cannot pull random element out of them
+                            is Type.Array -> it.elementCount != null
+                            // Remove all pointers that cannot be read from
+                            is Type.Pointer -> it.accessMode == AccessMode.READ || it.accessMode == AccessMode.READ_WRITE
+                            else -> true
+                        }
+                    }.contains(type)
+        }
 
     if (scopeEntries.isEmpty()) return null
 
@@ -49,23 +63,23 @@ fun randomVariableFromScope(
         )
 
     return getRandomExpressionOfType(scopeEntryIdentifierExpression, scopeEntry.type, type, fuzzerSettings)
-        ?: throw AssertionError("There should of been an element of type: $type found")
+        ?: throw AssertionError("Could not find element of type: $type in ${scopeEntry.type}")
 }
 
 private fun getRandomExpressionOfType(
     expression: Expression,
-    type: Type,
+    expressionType: Type,
     requiredType: Type,
     fuzzerSettings: FuzzerSettings,
 ): Expression? {
-    if (requiredType == type) {
+    if (requiredType == expressionType) {
         return expression
     }
 
-    return when (type) {
+    return when (expressionType) {
         is Type.Array -> {
             val elementCount =
-                type.elementCount?.let { Expression.IntLiteral(fuzzerSettings.randomInt(it).toString()) }
+                expressionType.elementCount?.let { Expression.IntLiteral(fuzzerSettings.randomInt(it).toString()) }
                     ?: return null
 
             getRandomExpressionOfType(
@@ -74,7 +88,7 @@ private fun getRandomExpressionOfType(
                         target = expression,
                         index = elementCount,
                     ),
-                type = type.elementType,
+                expressionType = expressionType.elementType,
                 requiredType = requiredType,
                 fuzzerSettings = fuzzerSettings,
             )
@@ -84,31 +98,80 @@ private fun getRandomExpressionOfType(
                 expression =
                     Expression.IndexLookup(
                         target = expression,
-                        index = Expression.IntLiteral(fuzzerSettings.randomInt(type.width).toString()),
+                        index = Expression.IntLiteral(fuzzerSettings.randomInt(expressionType.width).toString()),
                     ),
-                type = type.elementType,
+                expressionType = expressionType.elementType,
                 requiredType = requiredType,
                 fuzzerSettings = fuzzerSettings,
             )
         }
-        is Type.Matrix -> TODO()
-        is Type.Struct -> TODO()
+        is Type.Matrix -> {
+            val columnIndex = Expression.IntLiteral(fuzzerSettings.randomInt(expressionType.numCols).toString())
+            val rowIndex = Expression.IntLiteral(fuzzerSettings.randomInt(expressionType.numRows).toString())
 
-        is Type.Pointer -> TODO()
-        is Type.Reference -> TODO()
+            getRandomExpressionOfType(
+                expression =
+                    Expression.IndexLookup(
+                        target =
+                            Expression.IndexLookup(
+                                target = expression,
+                                index = columnIndex,
+                            ),
+                        index = rowIndex,
+                    ),
+                expressionType = expressionType.elementType,
+                requiredType = requiredType,
+                fuzzerSettings = fuzzerSettings,
+            )
+        }
+        is Type.Struct -> {
+            val shuffledMembers = expressionType.members.shuffled()
+
+            for ((memberName, memberType) in shuffledMembers) {
+                val randomExpression =
+                    getRandomExpressionOfType(
+                        expression =
+                            Expression.MemberLookup(
+                                receiver = expression,
+                                memberName = memberName,
+                            ),
+                        expressionType = memberType,
+                        requiredType = requiredType,
+                        fuzzerSettings = fuzzerSettings,
+                    )
+
+                if (randomExpression != null) {
+                    return randomExpression
+                }
+            }
+
+            null
+        }
+        is Type.Reference -> {
+            getRandomExpressionOfType(
+                expression = expression,
+                expressionType = expressionType.storeType,
+                requiredType = requiredType,
+                fuzzerSettings = fuzzerSettings,
+            )
+        }
+
+        is Type.Pointer -> {
+            getRandomExpressionOfType(
+                expression =
+                    Expression.Unary(
+                        operator = UnaryOperator.DEREFERENCE,
+                        target = expression,
+                    ),
+                expressionType = expressionType.pointeeType,
+                requiredType = requiredType,
+                fuzzerSettings = fuzzerSettings,
+            )
+        }
 
         else -> null
     }
 }
-
-private fun ScopeEntry.variableOfTypeInScopeEntry(type: Type) =
-    this is ScopeEntry.TypedDecl &&
-        this !is ScopeEntry.TypeAlias &&
-        this.type
-            .asStoreTypeIfReference()
-            .subTypes()
-            .filter { it !is Type.Array || it.elementCount != null } // As cannot determine at compile time to
-            .contains(type)
 
 private fun Type.subTypes(): Set<Type> {
     val subTypes = mutableSetOf<Type>()
@@ -128,11 +191,15 @@ private fun Type.subTypes(): Set<Type> {
             is Type.Struct -> {
                 type.members.forEach { addSubTypes(it.second) }
             }
+            is Type.Pointer -> {
+                addSubTypes(type.pointeeType)
+            }
+            is Type.Reference -> {
+                addSubTypes(type.storeType)
+            }
 
             Type.AtomicI32 -> TODO()
             Type.AtomicU32 -> TODO()
-            is Type.Pointer -> TODO()
-            is Type.Reference -> TODO()
 
             else -> {}
         }
