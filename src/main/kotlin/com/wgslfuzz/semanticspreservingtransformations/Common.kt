@@ -22,7 +22,6 @@ import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
-import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.evaluateToInt
 
@@ -103,7 +102,8 @@ private fun getRandomExpressionOfType(
 }
 
 private fun ScopeEntry.variableOfTypeInScopeEntry(type: Type) =
-    this is ScopeEntry.TypedDecl && this !is ScopeEntry.TypeAlias &&
+    this is ScopeEntry.TypedDecl &&
+        this !is ScopeEntry.TypeAlias &&
         this.type
             .asStoreTypeIfReference()
             .subTypes()

@@ -18,10 +18,6 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.Scope
-import com.wgslfuzz.core.ScopeEntry
-import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.asStoreTypeIfReference
 import java.util.Random
 
 interface FuzzerSettings {
