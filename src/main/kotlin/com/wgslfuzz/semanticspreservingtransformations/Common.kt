@@ -16,17 +16,12 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import com.wgslfuzz.core.AccessMode
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.ResolvedEnvironment
-import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
-import com.wgslfuzz.core.UnaryOperator
-import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.evaluateToInt
-import kotlin.math.exp
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
