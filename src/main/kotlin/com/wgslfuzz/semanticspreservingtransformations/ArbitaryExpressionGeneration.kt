@@ -85,10 +85,10 @@ private fun generateArbitraryBool(
                     text = fuzzerSettings.randomElement(listOf("true", "false")),
                 )
             },
-            if (isVariableOfTypeInScope(scope, Type.Bool)) {
+            if (scope.containsVariableOfType(Type.Bool)) {
                 fuzzerSettings.arbitraryBooleanExpressionWeights
                     .variableFromScope(depth) to {
-                    randomVariableFromScope(scope, Type.Bool, fuzzerSettings)!!
+                    scope.randomVariable(fuzzerSettings, Type.Bool)!!
                 }
             } else {
                 null
@@ -239,10 +239,10 @@ private fun generateArbitraryInt(
                         .toString() + literalSuffix,
                 )
             },
-            if (isVariableOfTypeInScope(scope, outputType)) {
+            if (scope.containsVariableOfType(outputType)) {
                 fuzzerSettings.arbitraryIntExpressionWeights
                     .variableFromScope(depth) to {
-                    randomVariableFromScope(scope, outputType, fuzzerSettings)!!
+                    scope.randomVariable(fuzzerSettings, outputType)!!
                 }
             } else {
                 null
