@@ -23,6 +23,7 @@ import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
+import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.evaluateToInt
 import java.util.Random
@@ -200,40 +201,117 @@ fun <T> choose(
 fun isVariableOfTypeInScope(
     scope: Scope,
     type: Type,
-): Boolean =
-    scope
-        .getAllEntries()
-        .any {
-            it is ScopeEntry.TypedDecl &&
-                it !is ScopeEntry.TypeAlias &&
-                it.type.asStoreTypeIfReference() == type
-        }
+): Boolean = scope.getAllEntries().any { it.variableOfTypeInScopeEntry(type) }
 
 fun randomVariableFromScope(
     scope: Scope,
     type: Type,
     fuzzerSettings: FuzzerSettings,
 ): Expression? {
-    val scopeEntries =
-        scope.getAllEntries().filter {
-            it is ScopeEntry.TypedDecl &&
-                it !is ScopeEntry.TypeAlias &&
-                it.type.asStoreTypeIfReference() == type
-        }
+    val scopeEntries = scope.getAllEntries().filter { it.variableOfTypeInScopeEntry(type) }
 
     if (scopeEntries.isEmpty()) return null
 
-    return scopeEntryTypedDeclToExpression(
-        fuzzerSettings.randomElement(
-            scopeEntries,
-        ) as ScopeEntry.TypedDecl,
-    )
+    val scopeEntry = fuzzerSettings.randomElement(scopeEntries) as ScopeEntry.TypedDecl
+
+    val scopeEntryIdentifierExpression =
+        Expression.Identifier(
+            name = scopeEntry.declName,
+        )
+
+    return getRandomExpressionOfType(scopeEntryIdentifierExpression, scopeEntry.type, type, fuzzerSettings)
+        ?: throw AssertionError("There should of been an element of type: $type found")
 }
 
-fun scopeEntryTypedDeclToExpression(scopeEntry: ScopeEntry.TypedDecl): Expression =
-    Expression.Identifier(
-        name = scopeEntry.declName,
-    )
+private fun getRandomExpressionOfType(
+    expression: Expression,
+    type: Type,
+    requiredType: Type,
+    fuzzerSettings: FuzzerSettings,
+): Expression? {
+    if (requiredType == type) {
+        return expression
+    }
+
+    return when (type) {
+        is Type.Array -> {
+            val elementCount =
+                type.elementCount?.let { Expression.IntLiteral(fuzzerSettings.randomInt(it).toString()) }
+                    ?: return null
+
+            getRandomExpressionOfType(
+                expression =
+                    Expression.IndexLookup(
+                        target = expression,
+                        index = elementCount,
+                    ),
+                type = type.elementType,
+                requiredType = requiredType,
+                fuzzerSettings = fuzzerSettings,
+            )
+        }
+        is Type.Vector -> {
+            getRandomExpressionOfType(
+                expression =
+                    Expression.IndexLookup(
+                        target = expression,
+                        index = Expression.IntLiteral(fuzzerSettings.randomInt(type.width).toString()),
+                    ),
+                type = type.elementType,
+                requiredType = requiredType,
+                fuzzerSettings = fuzzerSettings,
+            )
+        }
+        is Type.Matrix -> TODO()
+        is Type.Struct -> TODO()
+
+        is Type.Pointer -> TODO()
+        is Type.Reference -> TODO()
+
+        else -> null
+    }
+}
+
+private fun ScopeEntry.variableOfTypeInScopeEntry(type: Type) =
+    this is ScopeEntry.TypedDecl && this !is ScopeEntry.TypeAlias &&
+        this.type
+            .asStoreTypeIfReference()
+            .subTypes()
+            .filter { it !is Type.Array || it.elementCount != null } // As cannot determine at compile time to
+            .contains(type)
+
+private fun Type.subTypes(): Set<Type> {
+    val subTypes = mutableSetOf<Type>()
+
+    fun addSubTypes(type: Type) {
+        subTypes.add(type)
+        when (type) {
+            is Type.Array -> {
+                addSubTypes(type.elementType)
+            }
+            is Type.Matrix -> {
+                addSubTypes(type.elementType)
+            }
+            is Type.Vector -> {
+                addSubTypes(type.elementType)
+            }
+            is Type.Struct -> {
+                type.members.forEach { addSubTypes(it.second) }
+            }
+
+            Type.AtomicI32 -> TODO()
+            Type.AtomicU32 -> TODO()
+            is Type.Pointer -> TODO()
+            is Type.Reference -> TODO()
+
+            else -> {}
+        }
+    }
+
+    addSubTypes(this)
+
+    return subTypes
+}
 
 fun TypeDecl.toType(resolvedEnvironment: ResolvedEnvironment): Type =
     when (this) {
