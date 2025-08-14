@@ -176,12 +176,13 @@ fun <T> choose(
     return fuzzerSettings.randomElement(functions)()
 }
 
-fun Scope.randomVariable(
-    fuzzerSettings: FuzzerSettings,
+fun randomVariableFromScope(
+    scope: Scope,
     type: Type,
+    fuzzerSettings: FuzzerSettings,
 ): Expression? {
     val scopeEntries =
-        this.getAllEntries().filter {
+        scope.getAllEntries().filter {
             it is ScopeEntry.TypedDecl &&
                 it !is ScopeEntry.TypeAlias &&
                 it.type.asStoreTypeIfReference() == type
