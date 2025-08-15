@@ -677,6 +677,10 @@ class AstWriter(
                     emitIndent()
                     out.print("/* wrapped original statements: */\n")
                 }
+                is AugmentedMetadata.ArbitraryCompoundMetaData -> {
+                    emitIndent()
+                    out.print("/* arbitrary compound: */\n")
+                }
                 else -> {}
             }
             statements.forEach(::emitStatement)
@@ -897,6 +901,18 @@ class AstWriter(
         emitStatement(statement.statement)
     }
 
+    private fun emitMetamorphicArbitraryStatement(statement: AugmentedStatement.ArbitraryStatement) {
+        emitIndent()
+        out.print("/* arbitrary statement */\n")
+        emitStatement(statement.statement)
+    }
+
+    private fun emitMetamorphicArbitraryElseBranch(statement: AugmentedStatement.ArbitraryElseBranch) {
+        emitIndent()
+        out.print("/* arbitrary else branch: */\n")
+        statement.statement?.let { emitStatement(it) }
+    }
+
     private fun emitStatement(
         statement: Statement,
         inForLoopHeader: Boolean = false,
@@ -935,6 +951,8 @@ class AstWriter(
             is AugmentedStatement.DeadCodeFragment -> emitMetamorphicStatementDeadCodeFragment(statement)
             is AugmentedStatement.ControlFlowWrapper -> emitMetamorphicStatementControlFlowWrapped(statement)
             is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
+            is AugmentedStatement.ArbitraryElseBranch -> emitMetamorphicArbitraryElseBranch(statement)
+            is AugmentedStatement.ArbitraryStatement -> emitMetamorphicArbitraryStatement(statement)
         }
     }
 

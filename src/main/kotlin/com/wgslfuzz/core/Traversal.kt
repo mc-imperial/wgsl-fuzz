@@ -246,6 +246,12 @@ fun <T> traverse(
         is AugmentedStatement.ControlFlowWrapReturn -> {
             actionWithState(node.statement)
         }
+        is AugmentedStatement.ArbitraryStatement -> {
+            actionWithState(node.statement)
+        }
+        is AugmentedStatement.ArbitraryElseBranch -> {
+            node.statement?.let { actionWithState(it) }
+        }
         is StructMember -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.typeDecl)
