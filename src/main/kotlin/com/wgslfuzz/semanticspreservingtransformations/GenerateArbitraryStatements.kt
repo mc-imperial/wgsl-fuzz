@@ -38,13 +38,41 @@ fun generateArbitraryElseBranch(
             fuzzerSettings.arbitraryElseBranchWeights.ifStatement(depth) to {
                 Statement.If(
                     attributes = emptyList(),
-                    condition = generateArbitraryExpression(depth + 1, Type.Bool, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
-                    thenBranch = generateArbitraryCompound(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
-                    elseBranch = generateArbitraryElseBranch(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope),
+                    condition =
+                        generateArbitraryExpression(
+                            depth = depth + 1,
+                            type = Type.Bool,
+                            sideEffectsAllowed = sideEffectsAllowed,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                    thenBranch =
+                        generateArbitraryCompound(
+                            depth = depth + 1,
+                            sideEffectsAllowed = sideEffectsAllowed,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                    elseBranch =
+                        generateArbitraryElseBranch(
+                            depth = depth + 1,
+                            sideEffectsAllowed = sideEffectsAllowed,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
                 )
             },
             fuzzerSettings.arbitraryElseBranchWeights.compound(depth) to {
-                generateArbitraryCompound(depth + 1, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
+                generateArbitraryCompound(
+                    depth = depth + 1,
+                    sideEffectsAllowed = sideEffectsAllowed,
+                    fuzzerSettings = fuzzerSettings,
+                    shaderJob = shaderJob,
+                    scope = scope,
+                )
             },
         )
     return AugmentedStatement.ArbitraryElseBranch(choose(fuzzerSettings, choices))
