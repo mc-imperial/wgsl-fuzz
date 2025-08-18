@@ -268,6 +268,8 @@ private class FunctionInfo(
     var functionTag = FunctionTag.NoRestriction
     var callSiteTag: CallSiteTag = INITIAL_CALL_SITE_TAG
 
+    var returnHeader: UniformityNode? = null
+    var breakHeader: UniformityNode? = null
     var nodesReachingContinue: MutableMap<String, MutableSet<UniformityNode>>? = null
     var nodesBreaking: MutableMap<String, MutableSet<UniformityNode>>? = null
 
@@ -572,6 +574,7 @@ private fun analyseStatement(
         is Statement.Break -> {
             // Statement Behaviour Analysis: Keep track of the variable uniformity nodes that may exit the loop.
             functionInfo.updateNodesExitingLoop()
+            functionInfo.breakHeader?.addEdges(cf)
             cf
         }
         is Statement.Continue -> {
@@ -671,9 +674,19 @@ private fun analyseStatement(
                     variableNodesAtLoopEntry[variable] = functionInfo.variableNodes.get(variable)!!
                 }
 
-                val newCf = createUniformityNode("CF'_loop_start")
+                val returnHeaderBackup = functionInfo.returnHeader
+                val breakHeaderBackup = functionInfo.breakHeader
+
+                functionInfo.returnHeader = createUniformityNode("Return_header")
+                functionInfo.returnHeader!!.addEdges(cf)
+                if (behaviourMap[statement]!!.contains(StatementBehaviour.NEXT)) {
+                    returnHeaderBackup?.addEdges(functionInfo.returnHeader!!)
+                }
+
+                functionInfo.breakHeader = createUniformityNode("Break_header")
+                functionInfo.breakHeader!!.addEdges(functionInfo.returnHeader!!)
                 val cf1 =
-                    analyseStatement(newCf, statement.body, functionInfo, functionInfoMap, behaviourMap, environment)
+                    analyseStatement(functionInfo.breakHeader!!, statement.body, functionInfo, functionInfoMap, behaviourMap, environment)
 
                 // Statement Behaviour Analysis: create new nodes for any variables that may continue.
                 for ((variable, nodes) in functionInfo.nodesReachingContinue!!.iterator()) {
@@ -693,7 +706,7 @@ private fun analyseStatement(
                 // The continuing statement is guaranteed to be non-null because we are operating on the desugared AST.
                 val cf2 =
                     analyseStatement(
-                        cf1,
+                        functionInfo.breakHeader!!,
                         statement.continuingStatement!!.statements,
                         functionInfo,
                         functionInfoMap,
@@ -712,9 +725,10 @@ private fun analyseStatement(
                             environment.scopeAvailableBefore(statement),
                             environment,
                         )
-                    newCf.addEdges(cf, breakIfCf)
+                    functionInfo.returnHeader!!.addEdges(breakIfCf)
+//                    newCf.addEdges(cf, breakIfCf)
                 } else {
-                    newCf.addEdges(cf, cf2)
+//                    newCf.addEdges(cf, cf2)
                 }
 
                 // Statement Behaviour Analysis: Connect any variable nodes at loop entry to their value at the end
@@ -732,8 +746,11 @@ private fun analyseStatement(
                     newNode.addEdges(functionInfo.variableNodes.get(variable)!!)
                     functionInfo.variableNodes.set(variable, newNode)
                 }
+                val result = functionInfo.returnHeader!!
+                functionInfo.returnHeader = returnHeaderBackup
+                functionInfo.breakHeader = breakHeaderBackup
 
-                if (behaviourMap[statement] == setOf(StatementBehaviour.NEXT)) cf else newCf
+                if (behaviourMap[statement] == setOf(StatementBehaviour.NEXT)) cf else result
             }
         }
 
@@ -815,6 +832,7 @@ private fun analyseStatement(
         is Statement.Increment -> TODO()
 
         is Statement.Return -> {
+            functionInfo.returnHeader?.addEdges(cf)
             if (statement.expression ==
                 null
             ) {
