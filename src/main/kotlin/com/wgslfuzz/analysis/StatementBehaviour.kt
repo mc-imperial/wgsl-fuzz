@@ -147,7 +147,11 @@ private fun statementBehaviour(
                                     "continue and return statements cannot appear inside a continuing construct unless inside and a loop.",
                                 )
                             }
-                            continuingBehaviour
+                            if (it.breakIfExpr != null) {
+                                continuingBehaviour.union(setOf(StatementBehaviour.BREAK, StatementBehaviour.NEXT))
+                            } else {
+                                continuingBehaviour
+                            }
                         } // If the loop has a continuing, calculate its behaviour
                         ?.let { bodyBehaviour union it }
                         ?: bodyBehaviour // Combine the body and continuing body behaviours or fall back to body

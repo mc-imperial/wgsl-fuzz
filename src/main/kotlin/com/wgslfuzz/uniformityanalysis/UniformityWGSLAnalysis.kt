@@ -703,15 +703,19 @@ private fun analyseStatement(
 
                 // NOTE: This deviates from the spec slightly due the layout of the AST.
                 if (statement.continuingStatement.breakIfExpr != null) {
-                    val (breakIfCf, _) =
+                    val (breakIfCf, breakIfVal) =
                         analyseExpression(
                             cf2,
                             statement.continuingStatement.breakIfExpr,
                             functionInfo,
                             functionInfoMap,
-                            environment.scopeAvailableBefore(statement),
+                            environment.scopeAvailableAtEnd(statement.continuingStatement.statements),
                             environment,
                         )
+                    // TODO(JLJ): The languages spec does not mention this edge. See:
+                    // https://github.com/gpuweb/gpuweb/issues/5277
+                    breakIfCf.addEdges(breakIfVal)
+
                     newCf.addEdges(cf, breakIfCf)
                 } else {
                     newCf.addEdges(cf, cf2)
@@ -820,14 +824,15 @@ private fun analyseStatement(
             ) {
                 cf
             } else {
-                val (newCfNode, valueNode) = analyseExpression(
-                    cf,
-                    statement.expression,
-                    functionInfo,
-                    functionInfoMap,
-                    environment.scopeAvailableBefore(statement),
-                    environment,
-                )
+                val (newCfNode, valueNode) =
+                    analyseExpression(
+                        cf,
+                        statement.expression,
+                        functionInfo,
+                        functionInfoMap,
+                        environment.scopeAvailableBefore(statement),
+                        environment,
+                    )
 
                 functionInfo.valueReturn!!.addEdges(valueNode)
 
@@ -967,7 +972,7 @@ private fun builtinFunctionInfo(
             )
         "dpdx", "dpdxCoarse", "dpdxFine", "dpdy", "dpdyCoarse", "dpdyFine", "fwidth",
         "fwidthCoarse", "fwidthFine", "textureSample", "textureSampleBias", "textureSampleCompare",
-        ->
+        -> {
             // TODO(JLJ): This doesn't support diagnostic filtering. See https://www.w3.org/TR/WGSL/#uniformity-function-calls
             // NOTE: The spec doesn't say what the parameter tags should be here, I assumed then there are no requirements
             FunctionTags(
@@ -977,6 +982,7 @@ private fun builtinFunctionInfo(
                     Pair(ParameterTag.ParameterNoRestriction, ParameterReturnTag.ParameterReturnNoRestriction)
                 },
             )
+        }
         "textureLoad" -> {
             // NOTE: The spec doesn't say what the parameter tags should be here, I assumed then there are no requirements
             val arg1Type = environment.typeOf(args[0]).asStoreTypeIfReference()
