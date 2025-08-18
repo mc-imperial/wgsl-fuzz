@@ -16,12 +16,18 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
+import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.GlobalDecl
+import com.wgslfuzz.core.LhsExpression
+import com.wgslfuzz.core.ParameterDecl
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.StructMember
+import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
+import com.wgslfuzz.core.nodesPreOrder
 
 fun generateArbitraryElseBranch(
     depth: Int,
@@ -29,6 +35,7 @@ fun generateArbitraryElseBranch(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
     scope: Scope,
+    donorShaderJob: ShaderJob,
 ): Statement.ElseBranch {
     val nonRecursiveChoices =
         listOf(
@@ -57,6 +64,7 @@ fun generateArbitraryElseBranch(
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
                             scope = scope,
+                            donorShaderJob = donorShaderJob,
                         ),
                     elseBranch =
                         generateArbitraryElseBranch(
@@ -65,6 +73,7 @@ fun generateArbitraryElseBranch(
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
                             scope = scope,
+                            donorShaderJob = donorShaderJob,
                         ),
                 )
             },
@@ -75,6 +84,7 @@ fun generateArbitraryElseBranch(
                     fuzzerSettings = fuzzerSettings,
                     shaderJob = shaderJob,
                     scope = scope,
+                    donorShaderJob = donorShaderJob,
                 )
             },
         )
@@ -93,21 +103,76 @@ fun generateArbitraryCompound(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
     scope: Scope,
+    donorShaderJob: ShaderJob,
 ): Statement.Compound {
-    val compoundLength = fuzzerSettings.randomArbitraryCompoundLength(depth)
-    return Statement.Compound(
-        statements =
-            List(compoundLength) {
-                generateArbitraryStatement(depth + 1, sideEffectsAllowed, shaderJob, scope)
-            },
-        metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
-    )
+    // Select random compound out of donorShaderJob
+    val compoundFromDonor = randomCompound(fuzzerSettings, donorShaderJob)
+
+    // Process the donorShaderJob code
+    // Rename variables
+    val compoundWithVariablesRenamed = compoundFromDonor.renameVariables(fuzzerSettings, sideEffectsAllowed, scope, donorShaderJob)
 }
 
-// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/223)
-fun generateArbitraryStatement(
-    depth: Int,
-    sideEffectsAllowed: Boolean,
+private fun randomCompound(
+    fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
+): Statement.Compound = fuzzerSettings.randomElement(nodesPreOrder(shaderJob.tu).filterIsInstance<Statement.Compound>())
+
+private fun Statement.Compound.renameVariables(
+    fuzzerSettings: FuzzerSettings,
+    sideEffectsAllowed: Boolean,
     scope: Scope,
-): Statement = AugmentedStatement.ArbitraryStatement(Statement.Empty())
+    donorShaderJob: ShaderJob,
+) {
+    val preOrderDonorNodes = nodesPreOrder(this)
+
+    val variablesMutatedInCompound =
+        preOrderDonorNodes.filterIsInstance<LhsExpression.Identifier>().map { it.name }.toSet()
+    val variablesUsedInCompound =
+        preOrderDonorNodes.filterIsInstance<Expression.Identifier>().map { it.name }.toSet() + variablesMutatedInCompound
+
+    val variablesDefinedInCompound =
+        preOrderDonorNodes
+            .mapNotNull {
+                when (it) {
+                    is Statement.Value -> it.name
+                    is Statement.Variable -> it.name
+
+                    is GlobalDecl -> throw RuntimeException("Cannot have GlobalDecl within a compound")
+                    is ParameterDecl -> throw RuntimeException(
+                        "Cannot define a function outside of a GlobalDecl hence cannot have a ParameterDecl in a Compound",
+                    )
+                    is StructMember -> throw RuntimeException("Cannot have StructMember within a compound")
+                    is TranslationUnit -> throw RuntimeException("TranslationUnit should not be in a compound")
+
+                    else -> null
+                }
+            }.toSet()
+
+    // Add definitions for undefined variables in compound
+    val variablesUndefinedInCompound = variablesUsedInCompound - variablesDefinedInCompound
+    val compoundWithDefinitions =
+        Statement.Compound(
+            statements =
+                variablesUndefinedInCompound.map {
+                    val initializer = generateInitializer(TODO("Get type of it $it"))
+                    if (it in variablesMutatedInCompound) {
+                        Statement.Variable(
+                            name = it,
+                            initializer = initializer,
+                        )
+                    } else {
+                        Statement.Value(
+                            isConst = false,
+                            name = it,
+                            initializer = initializer,
+                        )
+                    }
+                } + this.statements,
+        )
+
+    val oldNameToNewName =
+        variablesUsedInCompound.associateWith { "${it}_${fuzzerSettings.getUniqueId()}" }
+}
+
+private fun generateInitializer(type: Type): Expression = TODO()
