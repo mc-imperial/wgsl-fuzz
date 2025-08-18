@@ -1244,8 +1244,8 @@ sealed interface AugmentedMetadata {
     ) : AugmentedMetadata
 
     /**
-     * Metadata help by a arbitrary Compound
-     * If a Compound has this then it can be removed by the reducer
+     * Metadata held by an arbitrary compound
+     * If a Compound has this then it can be removed by the reducer since it is an arbitrarily generated compound
      */
     @Serializable
     object ArbitraryCompoundMetaData : AugmentedMetadata
