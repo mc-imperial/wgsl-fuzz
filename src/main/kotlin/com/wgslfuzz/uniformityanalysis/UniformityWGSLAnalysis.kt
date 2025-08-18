@@ -533,6 +533,9 @@ private fun analyseStatement(
             // Add variable to the set of in-scope variables.
             functionInfo.variablesInScope.add(statement.name)
 
+            // TODO(JLJ): It is not clear that this is what the spec intends
+            val variableNode = createUniformityNode(statement.name)
+
             // If this variable declaration has an initialiser, analyse the initialising expression
             // and continue with the node produced. Otherwise, continue analysis with the current
             // control flow node.
@@ -541,7 +544,8 @@ private fun analyseStatement(
             ) {
                 // Variable Value Analysis: Since the variable doesn't have an initialiser, V(0) is the
                 // current control flow context.
-                functionInfo.variableNodes.set(statement.name, cf)
+                functionInfo.variableNodes.set(statement.name, variableNode)
+                variableNode.addEdges(cf)
                 // Uniformity Rules for Statements: Return current control flow context
                 // current control flow context.
                 cf
@@ -557,7 +561,8 @@ private fun analyseStatement(
                         environment,
                     )
                 // Variable Value Analysis: Use the initialiser expression as the value of the variable going forward.
-                functionInfo.variableNodes.set(statement.name, valueNode)
+                functionInfo.variableNodes.set(statement.name, variableNode)
+                variableNode.addEdges(valueNode)
                 // Uniformity Rules for Statements: continue analysis with the control flow node produced when analysing
                 // the initialiser expressions
                 newCf
@@ -770,6 +775,7 @@ private fun analyseStatement(
                         environment.scopeAvailableBefore(statement),
                         environment,
                     )
+
                 // Uniformity Rules for Statements: The uniformity of the lhs depends on the uniformity of the rhs
                 lv.addEdges(rv)
 
@@ -903,21 +909,27 @@ private fun analyseLhsExpression(
         is LhsExpression.Identifier -> {
             val resolvedScope = scope.getEntry(lhsExpression.name)
 
-            if (resolvedScope is ScopeEntry.LocalVariable) {
-                val result = createUniformityNode("Result_lhs_ident")
-                // Get the node representing this variable produced by statement behaviour analysis.
-                val statementBehaviourAnalysisNode = functionInfo.variableNodes.get(lhsExpression.name)!!
+            when (resolvedScope) {
+                is ScopeEntry.LocalVariable -> {
+                    val result = createUniformityNode("Result_lhs_ident")
+                    // Get the node representing this variable produced by statement behaviour analysis.
+                    val statementBehaviourAnalysisNode = functionInfo.variableNodes.get(lhsExpression.name)!!
 
-                result.addEdges(cf, statementBehaviourAnalysisNode)
-                ExpressionAnalysisResult(cf, result)
-            } else if (resolvedScope is ScopeEntry.GlobalVariable) {
-                ExpressionAnalysisResult(cf, functionInfo.mayBeNonUniform)
-            } else {
-                val variableNode = functionInfo.variableNodes.get(lhsExpression.name)
-                val valueNode = variableNode ?: cf
-                // TODO: This is not in the spec, but for module scope variables, we don't have a node representing its value so it seem that
-                // returning cf as the value is correct.
-                ExpressionAnalysisResult(cf, valueNode)
+                    result.addEdges(cf, statementBehaviourAnalysisNode)
+                    ExpressionAnalysisResult(cf, result)
+                }
+
+                is ScopeEntry.GlobalVariable -> {
+                    ExpressionAnalysisResult(cf, functionInfo.mayBeNonUniform)
+                }
+
+                else -> {
+                    val variableNode = functionInfo.variableNodes.get(lhsExpression.name)
+                    val valueNode = variableNode ?: cf
+                    // TODO: This is not in the spec, but for module scope variables, we don't have a node representing its value so it seem that
+                    // returning cf as the value is correct.
+                    ExpressionAnalysisResult(cf, valueNode)
+                }
             }
         }
 
