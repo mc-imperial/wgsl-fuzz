@@ -16,22 +16,89 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AugmentedMetadata
+import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.Type
 
-// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/186)
 fun generateArbitraryElseBranch(
+    depth: Int,
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
     scope: Scope,
-): Statement.ElseBranch? = null
+): Statement.ElseBranch? {
+    val choices =
+        listOf(
+            fuzzerSettings.arbitraryElseBranchWeights.empty(depth) to {
+                null
+            },
+            fuzzerSettings.arbitraryElseBranchWeights.ifStatement(depth) to {
+                Statement.If(
+                    attributes = emptyList(),
+                    condition =
+                        generateArbitraryExpression(
+                            depth = depth + 1,
+                            type = Type.Bool,
+                            sideEffectsAllowed = sideEffectsAllowed,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                    thenBranch =
+                        generateArbitraryCompound(
+                            depth = depth + 1,
+                            sideEffectsAllowed = sideEffectsAllowed,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                    elseBranch =
+                        generateArbitraryElseBranch(
+                            depth = depth + 1,
+                            sideEffectsAllowed = sideEffectsAllowed,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                )
+            },
+            fuzzerSettings.arbitraryElseBranchWeights.compound(depth) to {
+                generateArbitraryCompound(
+                    depth = depth + 1,
+                    sideEffectsAllowed = sideEffectsAllowed,
+                    fuzzerSettings = fuzzerSettings,
+                    shaderJob = shaderJob,
+                    scope = scope,
+                )
+            },
+        )
+    return AugmentedStatement.ArbitraryElseBranch(choose(fuzzerSettings, choices))
+}
 
-// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/186)
 fun generateArbitraryCompound(
+    depth: Int,
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
     scope: Scope,
-): Statement.Compound = Statement.Compound(emptyList())
+): Statement.Compound {
+    val compoundLength = fuzzerSettings.randomArbitraryCompoundLength(depth)
+    return Statement.Compound(
+        statements =
+            List(compoundLength) {
+                generateArbitraryStatement(depth + 1, sideEffectsAllowed, shaderJob, scope)
+            },
+        metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
+    )
+}
+
+// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/223)
+fun generateArbitraryStatement(
+    depth: Int,
+    sideEffectsAllowed: Boolean,
+    shaderJob: ShaderJob,
+    scope: Scope,
+): Statement = AugmentedStatement.ArbitraryStatement(Statement.Empty())

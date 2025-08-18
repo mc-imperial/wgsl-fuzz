@@ -149,6 +149,18 @@ interface FuzzerSettings {
     val arbitraryIntExpressionWeights: ArbitraryIntExpressionWeights
         get() = ArbitraryIntExpressionWeights()
 
+    data class ArbitraryElseBranchWeights(
+        val empty: (depth: Int) -> Int = { 1 },
+        val ifStatement: (depth: Int) -> Int = { 1 },
+        val compound: (depth: Int) -> Int = { 1 },
+    )
+
+    val arbitraryElseBranchWeights: ArbitraryElseBranchWeights
+        get() = ArbitraryElseBranchWeights()
+
+    val randomArbitraryCompoundLength: (depth: Int) -> Int
+        get() = { randomInt(10) }
+
     fun injectDeadBreak(): Boolean = randomInt(100) < 50
 
     fun injectDeadContinue(): Boolean = randomInt(100) < 50
