@@ -30,14 +30,11 @@ fun generateArbitraryElseBranch(
     shaderJob: ShaderJob,
     scope: Scope,
 ): Statement.ElseBranch? {
-    val nonRecursiveChoices: List<Pair<Int, () -> Statement.ElseBranch?>> =
+    val choices =
         listOf(
             fuzzerSettings.arbitraryElseBranchWeights.empty(depth) to {
                 null
             },
-        )
-    val recursiveChoices: List<Pair<Int, () -> Statement.ElseBranch?>> =
-        listOf(
             fuzzerSettings.arbitraryElseBranchWeights.ifStatement(depth) to {
                 Statement.If(
                     attributes = emptyList(),
@@ -78,13 +75,7 @@ fun generateArbitraryElseBranch(
                 )
             },
         )
-    return AugmentedStatement.ArbitraryElseBranch(
-        if (fuzzerSettings.goDeeper(depth)) {
-            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
-        } else {
-            choose(fuzzerSettings, nonRecursiveChoices)
-        },
-    )
+    return AugmentedStatement.ArbitraryElseBranch(choose(fuzzerSettings, choices))
 }
 
 fun generateArbitraryCompound(
