@@ -69,7 +69,7 @@ private fun replaceKnownValueWithArbitraryExpression(
     when (node) {
         is AugmentedExpression.KnownValue ->
             AugmentedExpression.ArbitraryExpression(
-                node.expression.clone(::replaceKnownValueWithArbitraryExpression),
+                node.expression.clone { replaceKnownValueWithArbitraryExpression(it, type) },
                 type,
             )
         else -> null
