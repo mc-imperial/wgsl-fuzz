@@ -303,6 +303,29 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
     }
 }
 
+private class ReduceArbitraryExpression : ReductionPass<AugmentedExpression.ArbitraryExpression>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.ArbitraryExpression> =
+        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.ArbitraryExpression>()
+
+    override fun removeOpportunities(
+        originalShaderJob: ShaderJob,
+        opportunities: List<AugmentedExpression.ArbitraryExpression>,
+    ): ShaderJob {
+        val opportunitiesAsSet = opportunities.toSet()
+
+        fun removeArbitraryExpression(node: AstNode): AstNode? {
+            if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesAsSet) return null
+
+            return constantWithSameValueEverywhere(1, node.type)
+        }
+
+        return ShaderJob(
+            originalShaderJob.tu.clone(::removeArbitraryExpression),
+            originalShaderJob.pipelineState,
+        )
+    }
+}
+
 private fun nodeSizeDelta(
     shaderJob1: ShaderJob,
     shaderJob2: ShaderJob,

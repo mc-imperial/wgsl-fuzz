@@ -1074,6 +1074,7 @@ sealed interface AugmentedExpression :
     @Serializable
     class ArbitraryExpression(
         val expression: Expression,
+        val type: Type,
     ) : AugmentedExpression
 
     @Serializable
