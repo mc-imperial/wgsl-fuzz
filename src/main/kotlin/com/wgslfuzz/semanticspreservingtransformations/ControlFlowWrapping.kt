@@ -431,7 +431,10 @@ private class ControlFlowWrapping(
 
                 val uniqueId = fuzzerSettings.getUniqueId()
                 val originalStatements = node.statements.subList(x, y)
-                if (originalStatements.any { it is Statement.Return }) wrappedReturnUniqueId = uniqueId
+                if (originalStatements.any { it is Statement.Return || it is AugmentedStatement.ControlFlowWrapReturn }) {
+                    check(wrappedReturnUniqueId == null) { "There should not be repeated returns in a compound" }
+                    wrappedReturnUniqueId = uniqueId
+                }
                 newBody.add(wrapInControlFlow(originalStatements, injections, uniqueId))
 
                 i = y
