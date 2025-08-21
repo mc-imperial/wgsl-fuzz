@@ -23,6 +23,7 @@ import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.asStoreTypeIfReference
 import java.util.Random
+import kotlin.math.ln
 
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 4.0 / (currentDepth.toDouble() + 2.0) && currentDepth < 18
@@ -91,15 +92,20 @@ interface FuzzerSettings {
         get() = KnownValueWeights()
 
     data class ControlFlowWrappingWeights(
-        val ifTrueWrapping: Int = 1,
-        val ifFalseWrapping: Int = 1,
-        val singleIterForLoop: Int = 1,
+        val ifTrueWrapping: (depth: Int) -> Int = { 1 },
+        val ifFalseWrapping: (depth: Int) -> Int = { 1 },
+        val singleIterForLoop: (depth: Int) -> Int = { 1 },
+        val singleIterLoop: (depth: Int) -> Int = { 1 },
+        val singleIterWhileLoop: (depth: Int) -> Int = { 1 },
+        val switchCase: (depth: Int) -> Int = { 1 },
     )
 
     val controlFlowWrappingWeights: ControlFlowWrappingWeights
         get() = ControlFlowWrappingWeights()
 
-    data class ArbitraryBooleanExpressionWeights(
+    fun numberOfCasesInSwitch(): Int = ((-ln(randomDouble())) * 200).toInt()
+
+    class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
         val or: (depth: Int) -> Int = { 2 },
         val and: (depth: Int) -> Int = { 2 },

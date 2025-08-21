@@ -28,6 +28,7 @@ import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.SwitchClause
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
@@ -199,7 +200,7 @@ private class ControlFlowWrapping(
 
         val choices: List<Pair<Int, () -> AugmentedStatement.ControlFlowWrapper>> =
             listOfNotNull(
-                fuzzerSettings.controlFlowWrappingWeights.ifTrueWrapping to {
+                fuzzerSettings.controlFlowWrappingWeights.ifTrueWrapping(depth) to {
                     // `if ( <true expression> ) { <original statements> } else { <arbitrary statements> }`
                     val wrappedStatement =
                         Statement.If(
@@ -221,7 +222,7 @@ private class ControlFlowWrapping(
                         id = uniqueId,
                     )
                 },
-                fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping to {
+                fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping(depth) to {
                     // `if ( <false expression> ) { <arbitrary statements> } else { <original statements> }`
                     val wrappedStatement =
                         Statement.If(
@@ -247,7 +248,7 @@ private class ControlFlowWrapping(
                     null
                 } else {
                     // Single iteration for loop control flow wrapper
-                    fuzzerSettings.controlFlowWrappingWeights.singleIterForLoop to {
+                    fuzzerSettings.controlFlowWrappingWeights.singleIterForLoop(depth) to {
                         val forLoopInitConditionUpdateChoices:
                             List<Pair<Int, () -> Triple<Statement.ForInit, Expression, Statement.ForUpdate>>> =
                             listOf(
@@ -343,6 +344,96 @@ private class ControlFlowWrapping(
                             id = uniqueId,
                         )
                     }
+                },
+                if (containsBreakOrContinue) {
+                    // Cannot wrap statements in a loop when the statements contain a `break` or `continue`
+                    null
+                } else {
+                    fuzzerSettings.controlFlowWrappingWeights.singleIterLoop(depth) to {
+                        TODO()
+                    }
+                },
+                if (containsBreakOrContinue) {
+                    null
+                } else {
+                    fuzzerSettings.controlFlowWrappingWeights.singleIterWhileLoop(depth) to {
+                        TODO()
+                    }
+                },
+                fuzzerSettings.controlFlowWrappingWeights.switchCase(depth) to {
+                    val mostNumberOfCasesInAClause = 3
+
+                    val randomNumber = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                    val randomType = fuzzerSettings.randomElement(Type.I32, Type.F32, Type.U32)
+                    val knownValue =
+                        when (randomType) {
+                            is Type.I32, is Type.U32 -> Expression.IntLiteral(randomNumber)
+                            is Type.F32 -> Expression.FloatLiteral(randomNumber)
+                            else -> throw RuntimeException("randomType cannot logically have this value")
+                        }
+                    val knownValueExpression =
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = knownValue,
+                            type = randomType,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        )
+
+                    val cases = mutableListOf(randomNumber)
+                    val numberOfCases = fuzzerSettings.numberOfCasesInSwitch()
+                    repeat(numberOfCases) {
+                        var newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                        while (newCase in cases) {
+                            newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                        }
+                        cases.add(newCase)
+                    }
+
+                    val caseExpressions =
+                        cases.shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE))).map {
+                            when (randomType) {
+                                is Type.I32, is Type.U32 -> Expression.IntLiteral(it)
+                                is Type.F32 -> Expression.FloatLiteral(it)
+                                else -> throw RuntimeException("randomType cannot logically have this value")
+                            }
+                        }
+
+                    val clauses = mutableListOf<SwitchClause>()
+                    var i = 0
+                    while (i < caseExpressions.size) {
+                        val numberInCase = fuzzerSettings.randomInt(mostNumberOfCasesInAClause + 1)
+                        val nextIndex = (i + numberInCase).coerceAtMost(caseExpressions.size)
+                        val cases = caseExpressions.subList(i, nextIndex)
+                        clauses.add(
+                            SwitchClause(
+                                caseSelectors = cases,
+                                compoundStatement =
+                                    if (knownValue in cases) {
+                                        originalStatementCompound
+                                    } else {
+                                        generateArbitraryCompound(
+                                            depth = depth + 1,
+                                            sideEffectsAllowed = true,
+                                            fuzzerSettings = fuzzerSettings,
+                                            shaderJob = shaderJob,
+                                            scope = scope,
+                                        )
+                                    },
+                            ),
+                        )
+                        i = nextIndex
+                    }
+
+                    AugmentedStatement.ControlFlowWrapper(
+                        statement =
+                            Statement.Switch(
+                                expression = knownValueExpression,
+                                clauses = clauses,
+                            ),
+                        id = uniqueId,
+                    )
                 },
             )
 
