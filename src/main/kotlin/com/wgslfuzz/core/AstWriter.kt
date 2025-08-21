@@ -910,7 +910,7 @@ class AstWriter(
     private fun emitMetamorphicArbitraryElseBranch(statement: AugmentedStatement.ArbitraryElseBranch) {
         emitIndent()
         out.print("/* arbitrary else branch: */\n")
-        statement.statement?.let { emitStatement(it) }
+        emitStatement(statement.statement)
     }
 
     private fun emitStatement(

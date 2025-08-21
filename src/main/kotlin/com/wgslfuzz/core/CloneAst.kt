@@ -330,7 +330,7 @@ private fun cloneHelper(
                 )
             is AugmentedStatement.ArbitraryElseBranch ->
                 AugmentedStatement.ArbitraryElseBranch(
-                    statement?.clone(replacements),
+                    statement.clone(replacements),
                 )
             is AugmentedStatement.ArbitraryStatement ->
                 AugmentedStatement.ArbitraryStatement(
