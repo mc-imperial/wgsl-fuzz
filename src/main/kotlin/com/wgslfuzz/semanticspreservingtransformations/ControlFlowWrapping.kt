@@ -178,7 +178,8 @@ private class ControlFlowWrapping(
 
     private fun wrapInControlFlow(
         originalStatements: List<Statement>,
-        traversalState: Pair<ControlFlowWrappingsInjections, TypeDecl?>,
+        injections: ControlFlowWrappingsInjections,
+        returnTypeDecl: TypeDecl?,
         uniqueId: Int,
         depth: Int = 0,
     ): AugmentedStatement.ControlFlowWrapper {
@@ -190,7 +191,7 @@ private class ControlFlowWrapping(
         val originalStatementCompound =
             Statement.Compound(
                 originalStatements.clone {
-                    injectControlFlowWrapper(it, traversalState)
+                    injectControlFlowWrapper(it, injections, returnTypeDecl)
                 },
                 metadata = AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId),
             )
@@ -413,18 +414,19 @@ private class ControlFlowWrapping(
     // Similar to injectDeadJumps
     private fun injectControlFlowWrapper(
         node: AstNode,
-        traversalState: Pair<ControlFlowWrappingsInjections, TypeDecl?>,
+        injections: ControlFlowWrappingsInjections,
+        // The return type of a parent function if it exists
+        returnTypeDecl: TypeDecl?,
     ): AstNode? {
-        val (injections, returnTypeDecl) = traversalState
-
         if (node is GlobalDecl.Function) {
+            // If cloning a GlobalDecl.Function add the functions
             return GlobalDecl.Function(
-                node.attributes.clone { injectControlFlowWrapper(it, Pair(injections, node.returnType)) },
+                node.attributes.clone { injectControlFlowWrapper(it, injections, node.returnType) },
                 node.name,
-                node.parameters.clone { injectControlFlowWrapper(it, Pair(injections, node.returnType)) },
-                node.returnAttributes.clone { injectControlFlowWrapper(it, Pair(injections, node.returnType)) },
-                node.returnType?.clone { injectControlFlowWrapper(it, Pair(injections, node.returnType)) },
-                node.body.clone { injectControlFlowWrapper(it, Pair(injections, node.returnType)) },
+                node.parameters.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+                node.returnAttributes.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+                node.returnType?.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+                node.body.clone { injectControlFlowWrapper(it, injections, node.returnType) },
             )
         }
 
@@ -439,7 +441,7 @@ private class ControlFlowWrapping(
             var i = 0
             for ((x, y) in locations) {
                 while (i < x) {
-                    newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, traversalState) })
+                    newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections, returnTypeDecl) })
                     i++
                 }
 
@@ -449,12 +451,12 @@ private class ControlFlowWrapping(
                     check(wrappedReturnUniqueId == null) { "There should not be repeated returns in a compound" }
                     wrappedReturnUniqueId = uniqueId
                 }
-                newBody.add(wrapInControlFlow(originalStatements, traversalState, uniqueId))
+                newBody.add(wrapInControlFlow(originalStatements, injections, returnTypeDecl, uniqueId))
 
                 i = y
             }
             while (i < compound.statements.size) {
-                newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, traversalState) })
+                newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections, returnTypeDecl) })
                 i++
             }
 
@@ -483,7 +485,15 @@ private class ControlFlowWrapping(
     fun apply(): ShaderJob {
         val injections: ControlFlowWrappingsInjections = mutableMapOf()
         traverse(::selectStatementsToControlFlowWrap, shaderJob.tu, injections)
-        val tu = shaderJob.tu.clone { injectControlFlowWrapper(it, Pair(injections, null)) }
+        val tu =
+            shaderJob.tu.clone {
+                injectControlFlowWrapper(
+                    node = it,
+                    injections = injections,
+                    // Since no parent returnTypeDecl leave as null
+                    returnTypeDecl = null,
+                )
+            }
         return ShaderJob(
             tu = tu,
             pipelineState = shaderJob.pipelineState,
