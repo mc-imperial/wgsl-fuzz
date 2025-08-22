@@ -464,7 +464,7 @@ private class ControlFlowWrapping(
                             .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
                             .map {
                                 if (it == randomNumber) knownValue else Expression.IntLiteral(it)
-                            }
+                            } + null
 
                     val clauses = mutableListOf<SwitchClause>()
                     var i = 0
