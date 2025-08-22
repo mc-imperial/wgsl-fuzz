@@ -24,7 +24,11 @@ uname
 
 # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/220)
 # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/237) ignored collatz because of this issue
-ignoreList=("mergesort" "reverse_linked_list" "collatz")
+ignoreList=(
+  "mergesort"
+  "reverse_linked_list"
+  "collatz"
+)
 
 numVariants=1
 # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/217) Determine better Mean Squared Error threshold
