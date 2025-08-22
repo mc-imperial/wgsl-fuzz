@@ -23,6 +23,7 @@ import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.Expression.*
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Scope
@@ -432,13 +433,12 @@ private class ControlFlowWrapping(
                     val mostNumberOfCasesInAClause = 3
 
                     val randomNumber = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
-                    val randomType = fuzzerSettings.randomElement(Type.I32, Type.F32, Type.U32)
+                    val randomType = fuzzerSettings.randomElement(Type.I32, Type.U32)
                     val knownValue =
                         when (randomType) {
-                            is Type.I32 -> Expression.IntLiteral(randomNumber + "i")
-                            is Type.U32 -> Expression.IntLiteral(randomNumber + "u")
-                            is Type.F32 -> Expression.FloatLiteral(randomNumber + "f")
-                            else -> throw RuntimeException("randomType cannot logically have this value")
+                            Type.I32 -> IntLiteral(randomNumber + "i")
+                            Type.U32 -> IntLiteral(randomNumber + "u")
+                            Type.AbstractInteger -> throw RuntimeException("randomType cannot be an AbstractInteger")
                         }
                     val knownValueExpression =
                         generateKnownValueExpression(
@@ -461,22 +461,16 @@ private class ControlFlowWrapping(
                     }
 
                     val caseExpressions =
-                        cases.shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE))).map {
-                            if (it == randomNumber) {
-                                knownValue
-                            } else {
-                                when (randomType) {
-                                    is Type.I32, is Type.U32 -> Expression.IntLiteral(it)
-                                    is Type.F32 -> Expression.FloatLiteral(it)
-                                    else -> throw RuntimeException("randomType cannot logically have this value")
-                                }
+                        cases
+                            .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
+                            .map {
+                                if (it == randomNumber) knownValue else Expression.IntLiteral(it)
                             }
-                        }
 
                     val clauses = mutableListOf<SwitchClause>()
                     var i = 0
                     while (i < caseExpressions.size) {
-                        val numberInCase = fuzzerSettings.randomInt(mostNumberOfCasesInAClause + 1)
+                        val numberInCase = fuzzerSettings.randomInt(mostNumberOfCasesInAClause) + 1
                         val nextIndex = (i + numberInCase).coerceAtMost(caseExpressions.size)
                         val cases = caseExpressions.subList(i, nextIndex)
                         clauses.add(

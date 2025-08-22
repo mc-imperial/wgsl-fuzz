@@ -1025,7 +1025,11 @@ class ContinuingStatement(
 class SwitchClause(
     val caseSelectors: List<Expression?>,
     val compoundStatement: Statement.Compound,
-) : AstNode
+) : AstNode {
+    init {
+        require(caseSelectors.isNotEmpty()) { "caseSelectors cannot be empty" }
+    }
+}
 
 /**
  * A formal parameter to a function.
