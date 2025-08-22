@@ -327,7 +327,6 @@ private fun cloneHelper(
             is AugmentedExpression.ArbitraryExpression ->
                 AugmentedExpression.ArbitraryExpression(
                     expression.clone(replacements),
-                    type,
                 )
             is AugmentedStatement.ArbitraryElseBranch ->
                 AugmentedStatement.ArbitraryElseBranch(

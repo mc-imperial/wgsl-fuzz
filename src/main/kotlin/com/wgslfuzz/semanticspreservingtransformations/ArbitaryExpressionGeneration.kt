@@ -56,21 +56,17 @@ fun generateArbitraryExpression(
                 fuzzerSettings = fuzzerSettings,
                 shaderJob = shaderJob,
                 scope = scope,
-            ).clone { replaceKnownValueWithArbitraryExpression(it, Type.F32) }
+            ).clone(::replaceKnownValueWithArbitraryExpression)
         }
         // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
         else -> constantWithSameValueEverywhere(1, type)
     }
 
-private fun replaceKnownValueWithArbitraryExpression(
-    node: AstNode,
-    type: Type,
-): AstNode? =
+private fun replaceKnownValueWithArbitraryExpression(node: AstNode): AstNode? =
     when (node) {
         is AugmentedExpression.KnownValue ->
             AugmentedExpression.ArbitraryExpression(
-                node.expression.clone { replaceKnownValueWithArbitraryExpression(it, type) },
-                type,
+                node.expression.clone(::replaceKnownValueWithArbitraryExpression),
             )
         else -> null
     }
@@ -207,7 +203,6 @@ private fun generateArbitraryBool(
         } else {
             choose(fuzzerSettings, nonRecursiveChoices)
         },
-        Type.Bool,
     )
 }
 
@@ -576,7 +571,6 @@ private fun generateArbitraryInt(
         } else {
             choose(fuzzerSettings, nonRecursiveChoices)
         },
-        outputType,
     )
 }
 
