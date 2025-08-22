@@ -16,6 +16,7 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AstWriter
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.createShaderJob
 import com.wgslfuzz.core.nodesPreOrder
@@ -25,7 +26,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.PrintStream
 import java.util.Random
 
 abstract class TransformReduceTests {
@@ -100,6 +103,13 @@ abstract class TransformReduceTests {
                 ),
             )
         val shaderJobAsJson = Json.encodeToJsonElement(shaderJob)
+
+        val shaderJobWgslTextOutStream = ByteArrayOutputStream()
+        AstWriter(out = PrintStream(shaderJobWgslTextOutStream)).emit(shaderJob.tu)
+        shaderJobWgslTextOutStream.flush()
+        shaderJobWgslTextOutStream.close()
+        val shaderJobWgslText = shaderJobWgslTextOutStream.toString("UTF-8")
+
         val transformedShaderJob = transformation(shaderJob, DefaultFuzzerSettings(generator))
         assertNotEquals(shaderJobAsJson, Json.encodeToJsonElement(transformedShaderJob))
         // Ensure that every expression resolves to a type.
@@ -110,6 +120,14 @@ abstract class TransformReduceTests {
         }
         val reductionResult = transformedShaderJob.reduce { true }
         assertNotNull(reductionResult)
+
+        val reductionResultWgslTextOutStream = ByteArrayOutputStream()
+        AstWriter(out = PrintStream(reductionResultWgslTextOutStream)).emit(reductionResult!!.first.tu)
+        reductionResultWgslTextOutStream.flush()
+        reductionResultWgslTextOutStream.close()
+        val reductionResultWgslText = reductionResultWgslTextOutStream.toString("UTF-8")
+        assertEquals(shaderJobWgslText, reductionResultWgslText)
+
         assertEquals(shaderJobAsJson, Json.encodeToJsonElement(reductionResult!!.first))
     }
 }
