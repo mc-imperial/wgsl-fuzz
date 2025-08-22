@@ -318,81 +318,82 @@ private class ReduceArbitraryExpression : ReductionPass<AugmentedExpression.Arbi
     ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
 
-        fun removeArbitraryExpression(node: AstNode): AstNode? {
-            if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesAsSet) return null
+        fun removeArbitraryExpression(node: AstNode): AstNode? =
+            if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesAsSet) {
+                null
+            } else {
+                val underlyingExpression = node.expression
+                val underlyingExpressionType = originalShaderJob.environment.typeOf(underlyingExpression)
 
-            val underlyingExpression = node.expression
-            val underlyingExpressionType = originalShaderJob.environment.typeOf(underlyingExpression)
+                when (underlyingExpression) {
+                    is Expression.BoolLiteral,
+                    is Expression.FloatLiteral,
+                    is Expression.IntLiteral,
+                    is Expression.Identifier,
+                    is Expression.IndexLookup,
+                    is Expression.MemberLookup,
+                    is Expression.ArrayValueConstructor,
+                    is Expression.Mat2x2ValueConstructor,
+                    is Expression.Mat2x3ValueConstructor,
+                    is Expression.Mat2x4ValueConstructor,
+                    is Expression.Mat3x2ValueConstructor,
+                    is Expression.Mat3x3ValueConstructor,
+                    is Expression.Mat3x4ValueConstructor,
+                    is Expression.Mat4x2ValueConstructor,
+                    is Expression.Mat4x3ValueConstructor,
+                    is Expression.Mat4x4ValueConstructor,
+                    is Expression.BoolValueConstructor,
+                    is Expression.F16ValueConstructor,
+                    is Expression.F32ValueConstructor,
+                    is Expression.I32ValueConstructor,
+                    is Expression.U32ValueConstructor,
+                    is Expression.StructValueConstructor,
+                    is Expression.TypeAliasValueConstructor,
+                    is Expression.Vec2ValueConstructor,
+                    is Expression.Vec3ValueConstructor,
+                    is Expression.Vec4ValueConstructor,
+                    -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
 
-            return when (underlyingExpression) {
-                is Expression.BoolLiteral,
-                is Expression.FloatLiteral,
-                is Expression.IntLiteral,
-                is Expression.Identifier,
-                is Expression.IndexLookup,
-                is Expression.MemberLookup,
-                is Expression.ArrayValueConstructor,
-                is Expression.Mat2x2ValueConstructor,
-                is Expression.Mat2x3ValueConstructor,
-                is Expression.Mat2x4ValueConstructor,
-                is Expression.Mat3x2ValueConstructor,
-                is Expression.Mat3x3ValueConstructor,
-                is Expression.Mat3x4ValueConstructor,
-                is Expression.Mat4x2ValueConstructor,
-                is Expression.Mat4x3ValueConstructor,
-                is Expression.Mat4x4ValueConstructor,
-                is Expression.BoolValueConstructor,
-                is Expression.F16ValueConstructor,
-                is Expression.F32ValueConstructor,
-                is Expression.I32ValueConstructor,
-                is Expression.U32ValueConstructor,
-                is Expression.StructValueConstructor,
-                is Expression.TypeAliasValueConstructor,
-                is Expression.Vec2ValueConstructor,
-                is Expression.Vec3ValueConstructor,
-                is Expression.Vec4ValueConstructor,
-                -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
+                    is Expression.Binary ->
+                        when (underlyingExpressionType) {
+                            originalShaderJob.environment.typeOf(underlyingExpression.lhs) ->
+                                underlyingExpression.lhs
 
-                is Expression.Binary ->
-                    when (underlyingExpressionType) {
-                        originalShaderJob.environment.typeOf(underlyingExpression.lhs) ->
-                            underlyingExpression.lhs
+                            originalShaderJob.environment.typeOf(underlyingExpression.rhs) ->
+                                underlyingExpression.rhs
 
-                        originalShaderJob.environment.typeOf(underlyingExpression.rhs) ->
-                            underlyingExpression.rhs
+                            else -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
+                        }
 
-                        else -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
-                    }
+                    is Expression.Unary ->
+                        if (originalShaderJob.environment.typeOf(underlyingExpression.target) == underlyingExpressionType) {
+                            underlyingExpression.target
+                        } else {
+                            constantWithSameValueEverywhere(
+                                1,
+                                underlyingExpressionType,
+                            )
+                        }
 
-                is Expression.Unary ->
-                    if (originalShaderJob.environment.typeOf(underlyingExpression.target) == underlyingExpressionType) {
-                        underlyingExpression.target
-                    } else {
-                        constantWithSameValueEverywhere(
-                            1,
-                            underlyingExpressionType,
-                        )
-                    }
+                    is Expression.FunctionCall ->
+                        underlyingExpression.args.firstOrNull {
+                            originalShaderJob.environment.typeOf(it) == underlyingExpressionType
+                        } ?: constantWithSameValueEverywhere(1, underlyingExpressionType)
 
-                is Expression.FunctionCall ->
-                    underlyingExpression.args.firstOrNull {
-                        originalShaderJob.environment.typeOf(it) == underlyingExpressionType
-                    } ?: constantWithSameValueEverywhere(1, underlyingExpressionType)
+                    is AugmentedExpression.ArbitraryExpression -> throw IllegalStateException(
+                        "An arbitrary expression should not wrap another arbitrary expression",
+                    )
+                    is Expression.Paren -> throw IllegalStateException(
+                        "An arbitrary expression does not wrap a parentheses",
+                    )
 
-                is AugmentedExpression.ArbitraryExpression -> throw IllegalStateException(
-                    "An arbitrary expression should not wrap another arbitrary expression",
-                )
-                is Expression.Paren -> throw IllegalStateException(
-                    "An arbitrary expression does not wrap a parentheses",
-                )
-
-                is AugmentedExpression.AddZero -> TODO()
-                is AugmentedExpression.DivOne -> TODO()
-                is AugmentedExpression.MulOne -> TODO()
-                is AugmentedExpression.SubZero -> TODO()
-                is AugmentedExpression.KnownValue -> TODO()
+                    is AugmentedExpression.AddZero -> TODO()
+                    is AugmentedExpression.DivOne -> TODO()
+                    is AugmentedExpression.MulOne -> TODO()
+                    is AugmentedExpression.SubZero -> TODO()
+                    is AugmentedExpression.KnownValue -> TODO()
+                }
             }
-        }
 
         return ShaderJob(
             originalShaderJob.tu.clone(::removeArbitraryExpression),
