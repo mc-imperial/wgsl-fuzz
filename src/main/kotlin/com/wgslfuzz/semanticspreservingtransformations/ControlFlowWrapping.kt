@@ -23,7 +23,6 @@ import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.Expression.*
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Scope
@@ -436,8 +435,8 @@ private class ControlFlowWrapping(
                     val randomType = fuzzerSettings.randomElement(Type.I32, Type.U32)
                     val knownValue =
                         when (randomType) {
-                            Type.I32 -> IntLiteral(randomNumber + "i")
-                            Type.U32 -> IntLiteral(randomNumber + "u")
+                            Type.I32 -> Expression.IntLiteral(randomNumber + "i")
+                            Type.U32 -> Expression.IntLiteral(randomNumber + "u")
                             Type.AbstractInteger -> throw RuntimeException("randomType cannot be an AbstractInteger")
                         }
                     val knownValueExpression =
