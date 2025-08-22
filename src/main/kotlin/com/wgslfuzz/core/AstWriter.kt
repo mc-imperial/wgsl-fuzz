@@ -271,6 +271,7 @@ class AstWriter(
             BuiltinValue.NUM_WORKGROUPS -> out.print("num_workgroups")
             BuiltinValue.SUBGROUP_INVOCATION_ID -> out.print("subgroup_invocation_id")
             BuiltinValue.SUBGROUP_SIZE -> out.print("subgroup_size")
+            BuiltinValue.PRIMITIVE_INDEX -> out.print("primitive_index")
         }
 
     private fun emitAssignmentOperator(assignmentOperator: AssignmentOperator) {
