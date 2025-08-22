@@ -75,7 +75,7 @@ fun generateArbitraryElseBranch(
                 )
             },
         )
-    return AugmentedStatement.ArbitraryElseBranch(choose(fuzzerSettings, choices))
+    return choose(fuzzerSettings, choices)?.let { AugmentedStatement.ArbitraryElseBranch(it) }
 }
 
 fun generateArbitraryCompound(
