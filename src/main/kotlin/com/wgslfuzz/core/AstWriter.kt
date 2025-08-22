@@ -675,7 +675,7 @@ class AstWriter(
             when (compound.metadata) {
                 is AugmentedMetadata.ControlFlowWrapperMetaData -> {
                     emitIndent()
-                    out.print("/* wrapped original statements: */\n")
+                    out.print("/* wrapped original statements ${compound.metadata.id}: */\n")
                 }
                 is AugmentedMetadata.ArbitraryCompoundMetaData -> {
                     emitIndent()
@@ -891,13 +891,19 @@ class AstWriter(
 
     private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
         emitIndent()
-        out.print("/* control flow wrapped: */\n")
+        out.print("/* control flow wrapped ${statement.id}: */\n")
+        emitStatement(statement.statement)
+    }
+
+    private fun emitMetamorphicControlFlowWrapHelperStatement(statement: AugmentedStatement.ControlFlowWrapHelperStatement) {
+        emitIndent()
+        out.print("/* control flow wrap helper statement ${statement.id}: */\n")
         emitStatement(statement.statement)
     }
 
     private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
         emitIndent()
-        out.print("/* control flow wrap return: */\n")
+        out.print("/* control flow wrap return ${statement.id}: */\n")
         emitStatement(statement.statement)
     }
 
@@ -953,6 +959,7 @@ class AstWriter(
             is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
             is AugmentedStatement.ArbitraryElseBranch -> emitMetamorphicArbitraryElseBranch(statement)
             is AugmentedStatement.ArbitraryStatement -> emitMetamorphicArbitraryStatement(statement)
+            is AugmentedStatement.ControlFlowWrapHelperStatement -> emitMetamorphicControlFlowWrapHelperStatement(statement)
         }
     }
 

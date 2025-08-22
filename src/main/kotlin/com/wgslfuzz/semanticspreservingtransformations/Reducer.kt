@@ -250,6 +250,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
         opportunities: List<AugmentedStatement.ControlFlowWrapper>,
     ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
+        val idsOfOpportunities = opportunitiesAsSet.map { it.id }
 
         fun replaceControlFlowWrapped(node: AstNode): AstNode? {
             if (node is Statement.Compound) {
@@ -264,19 +265,14 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                         }
                     }
 
-                // Remove ControlFlowReturns if possible
-                val wrappedReturnWithoutControlFlowWrapper =
-                    flattenedStatements
-                        .filterIsInstance<AugmentedStatement.ControlFlowWrapReturn>()
-                        .filter { wrappedReturn ->
-                            val uniqueId = wrappedReturn.id
-
-                            !flattenedStatements.any { it is AugmentedStatement.ControlFlowWrapper && it.id == uniqueId }
-                        }
-                val statementsWithReturnsRemoved = flattenedStatements.filter { it !in wrappedReturnWithoutControlFlowWrapper }
+                val statementsWithControlFlowNodesRemoved =
+                    flattenedStatements.filter {
+                        (it !is AugmentedStatement.ControlFlowWrapReturn && it !is AugmentedStatement.ControlFlowWrapHelperStatement) ||
+                            it.id !in idsOfOpportunities
+                    }
 
                 return Statement.Compound(
-                    statements = statementsWithReturnsRemoved,
+                    statements = statementsWithControlFlowNodesRemoved,
                     metadata = node.metadata,
                 )
             }
@@ -285,15 +281,21 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                 return null
             }
 
-            val originalStatementNode =
-                nodesPreOrder(originalShaderJob.tu)
+            val originalStatements =
+                nodesPreOrder(node.statement)
                     .asSequence()
                     .filterIsInstance<Statement.Compound>()
-                    .firstOrNull {
+                    .filter {
                         (it.metadata as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id
-                    } ?: throw AssertionError("Could not find the matching original statement compound for: $node")
+                    }.flatMap { it.statements }
+                    .filter { it !is AugmentedStatement.ControlFlowWrapHelperStatement || it.id == node.id }
+                    .toList()
 
-            return Statement.Compound(originalStatementNode.statements.clone(::replaceControlFlowWrapped))
+            check(originalStatements.isNotEmpty()) {
+                "originalStatements is empty and thus no original statements could be found for ControlFlowWrapper with id: ${node.id}"
+            }
+
+            return Statement.Compound(originalStatements.clone(::replaceControlFlowWrapped))
         }
 
         return ShaderJob(

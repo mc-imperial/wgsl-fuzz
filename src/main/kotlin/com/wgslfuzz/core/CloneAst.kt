@@ -319,6 +319,11 @@ private fun cloneHelper(
                     statement.clone(replacements),
                     id,
                 )
+            is AugmentedStatement.ControlFlowWrapHelperStatement ->
+                AugmentedStatement.ControlFlowWrapHelperStatement(
+                    statement.clone(replacements),
+                    id,
+                )
             is AugmentedStatement.ControlFlowWrapReturn ->
                 AugmentedStatement.ControlFlowWrapReturn(
                     statement.clone(replacements),

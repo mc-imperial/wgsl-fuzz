@@ -1166,6 +1166,10 @@ sealed interface AugmentedStatement :
         val statement: Statement,
     ) : AugmentedStatement
 
+    sealed interface ControlFlowTransformationNode {
+        val id: Int
+    }
+
     /**
      * ControlFlowWrapper wraps a child compound with semantics preserving transformation that runs the wrapped code
      * exactly once.
@@ -1187,8 +1191,16 @@ sealed interface AugmentedStatement :
         // ControlFlowWrapper has a child compound found within statement that has metadata containing this id.
         // This compound contains the original set of statements of the transformation.
         // The ids purpose is to associate the two together using a unique identifier.
-        val id: Int,
-    ) : AugmentedStatement
+        override val id: Int,
+    ) : AugmentedStatement,
+        ControlFlowTransformationNode
+
+    @Serializable
+    class ControlFlowWrapHelperStatement(
+        val statement: Statement,
+        override val id: Int,
+    ) : AugmentedStatement,
+        ControlFlowTransformationNode
 
     /**
      * This is a wrapper that works with ControlFlowWrapper to enable wrapping of return statements.
@@ -1213,8 +1225,9 @@ sealed interface AugmentedStatement :
     @Serializable
     class ControlFlowWrapReturn(
         val statement: Statement.Return,
-        val id: Int,
-    ) : AugmentedStatement
+        override val id: Int,
+    ) : AugmentedStatement,
+        ControlFlowTransformationNode
 
     /**
      * ArbitraryStatement wraps every arbitrary statement generated can be removed by reducer
