@@ -25,7 +25,6 @@ import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
-import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
