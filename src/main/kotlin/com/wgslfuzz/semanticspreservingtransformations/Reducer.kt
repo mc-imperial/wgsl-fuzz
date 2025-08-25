@@ -291,10 +291,6 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                     .filter { it !is AugmentedStatement.ControlFlowWrapHelperStatement || it.id == node.id }
                     .toList()
 
-            check(originalStatements.isNotEmpty()) {
-                "originalStatements is empty and thus no original statements could be found for ControlFlowWrapper with id: ${node.id}"
-            }
-
             return Statement.Compound(originalStatements.clone(::replaceControlFlowWrapped))
         }
 
