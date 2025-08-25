@@ -215,6 +215,7 @@ private class ControlFlowWrapping(
                                     shaderJob = shaderJob,
                                     scope = scope,
                                     donorShaderJob = donorShaderJob,
+                                    returnType = returnTypeDecl?.toType(shaderJob.environment),
                                 ),
                         )
 
@@ -237,6 +238,7 @@ private class ControlFlowWrapping(
                                     shaderJob = shaderJob,
                                     scope = scope,
                                     donorShaderJob = donorShaderJob,
+                                    returnType = returnTypeDecl?.toType(shaderJob.environment),
                                 ),
                             elseBranch = originalStatementCompound,
                         )
