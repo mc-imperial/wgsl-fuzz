@@ -23,7 +23,7 @@ import com.wgslfuzz.core.createShaderJob
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.semanticspreservingtransformations.DefaultFuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.FuzzerSettings
-import com.wgslfuzz.semanticspreservingtransformations.metamorphicTransformations
+import com.wgslfuzz.semanticspreservingtransformations.initMetamorphicTransformations
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
@@ -79,6 +79,13 @@ fun main(args: Array<String>) {
                     "applied before the limit was reached than then takes the number of nodes beyond the limit",
         ).default(200000)
 
+    val donorShaderFilePath by parser
+        .option(
+            ArgType.String,
+            fullName = "donorShader",
+            description = "File path to a donor shader to be used to generate arbitrary compounds",
+        ).required()
+
     parser.parse(args)
 
     println("Original shader file: $originalShader")
@@ -129,6 +136,7 @@ fun main(args: Array<String>) {
             ) {
                 break
             }
+            val metamorphicTransformations = initMetamorphicTransformations(donorShaderFilePath)
             transformedShaderJob =
                 fuzzerSettings.randomElement(metamorphicTransformations)(
                     transformedShaderJob,

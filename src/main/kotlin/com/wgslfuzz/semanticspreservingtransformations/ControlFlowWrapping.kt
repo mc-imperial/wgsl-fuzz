@@ -43,6 +43,7 @@ private typealias ControlFlowWrappingsInjections = MutableMap<Statement.Compound
 private class ControlFlowWrapping(
     private val shaderJob: ShaderJob,
     private val fuzzerSettings: FuzzerSettings,
+    private val donorShaderJob: ShaderJob,
 ) {
     private fun selectStatementsToControlFlowWrap(
         node: AstNode,
@@ -166,8 +167,8 @@ private class ControlFlowWrapping(
         ranges: Sequence<Pair<Int, Lazy<IntRange>>>,
     ): Sequence<Pair<Int, Lazy<IntRange>>> =
         ranges.mapNotNull {
-            val endPointRangeStart = it.second.value.start // .filter { endPoint -> endPoint <= indexRange.first }
-            val endPointRangeEnd = it.second.value.endInclusive
+            val endPointRangeStart = it.second.value.first
+            val endPointRangeEnd = it.second.value.last
             val newEndPointRangeEnd = min(endPointRangeEnd, indexRange.first)
             if (indexRange.second <= it.first && endPointRangeStart <= newEndPointRangeEnd) {
                 it.first to lazy { endPointRangeStart..newEndPointRangeEnd }
@@ -213,6 +214,8 @@ private class ControlFlowWrapping(
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
                                     scope = scope,
+                                    donorShaderJob = donorShaderJob,
+                                    returnType = returnTypeDecl?.toType(shaderJob.environment),
                                 ),
                         )
 
@@ -234,6 +237,8 @@ private class ControlFlowWrapping(
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
                                     scope = scope,
+                                    donorShaderJob = donorShaderJob,
+                                    returnType = returnTypeDecl?.toType(shaderJob.environment),
                                 ),
                             elseBranch = originalStatementCompound,
                         )
@@ -261,7 +266,7 @@ private class ControlFlowWrapping(
                                         computeFinalValue = { initialValue ->
                                             initialValue + updateValue
                                         },
-                                        computeForUpdate = { initialValue, counterName, intToExpression ->
+                                        computeForUpdate = { _, counterName, intToExpression ->
                                             Statement.Assignment(
                                                 lhsExpression = LhsExpression.Identifier(counterName),
                                                 assignmentOperator = AssignmentOperator.PLUS_EQUAL,
@@ -501,11 +506,11 @@ private class ControlFlowWrapping(
     }
 }
 
-fun addControlFlowWrappers(
-    shaderJob: ShaderJob,
-    fuzzerSettings: FuzzerSettings,
-): ShaderJob =
-    ControlFlowWrapping(
-        shaderJob,
-        fuzzerSettings,
-    ).apply()
+fun addControlFlowWrappers(donorShaderJob: ShaderJob): (shaderJob: ShaderJob, fuzzerSettings: FuzzerSettings) -> ShaderJob =
+    { shaderJob, fuzzerSettings ->
+        ControlFlowWrapping(
+            shaderJob,
+            fuzzerSettings,
+            donorShaderJob,
+        ).apply()
+    }
