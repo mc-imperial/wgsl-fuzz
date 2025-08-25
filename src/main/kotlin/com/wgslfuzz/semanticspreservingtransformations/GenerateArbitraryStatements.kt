@@ -88,13 +88,12 @@ fun generateArbitraryElseBranch(
                 )
             },
         )
-    return AugmentedStatement.ArbitraryElseBranch(
-        if (fuzzerSettings.goDeeper(depth)) {
-            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
-        } else {
-            choose(fuzzerSettings, nonRecursiveChoices)
-        },
-    )
+
+    return if (fuzzerSettings.goDeeper(depth)) {
+        choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+    } else {
+        choose(fuzzerSettings, nonRecursiveChoices)
+    }?.let { AugmentedStatement.ArbitraryElseBranch(it) }
 }
 
 fun generateArbitraryCompound(

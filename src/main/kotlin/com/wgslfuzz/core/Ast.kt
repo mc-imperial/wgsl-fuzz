@@ -1229,7 +1229,7 @@ sealed interface AugmentedStatement :
      */
     @Serializable
     class ArbitraryElseBranch(
-        val statement: Statement.ElseBranch?,
+        val statement: Statement.ElseBranch,
     ) : Statement.ElseBranch,
         AugmentedStatement
 }
