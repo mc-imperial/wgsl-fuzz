@@ -191,6 +191,8 @@ private fun statementBehaviour(
             is AugmentedStatement.ControlFlowWrapReturn -> TODO("Not implemented ControlFlowWrapReturn in statementBehaviour")
             is AugmentedStatement.ArbitraryElseBranch -> TODO("Not implemented ArbitraryElseBranch in statementBehaviour")
             is AugmentedStatement.ArbitraryStatement -> TODO("Not implemented ArbitraryStatement in statementBehaviour")
+            is AugmentedStatement.ControlFlowWrapHelperStatement ->
+                TODO("Not implemented ControlFlowWrapHelperStatement in statementBehaviour")
         }
 
     behaviourMap.put(statement, behaviour)

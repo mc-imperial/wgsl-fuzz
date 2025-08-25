@@ -28,12 +28,14 @@ import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.SwitchClause
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
 import java.util.SortedSet
+import kotlin.collections.get
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.random.Random
@@ -183,6 +185,21 @@ private class ControlFlowWrapping(
         uniqueId: Int,
         depth: Int = 0,
     ): AugmentedStatement.ControlFlowWrapper {
+        val scope = shaderJob.environment.scopeAvailableBefore(originalStatements[0])
+        return AugmentedStatement.ControlFlowWrapper(
+            statement = wrapInControlFlowHelper(originalStatements, injections, returnTypeDecl, uniqueId, depth, scope),
+            id = uniqueId,
+        )
+    }
+
+    private fun wrapInControlFlowHelper(
+        originalStatements: List<Statement>,
+        injections: ControlFlowWrappingsInjections,
+        returnTypeDecl: TypeDecl?,
+        uniqueId: Int,
+        depth: Int = 0,
+        scope: Scope,
+    ): Statement {
         require(originalStatements.isNotEmpty()) { "Cannot control flow wrap an empty list of statements" }
 
         val containsBreakOrContinue =
@@ -195,51 +212,39 @@ private class ControlFlowWrapping(
                 },
                 metadata = AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId),
             )
-        val scope = shaderJob.environment.scopeAvailableBefore(originalStatements[0])
 
-        val choices: List<Pair<Int, () -> AugmentedStatement.ControlFlowWrapper>> =
+        val choices =
             listOfNotNull(
-                fuzzerSettings.controlFlowWrappingWeights.ifTrueWrapping to {
+                fuzzerSettings.controlFlowWrappingWeights.ifTrueWrapping(depth) to {
                     // `if ( <true expression> ) { <original statements> } else { <arbitrary statements> }`
-                    val wrappedStatement =
-                        Statement.If(
-                            attributes = emptyList(),
-                            condition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                            thenBranch = originalStatementCompound,
-                            elseBranch =
-                                generateArbitraryElseBranch(
-                                    depth = 0,
-                                    sideEffectsAllowed = true,
-                                    fuzzerSettings = fuzzerSettings,
-                                    shaderJob = shaderJob,
-                                    scope = scope,
-                                ),
-                        )
-
-                    AugmentedStatement.ControlFlowWrapper(
-                        statement = wrappedStatement,
-                        id = uniqueId,
+                    Statement.If(
+                        attributes = emptyList(),
+                        condition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                        thenBranch = originalStatementCompound,
+                        elseBranch =
+                            generateArbitraryElseBranch(
+                                depth = 0,
+                                sideEffectsAllowed = true,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
                     )
                 },
-                fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping to {
+                fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping(depth) to {
                     // `if ( <false expression> ) { <arbitrary statements> } else { <original statements> }`
-                    val wrappedStatement =
-                        Statement.If(
-                            attributes = emptyList(),
-                            condition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                            thenBranch =
-                                generateArbitraryCompound(
-                                    depth = 0,
-                                    sideEffectsAllowed = true,
-                                    fuzzerSettings = fuzzerSettings,
-                                    shaderJob = shaderJob,
-                                    scope = scope,
-                                ),
-                            elseBranch = originalStatementCompound,
-                        )
-                    AugmentedStatement.ControlFlowWrapper(
-                        statement = wrappedStatement,
-                        id = uniqueId,
+                    Statement.If(
+                        attributes = emptyList(),
+                        condition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                        thenBranch =
+                            generateArbitraryCompound(
+                                depth = 0,
+                                sideEffectsAllowed = true,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                        elseBranch = originalStatementCompound,
                     )
                 },
                 if (containsBreakOrContinue) {
@@ -247,7 +252,7 @@ private class ControlFlowWrapping(
                     null
                 } else {
                     // Single iteration for loop control flow wrapper
-                    fuzzerSettings.controlFlowWrappingWeights.singleIterForLoop to {
+                    fuzzerSettings.controlFlowWrappingWeights.singleIterForLoop(depth) to {
                         val forLoopInitConditionUpdateChoices:
                             List<Pair<Int, () -> Triple<Statement.ForInit, Expression, Statement.ForUpdate>>> =
                             listOf(
@@ -330,24 +335,187 @@ private class ControlFlowWrapping(
                             )
                         val (init, condition, update) = choose(fuzzerSettings, forLoopInitConditionUpdateChoices)
 
-                        val wrappedStatement =
-                            Statement.For(
-                                attributes = emptyList(),
-                                init = init,
-                                condition = condition,
-                                update = update,
-                                body = originalStatementCompound,
-                            )
-                        AugmentedStatement.ControlFlowWrapper(
-                            statement = wrappedStatement,
-                            id = uniqueId,
+                        Statement.For(
+                            attributes = emptyList(),
+                            init = init,
+                            condition = condition,
+                            update = update,
+                            body = originalStatementCompound,
                         )
                     }
+                },
+                if (containsBreakOrContinue) {
+                    // Cannot wrap statements in a loop when the statements contain a `break` or `continue`
+                    null
+                } else {
+                    /**
+                     * Wraps <original statements> using the following:
+                     * loop {
+                     *    <part of original statements>
+                     *    continuing {
+                     *        <rest of original statements>
+                     *        break-if true_by_construction
+                     *    }
+                     * }
+                     */
+                    fuzzerSettings.controlFlowWrappingWeights.singleIterLoop(depth) to {
+                        val statements = originalStatementCompound.statements
+
+                        // splitIndex is in the range of [1, stmts.size]
+                        val splitIndex = fuzzerSettings.randomInt(statements.size) + 1
+                        val partOfStmts = Statement.Compound(statements.take(splitIndex), originalStatementCompound.metadata)
+                        val restOfStmts = Statement.Compound(statements.drop(splitIndex), originalStatementCompound.metadata)
+
+                        val continuingStatement =
+                            ContinuingStatement(
+                                statements = restOfStmts,
+                                breakIfExpr = generateTrueExpression(depth, scope),
+                            )
+
+                        Statement.Loop(
+                            body = partOfStmts,
+                            continuingStatement = continuingStatement,
+                        )
+                    }
+                },
+                if (containsBreakOrContinue) {
+                    null
+                } else {
+                    /**
+                     * Wraps <original statements> in:
+                     * while {
+                     *     <original statements>
+                     *     ControlFlowWrappedHelper {
+                     *         break
+                     *     }
+                     * }
+                     */
+                    fuzzerSettings.controlFlowWrappingWeights.singleIterWhileLoop(depth) to {
+                        val wrappedBreak =
+                            AugmentedStatement.ControlFlowWrapHelperStatement(
+                                statement =
+                                    wrapInControlFlowHelper(
+                                        originalStatements = listOf(Statement.Break()),
+                                        injections = emptyControlFlowWrapInjections(),
+                                        returnTypeDecl = null,
+                                        uniqueId = 0,
+                                        depth = depth + 1,
+                                        scope = scope,
+                                    ),
+                                id = uniqueId,
+                            )
+
+                        val whileBody =
+                            Statement.Compound(
+                                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/223)
+                                // Add some arbitrary statements to end of statements
+                                statements = originalStatementCompound.statements + wrappedBreak,
+                                metadata = originalStatementCompound.metadata,
+                            )
+
+                        Statement.While(
+                            condition = generateTrueExpression(depth, scope),
+                            body = whileBody,
+                        )
+                    }
+                },
+                /**
+                 * Wraps <original statements> in:
+                 * switch known_value {
+                 *    case ...
+                 *    ...
+                 *    case literal_for_the_known_value { Stmts }
+                 *    case ...
+                 * }
+                 */
+                fuzzerSettings.controlFlowWrappingWeights.switchCase(depth) to {
+                    val mostNumberOfCasesInAClause = 3
+
+                    val randomNumber = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                    val randomType = fuzzerSettings.randomElement(Type.I32, Type.U32)
+                    val knownValue =
+                        when (randomType) {
+                            Type.I32 -> Expression.IntLiteral(randomNumber + "i")
+                            Type.U32 -> Expression.IntLiteral(randomNumber + "u")
+                            Type.AbstractInteger -> throw RuntimeException("randomType cannot be an AbstractInteger")
+                        }
+                    val knownValueExpression =
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = knownValue,
+                            type = randomType,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        )
+
+                    val cases = mutableListOf(randomNumber)
+                    val numberOfCases = fuzzerSettings.numberOfCasesInSwitch()
+                    repeat(numberOfCases) {
+                        var newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                        while (newCase in cases) {
+                            newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                        }
+                        cases.add(newCase)
+                    }
+
+                    val caseExpressions =
+                        cases
+                            .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
+                            .map {
+                                if (it == randomNumber) knownValue else Expression.IntLiteral(it)
+                            } + null
+
+                    val clauses = mutableListOf<SwitchClause>()
+                    var i = 0
+                    while (i < caseExpressions.size) {
+                        val numberInCase = fuzzerSettings.randomInt(mostNumberOfCasesInAClause) + 1
+                        val nextIndex = (i + numberInCase).coerceAtMost(caseExpressions.size)
+                        val cases = caseExpressions.subList(i, nextIndex)
+                        clauses.add(
+                            SwitchClause(
+                                caseSelectors = cases,
+                                compoundStatement =
+                                    if (knownValue in cases) {
+                                        originalStatementCompound
+                                    } else {
+                                        generateArbitraryCompound(
+                                            depth = depth + 1,
+                                            sideEffectsAllowed = true,
+                                            fuzzerSettings = fuzzerSettings,
+                                            shaderJob = shaderJob,
+                                            scope = scope,
+                                        )
+                                    },
+                            ),
+                        )
+                        i = nextIndex
+                    }
+
+                    Statement.Switch(
+                        expression = knownValueExpression,
+                        clauses = clauses,
+                    )
                 },
             )
 
         return choose(fuzzerSettings, choices)
     }
+
+    private fun emptyControlFlowWrapInjections(): ControlFlowWrappingsInjections = mutableMapOf()
+
+    private fun generateTrueExpression(
+        depth: Int,
+        scope: Scope,
+    ): Expression =
+        generateKnownValueExpression(
+            depth = depth + 1,
+            knownValue = Expression.BoolLiteral("true"),
+            type = Type.Bool,
+            fuzzerSettings = fuzzerSettings,
+            shaderJob = shaderJob,
+            scope = scope,
+        )
 
     private fun integerCounterForLoop(
         counterName: String,
