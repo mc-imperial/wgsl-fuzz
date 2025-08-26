@@ -20,7 +20,6 @@ import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement

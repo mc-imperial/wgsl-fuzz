@@ -84,7 +84,9 @@ fun main(args: Array<String>) {
         .option(
             ArgType.String,
             fullName = "donorShader",
-            description = "File path to a donor shader to be used to generate arbitrary compounds. Donor shader must not contain any Structs",
+            description =
+                "File path to a donor shader to be used to generate arbitrary compounds. " +
+                    "Donor shader must not contain any Structs",
         ).required()
 
     parser.parse(args)
