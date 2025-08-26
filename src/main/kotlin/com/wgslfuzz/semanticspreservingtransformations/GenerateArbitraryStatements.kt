@@ -97,7 +97,7 @@ fun generateArbitraryElseBranch(
 
 /**
  * generateArbitraryCompound generates arbitrary compounds by taking in a donor shader and selecting a random compound from the donor shader and returning it.
- * It performs a few transformations to the donor shaders compound to ensure it is semantics preserving.
+ * It performs a few transformations to the donor compound to ensure it is semantics preserving.
  * - Renames all variables in donor compound to "<original variable name>_<unique id>" to ensure no overlap between variable names in original shader and donor shader
  * - Adds variable declarations for all variables undeclared from the donor compound
  * - Changes all return expressions to be arbitrary expressions of the correct type
