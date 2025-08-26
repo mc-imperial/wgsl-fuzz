@@ -36,7 +36,7 @@ for file in ./samples/*.wgsl; do
   if [[ ! " ${ignoreList[@]} " =~ " $name " ]]; then
     outputDir="generated/$name"
     mkdir "$outputDir"
-    ./scripts/runGenerator --originalShader "$file" --numVariants "$numVariants" --outputDir "$outputDir" --seed 53
+    ./scripts/runGenerator --originalShader "$file" --donorShader "samples/logic_operations.wgsl" --numVariants "$numVariants" --outputDir "$outputDir" --seed 53
   fi
 done
 
