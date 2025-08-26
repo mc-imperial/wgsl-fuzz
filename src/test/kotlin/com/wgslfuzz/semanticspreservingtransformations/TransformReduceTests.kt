@@ -69,10 +69,18 @@ abstract class TransformReduceTests {
 
     @Test
     open fun testControlFlowWrapping() {
+        val donorShaderName = "logic_operations"
+        val donorShaderJob =
+            createShaderJob(
+                File("samples", "$donorShaderName.wgsl").readText(),
+                Json.decodeFromString(
+                    File("samples", "$donorShaderName.uniforms.json").readText(),
+                ),
+            )
         testTransformationAndReduction(
             45,
             filenameNoExtension,
-            ::addControlFlowWrappers,
+            addControlFlowWrappers(donorShaderJob),
         )
     }
 

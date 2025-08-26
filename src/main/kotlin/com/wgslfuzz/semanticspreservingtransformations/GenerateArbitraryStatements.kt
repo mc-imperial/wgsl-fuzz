@@ -16,13 +16,16 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.AstWriter
+import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LhsExpression
-import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
+import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 
@@ -31,7 +34,6 @@ fun generateArbitraryElseBranch(
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
-    scope: Scope,
     donorShaderJob: ShaderJob,
     returnType: Type?,
 ): AugmentedStatement.ArbitraryElseBranch? {
@@ -53,7 +55,7 @@ fun generateArbitraryElseBranch(
                             sideEffectsAllowed = sideEffectsAllowed,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
-                            scope = scope,
+                            scope = shaderJob.environment.globalScope,
                         ),
                     thenBranch =
                         generateArbitraryCompound(
@@ -61,7 +63,6 @@ fun generateArbitraryElseBranch(
                             sideEffectsAllowed = sideEffectsAllowed,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
-                            scope = scope,
                             donorShaderJob = donorShaderJob,
                             returnType = returnType,
                         ),
@@ -71,7 +72,6 @@ fun generateArbitraryElseBranch(
                             sideEffectsAllowed = sideEffectsAllowed,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
-                            scope = scope,
                             donorShaderJob = donorShaderJob,
                             returnType = returnType,
                         ),
@@ -83,7 +83,6 @@ fun generateArbitraryElseBranch(
                     sideEffectsAllowed = sideEffectsAllowed,
                     fuzzerSettings = fuzzerSettings,
                     shaderJob = shaderJob,
-                    scope = scope,
                     donorShaderJob = donorShaderJob,
                     returnType = returnType,
                 )
@@ -102,11 +101,12 @@ fun generateArbitraryCompound(
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
-    scope: Scope,
     donorShaderJob: ShaderJob,
     returnType: Type?,
 ): Statement.Compound {
-    if (!sideEffectsAllowed) TODO("Not yet implemented side effect free arbitrary compound generation")
+    if (!sideEffectsAllowed) {
+        TODO("Not yet implemented side effect free arbitrary compound generation")
+    }
     // Select random compound out of donorShaderJob
     val compoundFromDonor = randomCompound(fuzzerSettings, donorShaderJob)
 
@@ -115,7 +115,6 @@ fun generateArbitraryCompound(
         compoundFromDonor.renameVariables(
             fuzzerSettings = fuzzerSettings,
             sideEffectsAllowed = sideEffectsAllowed,
-            scope = scope,
             donorShaderJob = donorShaderJob,
             shaderJob = shaderJob,
         )
@@ -131,7 +130,7 @@ fun generateArbitraryCompound(
                             sideEffectsAllowed = sideEffectsAllowed,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
-                            scope = scope,
+                            scope = shaderJob.environment.globalScope,
                         )
                     },
                 )
@@ -140,7 +139,10 @@ fun generateArbitraryCompound(
             }
         }
 
-    return compoundWithReturnsOfCorrectType
+    return Statement.Compound(
+        statements = compoundWithReturnsOfCorrectType.statements,
+        metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
+    )
 }
 
 private fun randomCompound(
@@ -151,7 +153,6 @@ private fun randomCompound(
 private fun Statement.Compound.renameVariables(
     fuzzerSettings: FuzzerSettings,
     sideEffectsAllowed: Boolean,
-    scope: Scope,
     donorShaderJob: ShaderJob,
     shaderJob: ShaderJob,
 ): Statement.Compound {
@@ -176,18 +177,18 @@ private fun Statement.Compound.renameVariables(
         preOrderDonorNodes
             .mapNotNull { node ->
                 when (node) {
-                    is LhsExpression.Identifier -> node.name to donorShaderJob.environment.typeOf(node)
-                    is Expression.Identifier -> node.name to donorShaderJob.environment.typeOf(node)
+                    is LhsExpression.Identifier -> node.name to donorShaderJob.environment.typeOf(node).asStoreTypeIfReference()
+                    is Expression.Identifier -> node.name to donorShaderJob.environment.typeOf(node).asStoreTypeIfReference()
                     is Statement.Value -> {
                         val type =
                             node.typeDecl?.toType(donorShaderJob.environment)
-                                ?: donorShaderJob.environment.typeOf(node.initializer)
+                                ?: donorShaderJob.environment.typeOf(node.initializer).asStoreTypeIfReference()
                         node.name to type
                     }
                     is Statement.Variable -> {
                         val type =
                             node.typeDecl?.toType(donorShaderJob.environment)
-                                ?: node.initializer?.let { donorShaderJob.environment.typeOf(it) }
+                                ?: node.initializer?.let { donorShaderJob.environment.typeOf(it) }?.asStoreTypeIfReference()
 
                         type?.let { node.name to it }
                     }
@@ -197,29 +198,28 @@ private fun Statement.Compound.renameVariables(
 
     val oldNamesToNewNames = identifierNamesToTypes.map { it.key }.associateWith { "${it}_${fuzzerSettings.getUniqueId()}" }
 
-    val renamedStatements =
-        this.statements.clone {
-            when (it) {
-                is LhsExpression.Identifier -> LhsExpression.Identifier(oldNamesToNewNames[it.name]!!)
-                is Expression.Identifier -> Expression.Identifier(oldNamesToNewNames[it.name]!!)
-                is Statement.Value ->
-                    Statement.Value(
-                        isConst = it.isConst,
-                        name = oldNamesToNewNames[it.name]!!,
-                        typeDecl = it.typeDecl,
-                        initializer = it.initializer,
-                    )
-                is Statement.Variable ->
-                    Statement.Variable(
-                        name = oldNamesToNewNames[it.name]!!,
-                        addressSpace = it.addressSpace,
-                        accessMode = it.accessMode,
-                        typeDecl = it.typeDecl,
-                        initializer = it.initializer,
-                    )
-                else -> null
-            }
+    fun renameVariablesHelper(node: AstNode): AstNode? =
+        when (node) {
+            is LhsExpression.Identifier -> LhsExpression.Identifier(oldNamesToNewNames[node.name]!!)
+            is Expression.Identifier -> Expression.Identifier(oldNamesToNewNames[node.name]!!)
+            is Statement.Value ->
+                Statement.Value(
+                    isConst = node.isConst,
+                    name = oldNamesToNewNames[node.name]!!,
+                    typeDecl = node.typeDecl?.clone(::renameVariablesHelper),
+                    initializer = node.initializer.clone(::renameVariablesHelper),
+                )
+            is Statement.Variable ->
+                Statement.Variable(
+                    name = oldNamesToNewNames[node.name]!!,
+                    addressSpace = node.addressSpace,
+                    accessMode = node.accessMode,
+                    typeDecl = node.typeDecl?.clone(::renameVariablesHelper),
+                    initializer = node.initializer?.clone(::renameVariablesHelper),
+                )
+            else -> null
         }
+    val renamedStatements = this.statements.clone(::renameVariablesHelper)
 
     // Add definitions for undefined variables in compound
     val variablesUndefinedInCompound = variablesUsedInCompound - variablesDefinedInCompound
@@ -234,7 +234,7 @@ private fun Statement.Compound.renameVariables(
                             sideEffectsAllowed = sideEffectsAllowed,
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
-                            scope = scope,
+                            scope = shaderJob.environment.globalScope,
                         )
                     if (it in variablesMutatedInCompound) {
                         Statement.Variable(

@@ -18,6 +18,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AssignmentOperator
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.AstWriter
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
@@ -213,7 +214,6 @@ private class ControlFlowWrapping(
                                     sideEffectsAllowed = true,
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
-                                    scope = scope,
                                     donorShaderJob = donorShaderJob,
                                     returnType = returnTypeDecl?.toType(shaderJob.environment),
                                 ),
@@ -236,7 +236,6 @@ private class ControlFlowWrapping(
                                     sideEffectsAllowed = true,
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
-                                    scope = scope,
                                     donorShaderJob = donorShaderJob,
                                     returnType = returnTypeDecl?.toType(shaderJob.environment),
                                 ),
