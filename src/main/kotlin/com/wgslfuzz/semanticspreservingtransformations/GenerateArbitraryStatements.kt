@@ -20,6 +20,7 @@ import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
@@ -101,6 +102,8 @@ fun generateArbitraryElseBranch(
  * - Renames all variables in donor compound to "<original variable name>_<unique id>" to ensure no overlap between variable names in original shader and donor shader
  * - Adds variable declarations for all variables undeclared from the donor compound
  * - Changes all return expressions to be arbitrary expressions of the correct type
+ *
+ * Note: the donor shader cannot contain any structs
  */
 fun generateArbitraryCompound(
     depth: Int,

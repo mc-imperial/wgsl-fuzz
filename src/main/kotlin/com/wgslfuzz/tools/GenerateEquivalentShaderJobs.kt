@@ -17,6 +17,7 @@
 package com.wgslfuzz.tools
 
 import com.wgslfuzz.core.AstWriter
+import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.UniformBufferInfoByteLevel
 import com.wgslfuzz.core.createShaderJob
@@ -83,7 +84,7 @@ fun main(args: Array<String>) {
         .option(
             ArgType.String,
             fullName = "donorShader",
-            description = "File path to a donor shader to be used to generate arbitrary compounds",
+            description = "File path to a donor shader to be used to generate arbitrary compounds. Donor shader must not contain any Structs",
         ).required()
 
     parser.parse(args)
@@ -102,6 +103,7 @@ fun main(args: Array<String>) {
     val shaderJob = getShaderJobFromFile(originalShaderFilePath)
 
     val donorShaderJob = getShaderJobFromFile(donorShaderFilePath)
+    require(donorShaderJob.tu.globalDecls.none { it is GlobalDecl.Struct }) { "Donor shader must not contain any Structs" }
 
     val seedAsLong = seed?.toLong() ?: Random.nextLong() // If a seed is not passed in get a random seed from the default Random object
     println("Using seed: $seedAsLong")
@@ -152,13 +154,13 @@ private fun getShaderJobFromFile(shaderFilePath: String): ShaderJob {
         exitProcess(1)
     }
 
-    val donorUniformsFilePath = shaderFilePath.removeSuffix(".wgsl") + ".uniforms.json"
-    if (!File(donorUniformsFilePath).exists()) {
+    val uniformsFilePath = shaderFilePath.removeSuffix(".wgsl") + ".uniforms.json"
+    if (!File(uniformsFilePath).exists()) {
         System.err.println("Uniforms file $shaderFilePath does not exist")
         exitProcess(1)
     }
 
-    val donorShaderText = File(shaderFilePath).readText()
-    val donorUniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(File(donorUniformsFilePath).readText())
-    return createShaderJob(donorShaderText, donorUniformBuffers)
+    val shaderText = File(shaderFilePath).readText()
+    val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(File(uniformsFilePath).readText())
+    return createShaderJob(shaderText, uniformBuffers)
 }

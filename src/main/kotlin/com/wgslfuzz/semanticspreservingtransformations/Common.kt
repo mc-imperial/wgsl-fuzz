@@ -101,7 +101,16 @@ fun constantWithSameValueEverywhere(
     type: Type,
 ): Expression =
     when (type) {
-        is Type.Array -> TODO("Array constants need to be supported.")
+        is Type.Array ->
+            if (type.elementCount == null) {
+                throw IllegalArgumentException("Cannot generate an array of unknown length")
+            } else {
+                Expression.ArrayValueConstructor(
+                    elementType = null,
+                    elementCount = Expression.IntLiteral(type.elementCount.toString()),
+                    args = List(type.elementCount) { constantWithSameValueEverywhere(value, type.elementType) },
+                )
+            }
         is Type.Matrix -> TODO("Matrix constants need to be supported.")
         Type.Bool ->
             if (value == 0) {
@@ -115,7 +124,11 @@ fun constantWithSameValueEverywhere(
         Type.AbstractInteger -> Expression.IntLiteral("$value")
         Type.I32 -> Expression.IntLiteral("${value}i")
         Type.U32 -> Expression.IntLiteral("${value}u")
-        is Type.Struct -> TODO("Struct constants need to be supported.")
+        is Type.Struct ->
+            Expression.StructValueConstructor(
+                constructorName = type.name,
+                args = type.members.map { constantWithSameValueEverywhere(value, it.second) },
+            )
         is Type.Vector ->
             when (type.width) {
                 2 ->
