@@ -168,8 +168,8 @@ private class ControlFlowWrapping(
         ranges: Sequence<Pair<Int, Lazy<IntRange>>>,
     ): Sequence<Pair<Int, Lazy<IntRange>>> =
         ranges.mapNotNull {
-            val endPointRangeStart = it.second.value.start // .filter { endPoint -> endPoint <= indexRange.first }
-            val endPointRangeEnd = it.second.value.endInclusive
+            val endPointRangeStart = it.second.value.first
+            val endPointRangeEnd = it.second.value.last
             val newEndPointRangeEnd = min(endPointRangeEnd, indexRange.first)
             if (indexRange.second <= it.first && endPointRangeStart <= newEndPointRangeEnd) {
                 it.first to lazy { endPointRangeStart..newEndPointRangeEnd }
@@ -194,7 +194,7 @@ private class ControlFlowWrapping(
 
     private fun wrapInControlFlowHelper(
         originalStatements: List<Statement>,
-        injections: ControlFlowWrappingsInjections,
+        injections: ControlFlowWrappingsInjections = mutableMapOf(),
         returnTypeDecl: TypeDecl?,
         uniqueId: Int,
         depth: Int = 0,
@@ -266,7 +266,7 @@ private class ControlFlowWrapping(
                                         computeFinalValue = { initialValue ->
                                             initialValue + updateValue
                                         },
-                                        computeForUpdate = { initialValue, counterName, intToExpression ->
+                                        computeForUpdate = { _, counterName, intToExpression ->
                                             Statement.Assignment(
                                                 lhsExpression = LhsExpression.Identifier(counterName),
                                                 assignmentOperator = AssignmentOperator.PLUS_EQUAL,
@@ -348,16 +348,14 @@ private class ControlFlowWrapping(
                     // Cannot wrap statements in a loop when the statements contain a `break` or `continue`
                     null
                 } else {
-                    /**
-                     * Wraps <original statements> using the following:
-                     * loop {
-                     *    <part of original statements>
-                     *    continuing {
-                     *        <rest of original statements>
-                     *        break-if true_by_construction
-                     *    }
-                     * }
-                     */
+                    // Wraps <original statements> using the following:
+                    // loop {
+                    //    <part of original statements>
+                    //    continuing {
+                    //        <rest of original statements>
+                    //        break-if true_by_construction
+                    //    }
+                    // }
                     fuzzerSettings.controlFlowWrappingWeights.singleIterLoop(depth) to {
                         val statements = originalStatementCompound.statements
 
@@ -369,7 +367,7 @@ private class ControlFlowWrapping(
                         val continuingStatement =
                             ContinuingStatement(
                                 statements = restOfStmts,
-                                breakIfExpr = generateTrueExpression(depth, scope),
+                                breakIfExpr = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                             )
 
                         Statement.Loop(
@@ -381,22 +379,19 @@ private class ControlFlowWrapping(
                 if (containsBreakOrContinue) {
                     null
                 } else {
-                    /**
-                     * Wraps <original statements> in:
-                     * while {
-                     *     <original statements>
-                     *     ControlFlowWrappedHelper {
-                     *         break
-                     *     }
-                     * }
-                     */
+                    // Wraps <original statements> in:
+                    // while {
+                    //     <original statements>
+                    //     ControlFlowWrappedHelper {
+                    //         break
+                    //     }
+                    // }
                     fuzzerSettings.controlFlowWrappingWeights.singleIterWhileLoop(depth) to {
                         val wrappedBreak =
                             AugmentedStatement.ControlFlowWrapHelperStatement(
                                 statement =
                                     wrapInControlFlowHelper(
                                         originalStatements = listOf(Statement.Break()),
-                                        injections = emptyControlFlowWrapInjections(),
                                         returnTypeDecl = null,
                                         uniqueId = 0,
                                         depth = depth + 1,
@@ -414,20 +409,18 @@ private class ControlFlowWrapping(
                             )
 
                         Statement.While(
-                            condition = generateTrueExpression(depth, scope),
+                            condition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                             body = whileBody,
                         )
                     }
                 },
-                /**
-                 * Wraps <original statements> in:
-                 * switch known_value {
-                 *    case ...
-                 *    ...
-                 *    case literal_for_the_known_value { Stmts }
-                 *    case ...
-                 * }
-                 */
+                // Wraps <original statements> in:
+                // switch known_value {
+                //    case ...
+                //    ...
+                //    case literal_for_the_known_value { Stmts }
+                //    case ...
+                // }
                 fuzzerSettings.controlFlowWrappingWeights.switchCase(depth) to {
                     val mostNumberOfCasesInAClause = 3
 
@@ -502,21 +495,6 @@ private class ControlFlowWrapping(
         return choose(fuzzerSettings, choices)
     }
 
-    private fun emptyControlFlowWrapInjections(): ControlFlowWrappingsInjections = mutableMapOf()
-
-    private fun generateTrueExpression(
-        depth: Int,
-        scope: Scope,
-    ): Expression =
-        generateKnownValueExpression(
-            depth = depth + 1,
-            knownValue = Expression.BoolLiteral("true"),
-            type = Type.Bool,
-            fuzzerSettings = fuzzerSettings,
-            shaderJob = shaderJob,
-            scope = scope,
-        )
-
     private fun integerCounterForLoop(
         counterName: String,
         depth: Int,
@@ -582,8 +560,8 @@ private class ControlFlowWrapping(
     // Similar to injectDeadJumps
     private fun injectControlFlowWrapper(
         node: AstNode,
-        injections: ControlFlowWrappingsInjections,
-        // The return type of a parent function if it exists
+        injections: ControlFlowWrappingsInjections = mutableMapOf(),
+        // The return type of parent function if it exists
         returnTypeDecl: TypeDecl?,
     ): AstNode? {
         if (node is GlobalDecl.Function) {
