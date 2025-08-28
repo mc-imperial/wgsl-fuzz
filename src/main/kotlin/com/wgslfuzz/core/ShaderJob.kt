@@ -163,18 +163,19 @@ class ShaderJob(
 
 private fun intLiteralToBytes(value: Expression): List<Int> {
     val intValue = value as Expression.IntLiteral
-    val parsedInt: Int =
+    var parsedNum =
         intValue.text
             .removeSuffix("i")
             .removeSuffix("u")
             .toInt()
-    val byteArray =
-        ByteBuffer
-            .allocate(4)
-            .order(ByteOrder.LITTLE_ENDIAN)
-            .putInt(parsedInt)
-            .array()
-    return byteArray.map { i -> i.toInt() }
+
+    val bytesOfNum = mutableListOf<Int>()
+    repeat(4) {
+        bytesOfNum.add(parsedNum and 0xff)
+        parsedNum = parsedNum ushr 8
+    }
+
+    return bytesOfNum
 }
 
 fun createShaderJob(
