@@ -322,7 +322,7 @@ private class ReduceArbitraryExpression : ReductionPass<AugmentedExpression.Arbi
                 null
             } else {
                 val underlyingExpression = node.expression
-                val underlyingExpressionType = originalShaderJob.environment.typeOf(underlyingExpression)
+                val underlyingExpressionType = originalShaderJob.environment.typeOf(underlyingExpression).asStoreTypeIfReference()
 
                 when (underlyingExpression) {
                     is Expression.BoolLiteral,
