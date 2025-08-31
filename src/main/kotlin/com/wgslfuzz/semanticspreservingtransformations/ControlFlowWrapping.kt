@@ -359,10 +359,20 @@ private class ControlFlowWrapping(
                     fuzzerSettings.controlFlowWrappingWeights.singleIterLoop(depth) to {
                         val statements = originalStatementCompound.statements
 
-                        // splitIndex is in the range of [1, stmts.size]
-                        val splitIndex = fuzzerSettings.randomInt(statements.size) + 1
-                        val partOfStmts = Statement.Compound(statements.take(splitIndex), originalStatementCompound.metadata)
-                        val restOfStmts = Statement.Compound(statements.drop(splitIndex), originalStatementCompound.metadata)
+                        val indexOfLastReturn =
+                            statements
+                                .indexOfLast { node ->
+                                    nodesPreOrder(node).any { it is Statement.Return }
+                                }
+
+                        // splitIndex is in the range of [indexOfLastReturn + 1, statements.size)
+                        val splitIndex = fuzzerSettings.randomInt(statements.size - indexOfLastReturn) + indexOfLastReturn + 1
+                        val partOfStmts = Statement.Compound(statements.subList(0, splitIndex), originalStatementCompound.metadata)
+                        val restOfStmts =
+                            Statement.Compound(
+                                statements.subList(splitIndex, statements.size),
+                                originalStatementCompound.metadata,
+                            )
 
                         val continuingStatement =
                             ContinuingStatement(
