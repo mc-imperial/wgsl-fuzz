@@ -328,5 +328,13 @@ private fun cloneHelper(
                 AugmentedExpression.ArbitraryExpression(
                     expression.clone(replacements),
                 )
+            is AugmentedStatement.ArbitraryElseBranch ->
+                AugmentedStatement.ArbitraryElseBranch(
+                    statement.clone(replacements),
+                )
+            is AugmentedStatement.ArbitraryStatement ->
+                AugmentedStatement.ArbitraryStatement(
+                    statement.clone(replacements),
+                )
         }
     }

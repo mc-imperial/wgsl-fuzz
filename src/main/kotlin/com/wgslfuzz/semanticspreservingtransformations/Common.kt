@@ -36,9 +36,16 @@ fun TypeDecl.toType(resolvedEnvironment: ResolvedEnvironment): Type =
             )
 
         is TypeDecl.NamedType -> {
-            when (val scopeEntry = resolvedEnvironment.globalScope.getEntry(this.name)) {
-                is ScopeEntry.Struct, is ScopeEntry.TypeAlias -> scopeEntry.type
-                else -> throw IllegalStateException("Named Type does not correspond to a named type in scope")
+            when (this.name) {
+                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/232) Fix hacky solution
+                "vec2f" -> Type.Vector(2, Type.F32)
+                "vec3f" -> Type.Vector(3, Type.F32)
+                "vec4f" -> Type.Vector(4, Type.F32)
+                else ->
+                    when (val scopeEntry = resolvedEnvironment.globalScope.getEntry(this.name)) {
+                        is ScopeEntry.Struct, is ScopeEntry.TypeAlias -> scopeEntry.type
+                        else -> throw IllegalStateException("Named Type does not correspond to a named type in scope")
+                    }
             }
         }
 

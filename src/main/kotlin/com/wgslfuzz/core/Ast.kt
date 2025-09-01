@@ -88,6 +88,7 @@ enum class BuiltinValue {
     NUM_WORKGROUPS,
     SUBGROUP_INVOCATION_ID,
     SUBGROUP_SIZE,
+    PRIMITIVE_INDEX,
 }
 
 enum class SeverityControl {
@@ -1215,6 +1216,23 @@ sealed interface AugmentedStatement :
         val statement: Statement.Return,
         val id: Int,
     ) : AugmentedStatement
+
+    /**
+     * ArbitraryStatement wraps every arbitrary statement generated can be removed by reducer
+     */
+    @Serializable
+    class ArbitraryStatement(
+        val statement: Statement,
+    ) : AugmentedStatement
+
+    /**
+     * ArbitraryElseBranch wraps every arbitrary else branch can be removed by reducer
+     */
+    @Serializable
+    class ArbitraryElseBranch(
+        val statement: Statement.ElseBranch,
+    ) : Statement.ElseBranch,
+        AugmentedStatement
 }
 
 @Serializable
@@ -1225,4 +1243,11 @@ sealed interface AugmentedMetadata {
         // For more information look at the comments of ControlFlowWrapper.
         val id: Int,
     ) : AugmentedMetadata
+
+    /**
+     * Metadata held by an arbitrary compound
+     * If a Compound has this then it can be removed by the reducer since it is an arbitrarily generated compound
+     */
+    @Serializable
+    object ArbitraryCompoundMetaData : AugmentedMetadata
 }

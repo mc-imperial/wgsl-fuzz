@@ -23,12 +23,13 @@ import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.asStoreTypeIfReference
+import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
@@ -178,6 +179,7 @@ private class ControlFlowWrapping(
     private fun wrapInControlFlow(
         originalStatements: List<Statement>,
         injections: ControlFlowWrappingsInjections,
+        returnTypeDecl: TypeDecl?,
         uniqueId: Int,
         depth: Int = 0,
     ): AugmentedStatement.ControlFlowWrapper {
@@ -189,7 +191,7 @@ private class ControlFlowWrapping(
         val originalStatementCompound =
             Statement.Compound(
                 originalStatements.clone {
-                    injectControlFlowWrapper(it, injections)
+                    injectControlFlowWrapper(it, injections, returnTypeDecl)
                 },
                 metadata = AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId),
             )
@@ -206,6 +208,7 @@ private class ControlFlowWrapping(
                             thenBranch = originalStatementCompound,
                             elseBranch =
                                 generateArbitraryElseBranch(
+                                    depth = 0,
                                     sideEffectsAllowed = true,
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
@@ -226,6 +229,7 @@ private class ControlFlowWrapping(
                             condition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                             thenBranch =
                                 generateArbitraryCompound(
+                                    depth = 0,
                                     sideEffectsAllowed = true,
                                     fuzzerSettings = fuzzerSettings,
                                     shaderJob = shaderJob,
@@ -411,8 +415,22 @@ private class ControlFlowWrapping(
     private fun injectControlFlowWrapper(
         node: AstNode,
         injections: ControlFlowWrappingsInjections,
-    ): AstNode? =
-        injections[node]?.let { locations ->
+        // The return type of a parent function if it exists
+        returnTypeDecl: TypeDecl?,
+    ): AstNode? {
+        if (node is GlobalDecl.Function) {
+            // If cloning a GlobalDecl.Function add the functions
+            return GlobalDecl.Function(
+                node.attributes.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+                node.name,
+                node.parameters.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+                node.returnAttributes.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+                node.returnType?.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+                node.body.clone { injectControlFlowWrapper(it, injections, node.returnType) },
+            )
+        }
+
+        return injections[node]?.let { locations ->
             val compound = node as Statement.Compound
 
             val newBody = mutableListOf<Statement>()
@@ -423,30 +441,32 @@ private class ControlFlowWrapping(
             var i = 0
             for ((x, y) in locations) {
                 while (i < x) {
-                    newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections) })
+                    newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections, returnTypeDecl) })
                     i++
                 }
 
                 val uniqueId = fuzzerSettings.getUniqueId()
                 val originalStatements = node.statements.subList(x, y)
-                if (originalStatements.any { it is Statement.Return }) wrappedReturnUniqueId = uniqueId
-                newBody.add(wrapInControlFlow(originalStatements, injections, uniqueId))
+                if (originalStatements.any { it is Statement.Return || it is AugmentedStatement.ControlFlowWrapReturn }) {
+                    check(wrappedReturnUniqueId == null) { "There should not be repeated returns in a compound" }
+                    wrappedReturnUniqueId = uniqueId
+                }
+                newBody.add(wrapInControlFlow(originalStatements, injections, returnTypeDecl, uniqueId))
 
                 i = y
             }
             while (i < compound.statements.size) {
-                newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections) })
+                newBody.add(compound.statements[i].clone { injectControlFlowWrapper(it, injections, returnTypeDecl) })
                 i++
             }
 
-            val originalBodyReturn = node.statements.filterIsInstance<Statement.Return>().firstOrNull()
-            if (wrappedReturnUniqueId != null && originalBodyReturn?.expression != null) {
+            if (wrappedReturnUniqueId != null && returnTypeDecl != null) {
                 newBody.add(
                     AugmentedStatement.ControlFlowWrapReturn(
                         Statement.Return(
                             generateArbitraryExpression(
                                 depth = 0,
-                                type = shaderJob.environment.typeOf(originalBodyReturn.expression).asStoreTypeIfReference(),
+                                type = returnTypeDecl.toType(shaderJob.environment),
                                 sideEffectsAllowed = true,
                                 fuzzerSettings = fuzzerSettings,
                                 shaderJob = shaderJob,
@@ -460,11 +480,20 @@ private class ControlFlowWrapping(
 
             Statement.Compound(newBody, compound.metadata)
         }
+    }
 
     fun apply(): ShaderJob {
         val injections: ControlFlowWrappingsInjections = mutableMapOf()
         traverse(::selectStatementsToControlFlowWrap, shaderJob.tu, injections)
-        val tu = shaderJob.tu.clone { injectControlFlowWrapper(it, injections) }
+        val tu =
+            shaderJob.tu.clone {
+                injectControlFlowWrapper(
+                    node = it,
+                    injections = injections,
+                    // Since no parent returnTypeDecl leave as null
+                    returnTypeDecl = null,
+                )
+            }
         return ShaderJob(
             tu = tu,
             pipelineState = shaderJob.pipelineState,
