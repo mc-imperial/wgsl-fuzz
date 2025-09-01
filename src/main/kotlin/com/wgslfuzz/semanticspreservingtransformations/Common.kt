@@ -24,6 +24,7 @@ import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.evaluateToInt
+import com.wgslfuzz.core.resolvedNamedTypeDecl
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
@@ -51,19 +52,7 @@ fun TypeDecl.toType(resolvedEnvironment: ResolvedEnvironment): Type =
                         ?: throw IllegalArgumentException("Array must have a known length"),
             )
 
-        is TypeDecl.NamedType -> {
-            when (this.name) {
-                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/232) Fix hacky solution
-                "vec2f" -> Type.Vector(2, Type.F32)
-                "vec3f" -> Type.Vector(3, Type.F32)
-                "vec4f" -> Type.Vector(4, Type.F32)
-                else ->
-                    when (val scopeEntry = resolvedEnvironment.globalScope.getEntry(this.name)) {
-                        is ScopeEntry.Struct, is ScopeEntry.TypeAlias -> scopeEntry.type
-                        else -> throw IllegalStateException("Named Type does not correspond to a named type in scope")
-                    }
-            }
-        }
+        is TypeDecl.NamedType -> resolvedNamedTypeDecl(this, resolvedEnvironment.globalScope)
 
         is TypeDecl.Bool -> Type.Bool
         is TypeDecl.F16 -> Type.F16

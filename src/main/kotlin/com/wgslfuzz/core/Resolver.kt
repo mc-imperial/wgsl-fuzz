@@ -2123,53 +2123,7 @@ private fun resolveTypeDecl(
                         evaluateToInt(it, resolverState.currentScope, resolverState.resolvedEnvironment)
                     },
             )
-        is TypeDecl.NamedType -> {
-            when (val scopeEntry = resolverState.currentScope.getEntry(typeDecl.name)) {
-                is ScopeEntry.TypeAlias -> {
-                    scopeEntry.type
-                }
-                is ScopeEntry.Struct -> {
-                    scopeEntry.type
-                }
-                null -> {
-                    when (typeDecl.name) {
-                        "vec2f" -> Type.Vector(2, Type.F32)
-                        "vec3f" -> Type.Vector(3, Type.F32)
-                        "vec4f" -> Type.Vector(4, Type.F32)
-                        "vec2i" -> Type.Vector(2, Type.I32)
-                        "vec3i" -> Type.Vector(3, Type.I32)
-                        "vec4i" -> Type.Vector(4, Type.I32)
-                        "vec2u" -> Type.Vector(2, Type.U32)
-                        "vec3u" -> Type.Vector(3, Type.U32)
-                        "vec4u" -> Type.Vector(4, Type.U32)
-                        "mat2x2f" -> Type.Matrix(2, 2, Type.F32)
-                        "mat2x3f" -> Type.Matrix(2, 3, Type.F32)
-                        "mat2x4f" -> Type.Matrix(2, 4, Type.F32)
-                        "mat3x2f" -> Type.Matrix(3, 2, Type.F32)
-                        "mat3x3f" -> Type.Matrix(3, 3, Type.F32)
-                        "mat3x4f" -> Type.Matrix(3, 4, Type.F32)
-                        "mat4x2f" -> Type.Matrix(4, 2, Type.F32)
-                        "mat4x3f" -> Type.Matrix(4, 3, Type.F32)
-                        "mat4x4f" -> Type.Matrix(4, 4, Type.F32)
-                        "mat2x2h" -> Type.Matrix(2, 2, Type.F16)
-                        "mat2x3h" -> Type.Matrix(2, 3, Type.F16)
-                        "mat2x4h" -> Type.Matrix(2, 4, Type.F16)
-                        "mat3x2h" -> Type.Matrix(3, 2, Type.F16)
-                        "mat3x3h" -> Type.Matrix(3, 3, Type.F16)
-                        "mat3x4h" -> Type.Matrix(3, 4, Type.F16)
-                        "mat4x2h" -> Type.Matrix(4, 2, Type.F16)
-                        "mat4x3h" -> Type.Matrix(4, 3, Type.F16)
-                        "mat4x4h" -> Type.Matrix(4, 4, Type.F16)
-                        else -> throw UnsupportedOperationException("Unknown typed declaration ${typeDecl.name}")
-                    }
-                }
-                else -> {
-                    throw IllegalArgumentException(
-                        "Non-type declaration associated with ${typeDecl.name}, which is used where a type is required",
-                    )
-                }
-            }
-        }
+        is TypeDecl.NamedType -> resolvedNamedTypeDecl(typeDecl, resolverState.currentScope)
         is TypeDecl.Pointer ->
             Type.Pointer(
                 pointeeType =
@@ -2245,6 +2199,55 @@ private fun resolveTypeDecl(
         is TypeDecl.TextureStorage2DArray -> Type.Texture.Storage2DArray(typeDecl.format, typeDecl.accessMode)
         is TypeDecl.TextureStorage3D -> Type.Texture.Storage3D(typeDecl.format, typeDecl.accessMode)
     }
+
+fun resolvedNamedTypeDecl(
+    typeDecl: TypeDecl.NamedType,
+    scope: Scope,
+) = when (val scopeEntry = scope.getEntry(typeDecl.name)) {
+    is ScopeEntry.TypeAlias -> {
+        scopeEntry.type
+    }
+    is ScopeEntry.Struct -> {
+        scopeEntry.type
+    }
+    null -> {
+        when (typeDecl.name) {
+            "vec2f" -> Type.Vector(2, Type.F32)
+            "vec3f" -> Type.Vector(3, Type.F32)
+            "vec4f" -> Type.Vector(4, Type.F32)
+            "vec2i" -> Type.Vector(2, Type.I32)
+            "vec3i" -> Type.Vector(3, Type.I32)
+            "vec4i" -> Type.Vector(4, Type.I32)
+            "vec2u" -> Type.Vector(2, Type.U32)
+            "vec3u" -> Type.Vector(3, Type.U32)
+            "vec4u" -> Type.Vector(4, Type.U32)
+            "mat2x2f" -> Type.Matrix(2, 2, Type.F32)
+            "mat2x3f" -> Type.Matrix(2, 3, Type.F32)
+            "mat2x4f" -> Type.Matrix(2, 4, Type.F32)
+            "mat3x2f" -> Type.Matrix(3, 2, Type.F32)
+            "mat3x3f" -> Type.Matrix(3, 3, Type.F32)
+            "mat3x4f" -> Type.Matrix(3, 4, Type.F32)
+            "mat4x2f" -> Type.Matrix(4, 2, Type.F32)
+            "mat4x3f" -> Type.Matrix(4, 3, Type.F32)
+            "mat4x4f" -> Type.Matrix(4, 4, Type.F32)
+            "mat2x2h" -> Type.Matrix(2, 2, Type.F16)
+            "mat2x3h" -> Type.Matrix(2, 3, Type.F16)
+            "mat2x4h" -> Type.Matrix(2, 4, Type.F16)
+            "mat3x2h" -> Type.Matrix(3, 2, Type.F16)
+            "mat3x3h" -> Type.Matrix(3, 3, Type.F16)
+            "mat3x4h" -> Type.Matrix(3, 4, Type.F16)
+            "mat4x2h" -> Type.Matrix(4, 2, Type.F16)
+            "mat4x3h" -> Type.Matrix(4, 3, Type.F16)
+            "mat4x4h" -> Type.Matrix(4, 4, Type.F16)
+            else -> throw UnsupportedOperationException("Unknown typed declaration ${typeDecl.name}")
+        }
+    }
+    else -> {
+        throw IllegalArgumentException(
+            "Non-type declaration associated with ${typeDecl.name}, which is used where a type is required",
+        )
+    }
+}
 
 private fun resolveFunctionHeader(
     functionDecl: GlobalDecl.Function,
