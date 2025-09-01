@@ -1055,7 +1055,7 @@ class AstWriter(
     private fun emitUniformCommentary(uniformVariable: GlobalDecl.Variable) {
         // Cannot emit uniform commentary without shader job as information on uniform values are required
         require(
-            shaderJob == null,
+            shaderJob != null,
         ) { "shaderJob is null and so cannot emit uniform commentary without necessary information from shader job" }
         val group =
             (
