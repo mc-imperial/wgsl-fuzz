@@ -28,6 +28,7 @@ class AstWriter(
     private val out: PrintStream = System.out,
     private val indentValue: Int = DEFAULT_INDENT,
     private val emitCommentary: Boolean = false,
+    private val shaderJob: ShaderJob? = null,
 ) {
     private var currentIndentLevel = 0
 
@@ -1036,10 +1037,35 @@ class AstWriter(
 
     private fun emitGlobalDeclVariable(variable: GlobalDecl.Variable) {
         with(variable) {
+            if (emitCommentary && addressSpace == AddressSpace.UNIFORM) {
+                emitUniformCommentary(variable)
+            }
             emitAttributes(attributes)
             emitVariableDeclaration(addressSpace, accessMode, name, typeDecl, initializer)
             out.print(";\n")
         }
+    }
+
+    private fun emitUniformCommentary(uniformVariable: GlobalDecl.Variable) {
+        // Can't output uniform commentary if the necessary information is not available
+        if (shaderJob == null) return
+        val group =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Group>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        val binding =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Binding>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        out.print("// Uniform value: ")
+        emit(shaderJob.pipelineState.getUniformValue(group, binding))
+        out.println()
     }
 
     private fun emitGlobalDeclFunction(function: GlobalDecl.Function) {

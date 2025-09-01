@@ -163,6 +163,7 @@ fun main(args: Array<String>) {
         AstWriter(
             out = PrintStream(FileOutputStream(File(outputDir, "original_annotated.wgsl"))),
             emitCommentary = true,
+            shaderJob = shaderJob,
         ).emit(
             shaderJob.tu,
         )
@@ -190,6 +191,7 @@ fun main(args: Array<String>) {
             AstWriter(
                 out = PrintStream(FileOutputStream(File(outputDir, "simplest_annotated.wgsl"))),
                 emitCommentary = true,
+                shaderJob = simplest,
             ).emit(simplest.tu)
             File(outputDir, "simplest.shaderjob.json").writeText(prettyJson.encodeToString(simplest))
 
@@ -200,6 +202,7 @@ fun main(args: Array<String>) {
                 AstWriter(
                     out = PrintStream(FileOutputStream(File(outputDir, "simpler_but_not_interesting_annotated.wgsl"))),
                     emitCommentary = true,
+                    shaderJob = simplerButNotInteresting,
                 ).emit(simplerButNotInteresting.tu)
                 File(outputDir, "simpler_but_not_interesting.shaderjob.json").writeText(prettyJson.encodeToString(simplerButNotInteresting))
             }
