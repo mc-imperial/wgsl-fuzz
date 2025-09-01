@@ -50,6 +50,7 @@ fun main(args: Array<String>) {
     AstWriter(
         out = PrintStream(FileOutputStream(output)),
         emitCommentary = true,
+        emitUniformCommentary = true,
         shaderJob = shaderJob,
-    ).emit(shaderJob.tu)
+    ).emit()
 }

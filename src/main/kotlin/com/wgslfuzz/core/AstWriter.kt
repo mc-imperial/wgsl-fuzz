@@ -28,9 +28,15 @@ class AstWriter(
     private val out: PrintStream = System.out,
     private val indentValue: Int = DEFAULT_INDENT,
     private val emitCommentary: Boolean = false,
+    private val emitUniformCommentary: Boolean = false,
     private val shaderJob: ShaderJob? = null,
 ) {
     private var currentIndentLevel = 0
+
+    fun emit() {
+        require(shaderJob != null) { "ShaderJob cannot be null when calling emit on nothing" }
+        emit(shaderJob.tu)
+    }
 
     fun emit(node: AstNode) {
         when (node) {
@@ -1037,7 +1043,7 @@ class AstWriter(
 
     private fun emitGlobalDeclVariable(variable: GlobalDecl.Variable) {
         with(variable) {
-            if (emitCommentary && addressSpace == AddressSpace.UNIFORM) {
+            if (emitUniformCommentary && addressSpace == AddressSpace.UNIFORM) {
                 emitUniformCommentary(variable)
             }
             emitAttributes(attributes)
@@ -1047,8 +1053,10 @@ class AstWriter(
     }
 
     private fun emitUniformCommentary(uniformVariable: GlobalDecl.Variable) {
-        // Can't output uniform commentary if the necessary information is not available
-        if (shaderJob == null) return
+        // Cannot emit uniform commentary without shader job as information on uniform values are required
+        require(
+            shaderJob == null,
+        ) { "shaderJob is null and so cannot emit uniform commentary without necessary information from shader job" }
         val group =
             (
                 uniformVariable.attributes

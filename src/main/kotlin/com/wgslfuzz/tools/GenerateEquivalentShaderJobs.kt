@@ -139,7 +139,11 @@ fun main(args: Array<String>) {
         val prettyJson = Json { prettyPrint = true }
 
         val paddedNumber = i.toString().padStart(digitsInOutputFilenames, '0')
-        AstWriter(PrintStream(FileOutputStream(File(outputDir, "variant$paddedNumber.wgsl")))).emit(transformedShaderJob.tu)
+        AstWriter(
+            out = PrintStream(FileOutputStream(File(outputDir, "variant$paddedNumber.wgsl"))),
+            emitUniformCommentary = true,
+            shaderJob = transformedShaderJob,
+        ).emit()
         File(
             outputDir,
             "variant$paddedNumber.uniforms.json",
