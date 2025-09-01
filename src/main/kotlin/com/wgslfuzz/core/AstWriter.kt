@@ -673,16 +673,20 @@ class AstWriter(
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            when (compound.metadata) {
-                is AugmentedMetadata.ControlFlowWrapperMetaData -> {
-                    emitIndent()
-                    out.print("/* wrapped original statements: */\n")
+            if (emitCommentary) {
+                when (compound.metadata) {
+                    is AugmentedMetadata.ControlFlowWrapperMetaData -> {
+                        emitIndent()
+                        out.print("/* wrapped original statements: */\n")
+                    }
+
+                    is AugmentedMetadata.ArbitraryCompoundMetaData -> {
+                        emitIndent()
+                        out.print("/* arbitrary compound: */\n")
+                    }
+
+                    else -> {}
                 }
-                is AugmentedMetadata.ArbitraryCompoundMetaData -> {
-                    emitIndent()
-                    out.print("/* arbitrary compound: */\n")
-                }
-                else -> {}
             }
             statements.forEach(::emitStatement)
             decreaseIndent()
@@ -885,32 +889,42 @@ class AstWriter(
     }
 
     private fun emitMetamorphicStatementDeadCodeFragment(deadCodeFragment: AugmentedStatement.DeadCodeFragment) {
-        emitIndent()
-        out.print("/* dead code fragment: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* dead code fragment: */\n")
+        }
         emitStatement(deadCodeFragment.statement)
     }
 
     private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
-        emitIndent()
-        out.print("/* control flow wrapped: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* control flow wrapped: */\n")
+        }
         emitStatement(statement.statement)
     }
 
     private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
-        emitIndent()
-        out.print("/* control flow wrap return: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* control flow wrap return: */\n")
+        }
         emitStatement(statement.statement)
     }
 
     private fun emitMetamorphicArbitraryStatement(statement: AugmentedStatement.ArbitraryStatement) {
-        emitIndent()
-        out.print("/* arbitrary statement */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* arbitrary statement */\n")
+        }
         emitStatement(statement.statement)
     }
 
     private fun emitMetamorphicArbitraryElseBranch(statement: AugmentedStatement.ArbitraryElseBranch) {
-        emitIndent()
-        out.print("/* arbitrary else branch: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* arbitrary else branch: */\n")
+        }
         emitStatement(statement.statement)
     }
 
