@@ -88,6 +88,7 @@ enum class BuiltinValue {
     NUM_WORKGROUPS,
     SUBGROUP_INVOCATION_ID,
     SUBGROUP_SIZE,
+    PRIMITIVE_INDEX,
 }
 
 enum class SeverityControl {

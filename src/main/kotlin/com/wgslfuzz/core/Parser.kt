@@ -1450,6 +1450,7 @@ private fun builtinFromString(name: String): BuiltinValue =
         "num_workgroups" -> BuiltinValue.NUM_WORKGROUPS
         "subgroup_invocation_id" -> BuiltinValue.SUBGROUP_INVOCATION_ID
         "subgroup_size" -> BuiltinValue.SUBGROUP_SIZE
+        "primitive_index" -> BuiltinValue.PRIMITIVE_INDEX
         else -> throw UnsupportedOperationException("Unknown builtin name '$name'")
     }
 
