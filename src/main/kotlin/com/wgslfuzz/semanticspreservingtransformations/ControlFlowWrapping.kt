@@ -402,7 +402,7 @@ private class ControlFlowWrapping(
                                 statement =
                                     wrapInControlFlowHelper(
                                         originalStatements = listOf(Statement.Break()),
-                                        returnTypeDecl = null,
+                                        returnTypeDecl = returnTypeDecl,
                                         uniqueId = 0,
                                         depth = depth + 1,
                                         scope = scope,
