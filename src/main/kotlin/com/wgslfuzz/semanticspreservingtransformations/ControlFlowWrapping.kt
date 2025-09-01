@@ -452,7 +452,7 @@ private class ControlFlowWrapping(
                             scope = scope,
                         )
 
-                    val cases = mutableListOf(randomNumber)
+                    val cases = mutableSetOf(randomNumber)
                     val numberOfCases = fuzzerSettings.numberOfCasesInSwitch()
                     repeat(numberOfCases) {
                         var newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
