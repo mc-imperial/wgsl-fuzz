@@ -91,6 +91,7 @@ fun main(args: Array<String>) {
             description = "Enable developer mode",
         ).default(false)
 
+    // If multiple are selected then any one of them has to be interesting for all the to be interesting
     val expectedOutputText by parser
         .option(
             ArgType.String,
@@ -126,17 +127,14 @@ fun main(args: Array<String>) {
     println("Parsing complete")
 
     val compareOn =
-        if (expectedOutputText != null && referenceImage == null && !nonDeterministic && !noImageGenerated) {
-            CompareOn.ExpectedOutputText(expectedOutputText!!)
-        } else if (expectedOutputText == null && referenceImage != null && !nonDeterministic && !noImageGenerated) {
-            CompareOn.ReferenceImage(referenceImage!!)
-        } else if (expectedOutputText == null && referenceImage == null && nonDeterministic && !noImageGenerated) {
-            CompareOn.NonDeterminism
-        } else if (expectedOutputText == null && referenceImage == null && !nonDeterministic && noImageGenerated) {
-            CompareOn.NoImageGenerated
-        } else {
-            throw IllegalArgumentException("Did not set expectedOutputText, referenceImage and nonDeterministic correctly")
-        }
+        listOfNotNull(
+            expectedOutputText?.let { CompareOn.ExpectedOutputText(it) },
+            referenceImage?.let { CompareOn.ReferenceImage(it) },
+            if (nonDeterministic) CompareOn.NonDeterminism else null,
+            if (noImageGenerated) CompareOn.NoImageGenerated else null,
+        )
+
+    require(compareOn.isNotEmpty()) { "Must select at least one interestingness test" }
 
     createClient(
         developerMode = developerMode,
@@ -216,7 +214,7 @@ private fun isInteresting(
     httpClient: HttpClient,
     repetitions: Int,
     timeoutMillis: Int,
-    compareOn: CompareOn,
+    compareOn: List<CompareOn>,
 ): Boolean {
     val prettyJson = Json { prettyPrint = true }
 
@@ -248,7 +246,7 @@ private fun isInteresting(
         outputDirPath = Path.of(reductionWorkDir),
     )
 
-    if (!compareOn.checkInteresting(reductionWorkDir, jobFilename)) {
+    if (compareOn.none { it.checkInteresting(reductionWorkDir, jobFilename) }) {
         return false
     }
 
