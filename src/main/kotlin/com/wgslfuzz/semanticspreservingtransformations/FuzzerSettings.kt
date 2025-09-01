@@ -79,6 +79,25 @@ interface FuzzerSettings {
     val scalarIdentityOperationWeights: ScalarIdentityOperationWeights
         get() = ScalarIdentityOperationWeights()
 
+    data class DeadBreaksAndContinuesWeights(
+        val ifFalse: Int = 1,
+        val ifTrue: Int = 1,
+    )
+
+    val deadBreaksAndContinuesWeights: DeadBreaksAndContinuesWeights
+        get() = DeadBreaksAndContinuesWeights()
+
+    data class DeadDiscardOrReturnWeights(
+        val ifFalse: Int = 2,
+        val ifTrue: Int = 2,
+        val whileFalse: Int = 1,
+        val forLoopWithFalseCondition: Int = 1,
+        val loopWithUnconditionalBreak: Int = 1,
+    )
+
+    val deadDiscardOrReturnWeights: DeadDiscardOrReturnWeights
+        get() = DeadDiscardOrReturnWeights()
+
     data class KnownValueWeights(
         val plainKnownValue: (depth: Int) -> Int = { 1 },
         val sumOfKnownValues: (depth: Int) -> Int = { 2 },
