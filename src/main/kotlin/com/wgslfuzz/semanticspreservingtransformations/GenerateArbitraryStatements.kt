@@ -28,6 +28,9 @@ import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 
+/**
+ * @return a pair containing the arbitrary else branch generated and a set containing all user defined function calls in the arbitrary else branch
+ */
 fun generateArbitraryElseBranch(
     depth: Int,
     sideEffectsAllowed: Boolean,
@@ -35,45 +38,50 @@ fun generateArbitraryElseBranch(
     shaderJob: ShaderJob,
     donorShaderJob: ShaderJob,
     returnType: Type?,
-): AugmentedStatement.ArbitraryElseBranch? {
-    val nonRecursiveChoices =
+): Pair<AugmentedStatement.ArbitraryElseBranch?, Set<String>> {
+    val nonRecursiveChoices: List<Pair<Int, () -> Pair<Statement.ElseBranch?, Set<String>>>> =
         listOf(
             fuzzerSettings.arbitraryElseBranchWeights.empty(depth) to {
-                null
+                Pair(null, emptySet())
             },
         )
-    val recursiveChoices =
+    val recursiveChoices: List<Pair<Int, () -> Pair<Statement.ElseBranch?, Set<String>>>> =
         listOf(
             fuzzerSettings.arbitraryElseBranchWeights.ifStatement(depth) to {
-                Statement.If(
-                    attributes = emptyList(),
-                    condition =
-                        generateArbitraryExpression(
-                            depth = depth + 1,
-                            type = Type.Bool,
-                            sideEffectsAllowed = sideEffectsAllowed,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = shaderJob.environment.globalScope,
-                        ),
-                    thenBranch =
-                        generateArbitraryCompound(
-                            depth = depth + 1,
-                            sideEffectsAllowed = sideEffectsAllowed,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            donorShaderJob = donorShaderJob,
-                            returnType = returnType,
-                        ),
-                    elseBranch =
-                        generateArbitraryElseBranch(
-                            depth = depth + 1,
-                            sideEffectsAllowed = sideEffectsAllowed,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            donorShaderJob = donorShaderJob,
-                            returnType = returnType,
-                        ),
+                val (thenCompound, thenFunctionCalls) =
+                    generateArbitraryCompound(
+                        depth = depth + 1,
+                        sideEffectsAllowed = sideEffectsAllowed,
+                        fuzzerSettings = fuzzerSettings,
+                        shaderJob = shaderJob,
+                        donorShaderJob = donorShaderJob,
+                        returnType = returnType,
+                    )
+                val (elseCompound, elseFunctionCalls) =
+                    generateArbitraryElseBranch(
+                        depth = depth + 1,
+                        sideEffectsAllowed = sideEffectsAllowed,
+                        fuzzerSettings = fuzzerSettings,
+                        shaderJob = shaderJob,
+                        donorShaderJob = donorShaderJob,
+                        returnType = returnType,
+                    )
+                Pair(
+                    Statement.If(
+                        attributes = emptyList(),
+                        condition =
+                            generateArbitraryExpression(
+                                depth = depth + 1,
+                                type = Type.Bool,
+                                sideEffectsAllowed = sideEffectsAllowed,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = shaderJob.environment.globalScope,
+                            ),
+                        thenBranch = thenCompound,
+                        elseBranch = elseCompound,
+                    ),
+                    thenFunctionCalls + elseFunctionCalls,
                 )
             },
             fuzzerSettings.arbitraryElseBranchWeights.compound(depth) to {
@@ -88,11 +96,16 @@ fun generateArbitraryElseBranch(
             },
         )
 
-    return if (fuzzerSettings.goDeeper(depth)) {
-        choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
-    } else {
-        choose(fuzzerSettings, nonRecursiveChoices)
-    }?.let { AugmentedStatement.ArbitraryElseBranch(it) }
+    val (arbitraryCompound, functionCalls) =
+        if (fuzzerSettings.goDeeper(depth)) {
+            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+        } else {
+            choose(fuzzerSettings, nonRecursiveChoices)
+        }
+    return Pair(
+        arbitraryCompound?.let { AugmentedStatement.ArbitraryElseBranch(it) },
+        functionCalls,
+    )
 }
 
 /**
@@ -101,6 +114,8 @@ fun generateArbitraryElseBranch(
  * - Renames all variables in donor compound to "<original variable name>_<unique id>" to ensure no overlap between variable names in original shader and donor shader
  * - Adds variable declarations for all variables undeclared from the donor compound
  * - Changes all return expressions to be arbitrary expressions of the correct type
+ *
+ * @return a pair containing the arbitrary compound generated and a set containing all user defined function calls in the arbitrary compound
  *
  * Note: the donor shader cannot contain any structs
  */
@@ -111,7 +126,7 @@ fun generateArbitraryCompound(
     shaderJob: ShaderJob,
     donorShaderJob: ShaderJob,
     returnType: Type?,
-): Statement.Compound {
+): Pair<Statement.Compound, Set<String>> {
     if (!sideEffectsAllowed) {
         TODO("Not yet implemented side effect free arbitrary compound generation")
     }
@@ -147,9 +162,18 @@ fun generateArbitraryCompound(
             }
         }
 
-    return Statement.Compound(
-        statements = compoundWithReturnsOfCorrectType.statements,
-        metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
+    val functionCalls =
+        nodesPreOrder(compoundWithReturnsOfCorrectType)
+            .filterIsInstance<Statement.FunctionCall>()
+            .map { it.callee }
+            .toSet()
+
+    return Pair(
+        Statement.Compound(
+            statements = compoundWithReturnsOfCorrectType.statements,
+            metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
+        ),
+        functionCalls,
     )
 }
 

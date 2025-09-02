@@ -18,6 +18,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AssignmentOperator
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.AugmentedGlobalDecl
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
@@ -28,6 +29,7 @@ import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
@@ -45,6 +47,8 @@ private class ControlFlowWrapping(
     private val fuzzerSettings: FuzzerSettings,
     private val donorShaderJob: ShaderJob,
 ) {
+    private val functionCallsInArbitraryCompounds: MutableSet<String> = mutableSetOf()
+
     private fun selectStatementsToControlFlowWrap(
         node: AstNode,
         injections: ControlFlowWrappingsInjections,
@@ -202,20 +206,24 @@ private class ControlFlowWrapping(
             listOfNotNull(
                 fuzzerSettings.controlFlowWrappingWeights.ifTrueWrapping to {
                     // `if ( <true expression> ) { <original statements> } else { <arbitrary statements> }`
+                    val (arbitraryElseBranch, functionCalls) =
+                        generateArbitraryElseBranch(
+                            depth = 0,
+                            sideEffectsAllowed = true,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            donorShaderJob = donorShaderJob,
+                            returnType = returnTypeDecl?.toType(shaderJob.environment),
+                        )
+
+                    functionCallsInArbitraryCompounds.addAll(functionCalls)
+
                     val wrappedStatement =
                         Statement.If(
                             attributes = emptyList(),
                             condition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                             thenBranch = originalStatementCompound,
-                            elseBranch =
-                                generateArbitraryElseBranch(
-                                    depth = 0,
-                                    sideEffectsAllowed = true,
-                                    fuzzerSettings = fuzzerSettings,
-                                    shaderJob = shaderJob,
-                                    donorShaderJob = donorShaderJob,
-                                    returnType = returnTypeDecl?.toType(shaderJob.environment),
-                                ),
+                            elseBranch = arbitraryElseBranch,
                         )
 
                     AugmentedStatement.ControlFlowWrapper(
@@ -225,19 +233,23 @@ private class ControlFlowWrapping(
                 },
                 fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping to {
                     // `if ( <false expression> ) { <arbitrary statements> } else { <original statements> }`
+                    val (arbitraryThenBranch, functionCalls) =
+                        generateArbitraryCompound(
+                            depth = 0,
+                            sideEffectsAllowed = true,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            donorShaderJob = donorShaderJob,
+                            returnType = returnTypeDecl?.toType(shaderJob.environment),
+                        )
+
+                    functionCallsInArbitraryCompounds.addAll(functionCalls)
+
                     val wrappedStatement =
                         Statement.If(
                             attributes = emptyList(),
                             condition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                            thenBranch =
-                                generateArbitraryCompound(
-                                    depth = 0,
-                                    sideEffectsAllowed = true,
-                                    fuzzerSettings = fuzzerSettings,
-                                    shaderJob = shaderJob,
-                                    donorShaderJob = donorShaderJob,
-                                    returnType = returnTypeDecl?.toType(shaderJob.environment),
-                                ),
+                            thenBranch = arbitraryThenBranch,
                             elseBranch = originalStatementCompound,
                         )
                     AugmentedStatement.ControlFlowWrapper(
@@ -487,8 +499,9 @@ private class ControlFlowWrapping(
 
     fun apply(): ShaderJob {
         val injections: ControlFlowWrappingsInjections = mutableMapOf()
+        functionCallsInArbitraryCompounds.clear()
         traverse(::selectStatementsToControlFlowWrap, shaderJob.tu, injections)
-        val tu =
+        var tu =
             shaderJob.tu.clone {
                 injectControlFlowWrapper(
                     node = it,
@@ -497,6 +510,24 @@ private class ControlFlowWrapping(
                     returnTypeDecl = null,
                 )
             }
+
+        val helperFunctions =
+            functionCallsInArbitraryCompounds.map { functionName ->
+                AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction(
+                    donorShaderJob.tu.globalDecls
+                        .filterIsInstance<GlobalDecl.Function>()
+                        .first {
+                            it.name == functionName
+                        },
+                )
+            }
+
+        tu =
+            TranslationUnit(
+                tu.directives,
+                helperFunctions + tu.globalDecls,
+            )
+
         return ShaderJob(
             tu = tu,
             pipelineState = shaderJob.pipelineState,

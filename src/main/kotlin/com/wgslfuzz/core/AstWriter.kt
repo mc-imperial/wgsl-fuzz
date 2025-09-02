@@ -1096,6 +1096,13 @@ class AstWriter(
             is GlobalDecl.Empty -> {
                 out.print(";\n")
             }
+            is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction -> {
+                if (emitCommentary) {
+                    emitIndent()
+                    out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
+                }
+                emitGlobalDeclFunction(decl.function)
+            }
         }
     }
 

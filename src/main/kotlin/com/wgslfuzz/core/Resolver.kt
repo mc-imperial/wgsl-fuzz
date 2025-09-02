@@ -16,6 +16,8 @@
 
 package com.wgslfuzz.core
 
+import kotlin.collections.set
+
 sealed interface ScopeEntry {
     val astNode: AstNode
     val declName: String
@@ -332,14 +334,7 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
                     ),
                 )
             }
-            is GlobalDecl.Function -> {
-                nameToDecl[decl.name] = decl
-                collectUsedModuleScopeNames(
-                    decl.name,
-                    nameDependencies,
-                    decl.attributes + decl.parameters + listOf(decl.returnType),
-                )
-            }
+            is GlobalDecl.Function -> collectTopLevelNameDependenciesOfFunction(decl, nameToDecl, nameDependencies)
             is GlobalDecl.Override -> {
                 nameToDecl[decl.name] = decl
                 collectUsedModuleScopeNames(
@@ -364,9 +359,28 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
                     decl.attributes + listOf(decl.typeDecl, decl.initializer),
                 )
             }
+            is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction ->
+                collectTopLevelNameDependenciesOfFunction(
+                    decl.function,
+                    nameToDecl,
+                    nameDependencies,
+                )
         }
     }
     return Pair(nameDependencies, nameToDecl)
+}
+
+private fun collectTopLevelNameDependenciesOfFunction(
+    decl: GlobalDecl.Function,
+    nameToDecl: MutableMap<String, GlobalDecl>,
+    nameDependencies: MutableMap<String, Set<String>>,
+) {
+    nameToDecl[decl.name] = decl
+    collectUsedModuleScopeNames(
+        decl.name,
+        nameDependencies,
+        decl.attributes + decl.parameters + listOf(decl.returnType),
+    )
 }
 
 private fun orderGlobalDeclNames(topLevelNameDependences: Map<String, Set<String>>): List<String> {

@@ -1236,6 +1236,14 @@ sealed interface AugmentedStatement :
 }
 
 @Serializable
+sealed interface AugmentedGlobalDecl : GlobalDecl {
+    @Serializable
+    class ArbitraryCompoundUserDefinedFunction(
+        val function: GlobalDecl.Function,
+    ) : AugmentedGlobalDecl
+}
+
+@Serializable
 sealed interface AugmentedMetadata {
     @Serializable
     data class ControlFlowWrapperMetaData(

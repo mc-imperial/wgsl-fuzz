@@ -336,5 +336,9 @@ private fun cloneHelper(
                 AugmentedStatement.ArbitraryStatement(
                     statement.clone(replacements),
                 )
+            is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction ->
+                AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction(
+                    function.clone(replacements),
+                )
         }
     }
