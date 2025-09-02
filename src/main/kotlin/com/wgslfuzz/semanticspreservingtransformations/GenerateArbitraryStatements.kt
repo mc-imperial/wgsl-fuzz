@@ -25,6 +25,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.asStoreTypeIfReference
+import com.wgslfuzz.core.builtinFunctionNames
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 
@@ -164,9 +165,11 @@ fun generateArbitraryCompound(
 
     val functionCalls =
         nodesPreOrder(compoundWithReturnsOfCorrectType)
-            .filterIsInstance<Statement.FunctionCall>()
+            .filterIsInstance<Expression.FunctionCall>()
             .map { it.callee }
-            .toSet()
+            .filter {
+                it !in builtinFunctionNames
+            }.toSet()
 
     return Pair(
         Statement.Compound(

@@ -516,9 +516,9 @@ private class ControlFlowWrapping(
                 AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction(
                     donorShaderJob.tu.globalDecls
                         .filterIsInstance<GlobalDecl.Function>()
-                        .first {
+                        .firstOrNull {
                             it.name == functionName
-                        },
+                        } ?: throw RuntimeException("Could not find $functionName in donor shader global decls"),
                 )
             }
 
