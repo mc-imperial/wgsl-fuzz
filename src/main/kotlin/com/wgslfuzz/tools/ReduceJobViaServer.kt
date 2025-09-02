@@ -161,9 +161,9 @@ fun main(args: Array<String>) {
         AstWriter(
             out = PrintStream(FileOutputStream(File(outputDir, "original_annotated.wgsl"))),
             emitCommentary = true,
-        ).emit(
-            shaderJob.tu,
-        )
+            emitUniformCommentary = true,
+            shaderJob = shaderJob,
+        ).emit()
 
         val counter = AtomicInteger(0)
         val reductionResult =
@@ -184,21 +184,28 @@ fun main(args: Array<String>) {
             val prettyJson = Json { prettyPrint = true }
             AstWriter(
                 out = PrintStream(FileOutputStream(File(outputDir, "simplest.wgsl"))),
-            ).emit(simplest.tu)
+                emitUniformCommentary = true,
+                shaderJob = simplest,
+            ).emit()
             AstWriter(
                 out = PrintStream(FileOutputStream(File(outputDir, "simplest_annotated.wgsl"))),
                 emitCommentary = true,
-            ).emit(simplest.tu)
+                shaderJob = simplest,
+            ).emit()
             File(outputDir, "simplest.shaderjob.json").writeText(prettyJson.encodeToString(simplest))
 
             maybeSimplerButNotInteresting?.let { simplerButNotInteresting ->
                 AstWriter(
                     out = PrintStream(FileOutputStream(File(outputDir, "simpler_but_not_interesting.wgsl"))),
-                ).emit(simplerButNotInteresting.tu)
+                    emitUniformCommentary = true,
+                    shaderJob = simplerButNotInteresting,
+                ).emit()
                 AstWriter(
                     out = PrintStream(FileOutputStream(File(outputDir, "simpler_but_not_interesting_annotated.wgsl"))),
                     emitCommentary = true,
-                ).emit(simplerButNotInteresting.tu)
+                    emitUniformCommentary = true,
+                    shaderJob = simplerButNotInteresting,
+                ).emit()
                 File(outputDir, "simpler_but_not_interesting.shaderjob.json").writeText(prettyJson.encodeToString(simplerButNotInteresting))
             }
         }
@@ -219,15 +226,10 @@ private fun isInteresting(
     val prettyJson = Json { prettyPrint = true }
 
     AstWriter(
-        PrintStream(
-            FileOutputStream(
-                File(
-                    reductionWorkDir,
-                    jobFilename,
-                ),
-            ),
-        ),
-    ).emit(shaderJob.tu)
+        out = PrintStream(FileOutputStream(File(reductionWorkDir, jobFilename))),
+        emitUniformCommentary = true,
+        shaderJob = shaderJob,
+    ).emit()
     File(
         reductionWorkDir,
         jobFilename.removeSuffix(".wgsl") + ".uniforms.json",
