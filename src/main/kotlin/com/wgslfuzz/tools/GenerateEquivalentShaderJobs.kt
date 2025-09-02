@@ -148,6 +148,6 @@ fun main(args: Array<String>) {
             outputDir,
             "variant$paddedNumber.uniforms.json",
         ).writeText(prettyJson.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
-        File(outputDir, "variant$paddedNumber.shaderjob.json").writeText(prettyJson.encodeToString(transformedShaderJob))
+        File(outputDir, "variant$paddedNumber.shaderjob.json").writeText(Json.encodeToString(transformedShaderJob))
     }
 }
