@@ -19,12 +19,14 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
+import com.wgslfuzz.core.AugmentedGlobalDecl
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
@@ -296,11 +298,36 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
             return Statement.Compound(originalStatementNode.statements.clone(::replaceControlFlowWrapped))
         }
 
+        val removedControlFlowWrapped = originalShaderJob.tu.clone(::replaceControlFlowWrapped)
+
+        val removedUnnecessaryUserDefinedFunctions = removeUnnecessaryUserDefinedFunctions(removedControlFlowWrapped)
+
         return ShaderJob(
-            originalShaderJob.tu.clone(::replaceControlFlowWrapped),
-            originalShaderJob.pipelineState,
+            tu = removedUnnecessaryUserDefinedFunctions,
+            pipelineState = originalShaderJob.pipelineState,
         )
     }
+}
+
+private fun removeUnnecessaryUserDefinedFunctions(tu: TranslationUnit): TranslationUnit {
+    val userDefinedFunctionNames =
+        nodesPreOrder(tu)
+            .asSequence()
+            .filterIsInstance<Statement.Compound>()
+            .filter { it.metadata is AugmentedMetadata.ControlFlowWrapperMetaData }
+            .flatMap { arbitraryCompound ->
+                nodesPreOrder(arbitraryCompound)
+                    .asSequence()
+                    .filterIsInstance<Expression.FunctionCall>()
+                    .map { it.callee }
+            }.toSet()
+
+    return TranslationUnit(
+        directives = tu.directives,
+        globalDecls =
+            tu.globalDecls
+                .filter { it !is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction || it.function.name in userDefinedFunctionNames },
+    )
 }
 
 private fun nodeSizeDelta(
