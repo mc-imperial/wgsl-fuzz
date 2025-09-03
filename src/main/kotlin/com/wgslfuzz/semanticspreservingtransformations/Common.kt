@@ -17,68 +17,26 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.ResolvedEnvironment
+import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.TypeDecl
-import com.wgslfuzz.core.evaluateToInt
+import com.wgslfuzz.core.asStoreTypeIfReference
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
-fun TypeDecl.toType(resolvedEnvironment: ResolvedEnvironment): Type =
-    when (this) {
-        is TypeDecl.Array ->
-            Type.Array(
-                elementType = this.elementType.toType(resolvedEnvironment),
-                elementCount =
-                    this.elementCount?.let { evaluateToInt(it, resolvedEnvironment.globalScope, resolvedEnvironment) }
-                        ?: throw IllegalArgumentException("Array must have a known length"),
-            )
-
-        is TypeDecl.NamedType -> {
-            when (this.name) {
-                // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/232) Fix hacky solution
-                "vec2f" -> Type.Vector(2, Type.F32)
-                "vec3f" -> Type.Vector(3, Type.F32)
-                "vec4f" -> Type.Vector(4, Type.F32)
-                else ->
-                    when (val scopeEntry = resolvedEnvironment.globalScope.getEntry(this.name)) {
-                        is ScopeEntry.Struct, is ScopeEntry.TypeAlias -> scopeEntry.type
-                        else -> throw IllegalStateException("Named Type does not correspond to a named type in scope")
-                    }
-            }
+fun Scope.containsVariableOfType(type: Type): Boolean =
+    this
+        .getAllEntries()
+        .any {
+            it is ScopeEntry.TypedDecl &&
+                it !is ScopeEntry.TypeAlias &&
+                it.type.asStoreTypeIfReference() == type
         }
 
-        is TypeDecl.Bool -> Type.Bool
-        is TypeDecl.F16 -> Type.F16
-        is TypeDecl.F32 -> Type.F32
-        is TypeDecl.I32 -> Type.I32
-        is TypeDecl.U32 -> Type.U32
-
-        is TypeDecl.Vec2 ->
-            Type.Vector(
-                width = 2,
-                elementType =
-                    this.elementType.toType(resolvedEnvironment) as? Type.Scalar
-                        ?: throw IllegalStateException("Invalid vector element type"),
-            )
-        is TypeDecl.Vec3 ->
-            Type.Vector(
-                width = 3,
-                elementType =
-                    this.elementType.toType(resolvedEnvironment) as? Type.Scalar
-                        ?: throw IllegalStateException("Invalid vector element type"),
-            )
-        is TypeDecl.Vec4 ->
-            Type.Vector(
-                width = 4,
-                elementType =
-                    this.elementType.toType(resolvedEnvironment) as? Type.Scalar
-                        ?: throw IllegalStateException("Invalid vector element type"),
-            )
-
-        else -> TODO()
-    }
+fun ScopeEntry.TypedDecl.toExpression(): Expression =
+    Expression.Identifier(
+        name = declName,
+    )
 
 fun constantWithSameValueEverywhere(
     value: Int,
