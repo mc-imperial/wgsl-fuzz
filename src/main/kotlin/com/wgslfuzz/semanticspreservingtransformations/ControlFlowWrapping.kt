@@ -203,8 +203,9 @@ private class ControlFlowWrapping(
     ): Statement {
         require(originalStatements.isNotEmpty()) { "Cannot control flow wrap an empty list of statements" }
 
-        val containsBreakOrContinue =
-            originalStatements.any { stmt -> nodesPreOrder(stmt).any { it is Statement.Break || it is Statement.Continue } }
+        val containsBreak = originalStatements.any { containsBreak(it) }
+        val containsContinue = originalStatements.any { containsContinue(it) }
+        val containsBreakOrContinue = containsBreak || containsContinue
 
         val originalStatementCompound =
             Statement.Compound(
@@ -425,83 +426,88 @@ private class ControlFlowWrapping(
                         )
                     }
                 },
-                // Wraps <original statements> in:
-                // switch known_value {
-                //    case ...
-                //    ...
-                //    case literal_for_the_known_value { Stmts }
-                //    case ...
-                // }
-                fuzzerSettings.controlFlowWrappingWeights.switchCase(depth) to {
-                    val randomNumber = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
-                    val randomType = fuzzerSettings.randomElement(Type.I32, Type.U32)
-                    val numberOfCases = fuzzerSettings.controlFlowWrappingWeights.switchCaseProbabilities.numberOfCases(fuzzerSettings)
+                if (containsBreak) {
+                    // Cannot wrap a break statement
+                    null
+                } else {
+                    // Wraps <original statements> in:
+                    // switch known_value {
+                    //    case ...
+                    //    ...
+                    //    case literal_for_the_known_value { Stmts }
+                    //    case ...
+                    // }
+                    fuzzerSettings.controlFlowWrappingWeights.switchCase(depth) to {
+                        val randomNumber = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                        val randomType = fuzzerSettings.randomElement(Type.I32, Type.U32)
+                        val numberOfCases = fuzzerSettings.controlFlowWrappingWeights.switchCaseProbabilities.numberOfCases(fuzzerSettings)
 
-                    val knownValue =
-                        when (randomType) {
-                            Type.I32 -> Expression.IntLiteral(randomNumber + "i")
-                            Type.U32 -> Expression.IntLiteral(randomNumber + "u")
-                            Type.AbstractInteger -> throw RuntimeException("randomType cannot be an AbstractInteger")
-                        }
-                    val knownValueExpression =
-                        generateKnownValueExpression(
-                            depth = depth + 1,
-                            knownValue = knownValue,
-                            type = randomType,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        )
-
-                    val cases = mutableSetOf(randomNumber)
-                    repeat(numberOfCases) {
-                        var newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
-                        while (newCase in cases) {
-                            newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
-                        }
-                        cases.add(newCase)
-                    }
-
-                    val caseExpressions =
-                        cases
-                            .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
-                            .map {
-                                if (it == randomNumber) knownValue else Expression.IntLiteral(it)
-                            } + null
-
-                    val clauses = mutableListOf<SwitchClause>()
-                    var i = 0
-                    while (i < caseExpressions.size) {
-                        val numberInCase =
-                            fuzzerSettings.controlFlowWrappingWeights.switchCaseProbabilities.numberOfCasesInAClause(
-                                fuzzerSettings,
+                        val knownValue =
+                            when (randomType) {
+                                Type.I32 -> Expression.IntLiteral(randomNumber + "i")
+                                Type.U32 -> Expression.IntLiteral(randomNumber + "u")
+                                Type.AbstractInteger -> throw RuntimeException("randomType cannot be an AbstractInteger")
+                            }
+                        val knownValueExpression =
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = knownValue,
+                                type = randomType,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
                             )
-                        val nextIndex = (i + numberInCase).coerceAtMost(caseExpressions.size)
-                        val cases = caseExpressions.subList(i, nextIndex)
-                        clauses.add(
-                            SwitchClause(
-                                caseSelectors = cases,
-                                compoundStatement =
-                                    if (knownValue in cases) {
-                                        originalStatementCompound
-                                    } else {
-                                        generateArbitraryCompound(
-                                            depth = depth + 1,
-                                            sideEffectsAllowed = true,
-                                            fuzzerSettings = fuzzerSettings,
-                                            shaderJob = shaderJob,
-                                            scope = scope,
-                                        )
-                                    },
-                            ),
-                        )
-                        i = nextIndex
-                    }
 
-                    Statement.Switch(
-                        expression = knownValueExpression,
-                        clauses = clauses,
-                    )
+                        val cases = mutableSetOf(randomNumber)
+                        repeat(numberOfCases) {
+                            var newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                            while (newCase in cases) {
+                                newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
+                            }
+                            cases.add(newCase)
+                        }
+
+                        val caseExpressions =
+                            cases
+                                .shuffled(Random(fuzzerSettings.randomInt(Int.MAX_VALUE)))
+                                .map {
+                                    if (it == randomNumber) knownValue else Expression.IntLiteral(it)
+                                } + null
+
+                        val clauses = mutableListOf<SwitchClause>()
+                        var i = 0
+                        while (i < caseExpressions.size) {
+                            val numberInCase =
+                                fuzzerSettings.controlFlowWrappingWeights.switchCaseProbabilities.numberOfCasesInAClause(
+                                    fuzzerSettings,
+                                )
+                            val nextIndex = (i + numberInCase).coerceAtMost(caseExpressions.size)
+                            val cases = caseExpressions.subList(i, nextIndex)
+                            clauses.add(
+                                SwitchClause(
+                                    caseSelectors = cases,
+                                    compoundStatement =
+                                        if (knownValue in cases) {
+                                            originalStatementCompound
+                                        } else {
+                                            generateArbitraryCompound(
+                                                depth = depth + 1,
+                                                sideEffectsAllowed = true,
+                                                fuzzerSettings = fuzzerSettings,
+                                                shaderJob = shaderJob,
+                                                scope = scope,
+                                            )
+                                        },
+                                ),
+                            )
+                            i = nextIndex
+                        }
+
+                        Statement.Switch(
+                            expression = knownValueExpression,
+                            clauses = clauses,
+                        )
+                    }
                 },
             )
 
@@ -568,6 +574,57 @@ private class ControlFlowWrapping(
             )
 
         return Triple(init, condition, update)
+    }
+
+    private fun containsBreak(node: AstNode): Boolean {
+        var containsBreak = false
+
+        fun containsBreakAction(
+            node: AstNode,
+            state: Any?,
+        ) {
+            when (node) {
+                is Statement.Loop, is Statement.For, is Statement.While, is Statement.Switch -> {}
+                is Statement.Break -> {
+                    containsBreak = true
+                }
+                else -> {
+                    if (!containsBreak) {
+                        traverse(::containsBreakAction, node, state)
+                    }
+                }
+            }
+        }
+
+        containsBreakAction(node, null)
+
+        return containsBreak
+    }
+
+    private fun containsContinue(node: AstNode): Boolean {
+        var containsContinue = false
+
+        fun containsContinueAction(
+            node: AstNode,
+            state: Any?,
+        ) {
+            when (node) {
+                is Statement.Loop, is Statement.For, is Statement.While -> {}
+                is Statement.Continue -> {
+                    containsContinue = true
+                }
+
+                else -> {
+                    if (!containsContinue) {
+                        traverse(::containsContinueAction, node, state)
+                    }
+                }
+            }
+        }
+
+        containsContinueAction(node, null)
+
+        return containsContinue
     }
 
     // Similar to injectDeadJumps
