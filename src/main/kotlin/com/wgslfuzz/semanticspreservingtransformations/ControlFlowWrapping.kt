@@ -432,10 +432,10 @@ private class ControlFlowWrapping(
                 //    case ...
                 // }
                 fuzzerSettings.controlFlowWrappingWeights.switchCase(depth) to {
-                    val mostNumberOfCasesInAClause = 3
-
                     val randomNumber = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
                     val randomType = fuzzerSettings.randomElement(Type.I32, Type.U32)
+                    val numberOfCases = fuzzerSettings.controlFlowWrappingWeights.switchCaseProbabilities.numberOfCases(fuzzerSettings)
+
                     val knownValue =
                         when (randomType) {
                             Type.I32 -> Expression.IntLiteral(randomNumber + "i")
@@ -453,7 +453,6 @@ private class ControlFlowWrapping(
                         )
 
                     val cases = mutableSetOf(randomNumber)
-                    val numberOfCases = fuzzerSettings.numberOfCasesInSwitch()
                     repeat(numberOfCases) {
                         var newCase = fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE).toString()
                         while (newCase in cases) {
@@ -472,7 +471,10 @@ private class ControlFlowWrapping(
                     val clauses = mutableListOf<SwitchClause>()
                     var i = 0
                     while (i < caseExpressions.size) {
-                        val numberInCase = fuzzerSettings.randomInt(mostNumberOfCasesInAClause) + 1
+                        val numberInCase =
+                            fuzzerSettings.controlFlowWrappingWeights.switchCaseProbabilities.numberOfCasesInAClause(
+                                fuzzerSettings,
+                            )
                         val nextIndex = (i + numberInCase).coerceAtMost(caseExpressions.size)
                         val cases = caseExpressions.subList(i, nextIndex)
                         clauses.add(

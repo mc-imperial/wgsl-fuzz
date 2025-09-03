@@ -19,7 +19,10 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
 import java.util.Random
+import kotlin.math.ceil
 import kotlin.math.ln
+import kotlin.math.log
+import kotlin.math.roundToInt
 
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 4.0 / (currentDepth.toDouble() + 2.0) && currentDepth < 18
@@ -113,12 +116,20 @@ interface FuzzerSettings {
         val singleIterLoop: (depth: Int) -> Int = { 1 },
         val singleIterWhileLoop: (depth: Int) -> Int = { 1 },
         val switchCase: (depth: Int) -> Int = { 1 },
-    )
+    ) {
+        class SwitchCaseProbabilities {
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/249) Find better probability distributions
+            fun numberOfCases(fuzzerSettings: FuzzerSettings): Int = ((-ln(fuzzerSettings.randomDouble())) * 50).toInt()
+
+            fun numberOfCasesInAClause(fuzzerSettings: FuzzerSettings): Int = ceil(log(fuzzerSettings.randomDouble(), 0.5)).toInt()
+        }
+
+        val switchCaseProbabilities: SwitchCaseProbabilities
+            get() = SwitchCaseProbabilities()
+    }
 
     val controlFlowWrappingWeights: ControlFlowWrappingWeights
         get() = ControlFlowWrappingWeights()
-
-    fun numberOfCasesInSwitch(): Int = ((-ln(randomDouble())) * 200).toInt()
 
     class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
