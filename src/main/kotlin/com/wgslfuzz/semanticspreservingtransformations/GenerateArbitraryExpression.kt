@@ -581,39 +581,41 @@ private fun randomVariableFromScope(
                     emptyList()
                 } else {
                     typeDecl.type
-                        .subTypes()
+                        .componentTypes()
                         .filterIsInstance<Type.Pointer>()
                         .map { it.pointeeType::class }
                 }
             }
 
     val scopeEntries =
-        scope.getAllEntries().filter { scopeEntry ->
-            scopeEntry is ScopeEntry.TypedDecl &&
+        scope
+            .getAllEntries()
+            .filterIsInstance<ScopeEntry.TypedDecl>()
+            .filter { scopeEntry ->
                 // Cannot create a valid identifier from TypeAlias or Struct scope entry
                 scopeEntry !is ScopeEntry.TypeAlias &&
-                scopeEntry !is ScopeEntry.Struct &&
-                // Remove types that have pointers to them in scope
-                // If not remove can in some cases cause the compiler to fail due to aliasing
-                // Only necessary since counting sort uses pointers
-                !scopeEntry.type.subTypes().any { pointerTypesInScope.contains(it::class) } &&
-                // Only allow scope entries that are either the correct type or contain the correct type via indexing
-                scopeEntry.type
-                    .asStoreTypeIfReference()
-                    .subTypes {
-                        when (it) {
-                            // Remove all runtime sized arrays since cannot pull random element out of them
-                            is Type.Array -> it.elementCount != null
-                            // Remove all pointers that cannot be read from
-                            is Type.Pointer -> it.accessMode == AccessMode.READ || it.accessMode == AccessMode.READ_WRITE
-                            else -> true
-                        }
-                    }.contains(type)
-        }
+                    scopeEntry !is ScopeEntry.Struct &&
+                    // Remove types that have pointers to them in scope
+                    // If not removed. It can in some cases cause the compiler to fail due to aliasing
+                    // Only necessary since counting sort uses pointers
+                    !scopeEntry.type.componentTypes().any { pointerTypesInScope.contains(it::class) } &&
+                    // Only allow scope entries that are either the correct type or contain the correct type via indexing
+                    scopeEntry.type
+                        .asStoreTypeIfReference()
+                        .componentTypes {
+                            when (it) {
+                                // Remove all runtime sized arrays since cannot pull random element out of them
+                                is Type.Array -> it.elementCount != null
+                                // Remove all pointers that cannot be read from
+                                is Type.Pointer -> it.accessMode == AccessMode.READ || it.accessMode == AccessMode.READ_WRITE
+                                else -> true
+                            }
+                        }.contains(type)
+            }
 
     if (scopeEntries.isEmpty()) return null
 
-    val scopeEntry = fuzzerSettings.randomElement(scopeEntries) as ScopeEntry.TypedDecl
+    val scopeEntry = fuzzerSettings.randomElement(scopeEntries)
 
     val scopeEntryIdentifierExpression =
         Expression.Identifier(
@@ -636,7 +638,7 @@ private fun getRandomExpressionOfType(
 
     return when (expressionType) {
         is Type.Array -> {
-            val elementCount =
+            val arrayIndex =
                 expressionType.elementCount?.let { Expression.IntLiteral(fuzzerSettings.randomInt(it).toString()) }
                     ?: return null
 
@@ -644,7 +646,7 @@ private fun getRandomExpressionOfType(
                 expression =
                     Expression.IndexLookup(
                         target = expression,
-                        index = elementCount,
+                        index = arrayIndex,
                     ),
                 expressionType = expressionType.elementType,
                 requiredType = requiredType,
@@ -670,14 +672,14 @@ private fun getRandomExpressionOfType(
             getRandomExpressionOfType(
                 expression =
                     Expression.IndexLookup(
-                        target =
-                            Expression.IndexLookup(
-                                target = expression,
-                                index = columnIndex,
-                            ),
-                        index = rowIndex,
+                        target = expression,
+                        index = columnIndex,
                     ),
-                expressionType = expressionType.elementType,
+                expressionType =
+                    Type.Vector(
+                        width = expressionType.numRows,
+                        elementType = expressionType.elementType,
+                    ),
                 requiredType = requiredType,
                 fuzzerSettings = fuzzerSettings,
             )
@@ -731,30 +733,35 @@ private fun getRandomExpressionOfType(
     }
 }
 
-private fun Type.subTypes(predicate: (Type) -> Boolean = { true }): Set<Type> {
-    val subTypes = mutableSetOf<Type>()
+private fun Type.componentTypes(predicate: (Type) -> Boolean = { true }): Set<Type> {
+    val componentTypes = mutableSetOf<Type>()
 
-    fun addSubTypes(type: Type) {
+    fun addComponentTypes(type: Type) {
         if (!predicate(type)) return
-        subTypes.add(type)
+        componentTypes.add(type)
         when (type) {
             is Type.Array -> {
-                addSubTypes(type.elementType)
+                addComponentTypes(type.elementType)
             }
             is Type.Matrix -> {
-                addSubTypes(type.elementType)
+                addComponentTypes(
+                    Type.Vector(
+                        width = type.numRows,
+                        elementType = type.elementType,
+                    ),
+                )
             }
             is Type.Vector -> {
-                addSubTypes(type.elementType)
+                addComponentTypes(type.elementType)
             }
             is Type.Struct -> {
-                type.members.forEach { addSubTypes(it.second) }
+                type.members.forEach { addComponentTypes(it.second) }
             }
             is Type.Pointer -> {
-                addSubTypes(type.pointeeType)
+                addComponentTypes(type.pointeeType)
             }
             is Type.Reference -> {
-                addSubTypes(type.storeType)
+                addComponentTypes(type.storeType)
             }
 
             Type.AtomicI32 -> TODO()
@@ -764,9 +771,9 @@ private fun Type.subTypes(predicate: (Type) -> Boolean = { true }): Set<Type> {
         }
     }
 
-    addSubTypes(this)
+    addComponentTypes(this)
 
-    return subTypes
+    return componentTypes
 }
 
 private fun FuzzerSettings.randomElementFromRange(range: IntRange): Int = range.random(Random(this.randomInt(Int.MAX_VALUE)))
