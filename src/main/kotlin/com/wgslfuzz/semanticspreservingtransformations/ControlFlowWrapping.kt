@@ -32,6 +32,7 @@ import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
+import com.wgslfuzz.core.toType
 import com.wgslfuzz.core.traverse
 import java.util.SortedSet
 import kotlin.math.abs
@@ -466,7 +467,7 @@ private class ControlFlowWrapping(
                         Statement.Return(
                             generateArbitraryExpression(
                                 depth = 0,
-                                type = returnTypeDecl.toType(shaderJob.environment),
+                                type = returnTypeDecl.toType(shaderJob.environment.globalScope, shaderJob.environment),
                                 sideEffectsAllowed = true,
                                 fuzzerSettings = fuzzerSettings,
                                 shaderJob = shaderJob,
