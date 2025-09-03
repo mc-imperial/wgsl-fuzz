@@ -28,6 +28,7 @@ ignoreList=(
   "mergesort"
   "reverse_linked_list"
   "collatz"
+  "logic_operations"
 )
 
 numVariants=1

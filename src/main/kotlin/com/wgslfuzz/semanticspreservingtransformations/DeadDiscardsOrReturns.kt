@@ -47,30 +47,29 @@ fun deadDiscardOrReturn(
         Statement.Compound(
             listOf(discardOrReturn),
         )
-    // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/98) The weights for these choices could be controlled via
-    //  fuzzer settings.
+
     val choices =
         mutableListOf(
-            2 to {
+            fuzzerSettings.deadDiscardOrReturnWeights.ifFalse to {
                 createIfFalseThenDeadStatement(
                     falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
                     includeEmptyElseBranch = fuzzerSettings.randomBool(),
                 )
             },
-            2 to {
+            fuzzerSettings.deadDiscardOrReturnWeights.ifTrue to {
                 createIfTrueElseDeadStatement(
                     trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
                 )
             },
-            1 to {
+            fuzzerSettings.deadDiscardOrReturnWeights.whileFalse to {
                 createWhileFalseDeadStatement(
                     falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
                 )
             },
-            1 to {
+            fuzzerSettings.deadDiscardOrReturnWeights.forLoopWithFalseCondition to {
                 createForWithFalseConditionDeadStatement(
                     falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
@@ -79,7 +78,7 @@ fun deadDiscardOrReturn(
                     unreachableUpdate = null,
                 )
             },
-            1 to {
+            fuzzerSettings.deadDiscardOrReturnWeights.loopWithUnconditionalBreak to {
                 val includeContinuingStatement = fuzzerSettings.randomBool()
                 val breakIfExpr =
                     if (includeContinuingStatement && fuzzerSettings.randomBool()) {

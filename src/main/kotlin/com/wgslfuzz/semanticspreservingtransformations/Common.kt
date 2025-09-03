@@ -18,28 +18,12 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.ResolvedEnvironment
-import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
-import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.evaluateToInt
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
-
-fun Scope.containsVariableOfType(type: Type): Boolean =
-    this
-        .getAllEntries()
-        .any {
-            it is ScopeEntry.TypedDecl &&
-                it !is ScopeEntry.TypeAlias &&
-                it.type.asStoreTypeIfReference() == type
-        }
-
-fun ScopeEntry.TypedDecl.toExpression(): Expression =
-    Expression.Identifier(
-        name = declName,
-    )
 
 fun TypeDecl.toType(resolvedEnvironment: ResolvedEnvironment): Type =
     when (this) {
