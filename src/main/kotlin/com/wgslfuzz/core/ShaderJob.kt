@@ -142,7 +142,7 @@ class ShaderJob(
                         .array()
                 byteArray.map { i -> i.toInt() and 0xFF }
             }
-            is Type.I32, is Type.U32 -> intLiteralToBytes(value)
+            is Type.I32, is Type.U32 -> intLiteralToBytes(value as Expression.IntLiteral)
             is Type.Array -> {
                 require(type.elementCount != null) { "An array uniform must have a fixed length" }
                 val result = mutableListOf<Int>()
@@ -161,10 +161,9 @@ class ShaderJob(
         }
 }
 
-private fun intLiteralToBytes(value: Expression): List<Int> {
-    val intValue = value as Expression.IntLiteral
+fun intLiteralToBytes(value: Expression.IntLiteral): List<Int> {
     var parsedNum =
-        intValue.text
+        value.text
             .removeSuffix("i")
             .removeSuffix("u")
             .toInt()
