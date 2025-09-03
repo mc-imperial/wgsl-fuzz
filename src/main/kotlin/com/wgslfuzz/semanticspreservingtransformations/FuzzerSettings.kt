@@ -18,10 +18,6 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.Scope
-import com.wgslfuzz.core.ScopeEntry
-import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.asStoreTypeIfReference
 import java.util.Random
 
 interface FuzzerSettings {
@@ -78,6 +74,25 @@ interface FuzzerSettings {
 
     val scalarIdentityOperationWeights: ScalarIdentityOperationWeights
         get() = ScalarIdentityOperationWeights()
+
+    data class DeadBreaksAndContinuesWeights(
+        val ifFalse: Int = 1,
+        val ifTrue: Int = 1,
+    )
+
+    val deadBreaksAndContinuesWeights: DeadBreaksAndContinuesWeights
+        get() = DeadBreaksAndContinuesWeights()
+
+    data class DeadDiscardOrReturnWeights(
+        val ifFalse: Int = 2,
+        val ifTrue: Int = 2,
+        val whileFalse: Int = 1,
+        val forLoopWithFalseCondition: Int = 1,
+        val loopWithUnconditionalBreak: Int = 1,
+    )
+
+    val deadDiscardOrReturnWeights: DeadDiscardOrReturnWeights
+        get() = DeadDiscardOrReturnWeights()
 
     data class KnownValueWeights(
         val plainKnownValue: (depth: Int) -> Int = { 1 },
@@ -202,27 +217,6 @@ fun <T> choose(
         }
     }
     return fuzzerSettings.randomElement(functions)()
-}
-
-fun randomVariableFromScope(
-    scope: Scope,
-    type: Type,
-    fuzzerSettings: FuzzerSettings,
-): Expression? {
-    val scopeEntries =
-        scope.getAllEntries().filter {
-            it is ScopeEntry.TypedDecl &&
-                it !is ScopeEntry.TypeAlias &&
-                it.type.asStoreTypeIfReference() == type
-        }
-
-    if (scopeEntries.isEmpty()) return null
-
-    return (
-        fuzzerSettings.randomElement(
-            scopeEntries,
-        ) as ScopeEntry.TypedDecl
-    ).toExpression()
 }
 
 fun binaryExpressionRandomOperandOrder(

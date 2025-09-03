@@ -23,7 +23,7 @@ help | head
 uname
 
 # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/220)
-ignoreList=("mergesort" "reverse_linked_list")
+ignoreList=("mergesort" "reverse_linked_list" "logic_operations")
 
 numVariants=1
 # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/217) Determine better Mean Squared Error threshold

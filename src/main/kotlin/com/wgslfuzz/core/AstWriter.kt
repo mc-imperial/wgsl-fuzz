@@ -28,8 +28,15 @@ class AstWriter(
     private val out: PrintStream = System.out,
     private val indentValue: Int = DEFAULT_INDENT,
     private val emitCommentary: Boolean = false,
+    private val emitUniformCommentary: Boolean = false,
+    private val shaderJob: ShaderJob? = null,
 ) {
     private var currentIndentLevel = 0
+
+    fun emit() {
+        require(shaderJob != null) { "ShaderJob cannot be null when calling emit on nothing" }
+        emit(shaderJob.tu)
+    }
 
     fun emit(node: AstNode) {
         when (node) {
@@ -673,16 +680,20 @@ class AstWriter(
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            when (compound.metadata) {
-                is AugmentedMetadata.ControlFlowWrapperMetaData -> {
-                    emitIndent()
-                    out.print("/* wrapped original statements: */\n")
+            if (emitCommentary) {
+                when (compound.metadata) {
+                    is AugmentedMetadata.ControlFlowWrapperMetaData -> {
+                        emitIndent()
+                        out.print("/* wrapped original statements: */\n")
+                    }
+
+                    is AugmentedMetadata.ArbitraryCompoundMetaData -> {
+                        emitIndent()
+                        out.print("/* arbitrary compound: */\n")
+                    }
+
+                    else -> {}
                 }
-                is AugmentedMetadata.ArbitraryCompoundMetaData -> {
-                    emitIndent()
-                    out.print("/* arbitrary compound: */\n")
-                }
-                else -> {}
             }
             statements.forEach(::emitStatement)
             decreaseIndent()
@@ -885,32 +896,42 @@ class AstWriter(
     }
 
     private fun emitMetamorphicStatementDeadCodeFragment(deadCodeFragment: AugmentedStatement.DeadCodeFragment) {
-        emitIndent()
-        out.print("/* dead code fragment: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* dead code fragment: */\n")
+        }
         emitStatement(deadCodeFragment.statement)
     }
 
     private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
-        emitIndent()
-        out.print("/* control flow wrapped: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* control flow wrapped: */\n")
+        }
         emitStatement(statement.statement)
     }
 
     private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
-        emitIndent()
-        out.print("/* control flow wrap return: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* control flow wrap return: */\n")
+        }
         emitStatement(statement.statement)
     }
 
     private fun emitMetamorphicArbitraryStatement(statement: AugmentedStatement.ArbitraryStatement) {
-        emitIndent()
-        out.print("/* arbitrary statement */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* arbitrary statement */\n")
+        }
         emitStatement(statement.statement)
     }
 
     private fun emitMetamorphicArbitraryElseBranch(statement: AugmentedStatement.ArbitraryElseBranch) {
-        emitIndent()
-        out.print("/* arbitrary else branch: */\n")
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* arbitrary else branch: */\n")
+        }
         emitStatement(statement.statement)
     }
 
@@ -1036,10 +1057,37 @@ class AstWriter(
 
     private fun emitGlobalDeclVariable(variable: GlobalDecl.Variable) {
         with(variable) {
+            if (emitUniformCommentary && addressSpace == AddressSpace.UNIFORM) {
+                emitUniformCommentary(variable)
+            }
             emitAttributes(attributes)
             emitVariableDeclaration(addressSpace, accessMode, name, typeDecl, initializer)
             out.print(";\n")
         }
+    }
+
+    private fun emitUniformCommentary(uniformVariable: GlobalDecl.Variable) {
+        // Cannot emit uniform commentary without shader job as information on uniform values are required
+        require(
+            shaderJob != null,
+        ) { "shaderJob is null and so cannot emit uniform commentary without necessary information from shader job" }
+        val group =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Group>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        val binding =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Binding>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        out.print("// Uniform value: ")
+        emit(shaderJob.pipelineState.getUniformValue(group, binding))
+        out.println()
     }
 
     private fun emitGlobalDeclFunction(function: GlobalDecl.Function) {
