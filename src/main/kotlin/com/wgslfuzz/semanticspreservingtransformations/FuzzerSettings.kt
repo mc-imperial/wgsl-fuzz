@@ -22,7 +22,6 @@ import java.util.Random
 import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.log
-import kotlin.math.roundToInt
 
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 4.0 / (currentDepth.toDouble() + 2.0) && currentDepth < 18
