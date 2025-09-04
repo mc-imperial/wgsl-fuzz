@@ -300,7 +300,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
 
         val removedControlFlowWrapped = originalShaderJob.tu.clone(::replaceControlFlowWrapped)
 
-        val removedUnnecessaryUserDefinedFunctions = removeUnnecessaryUserDefinedFunctions(removedControlFlowWrapped)
+        val removedUnnecessaryUserDefinedFunctions = removeUnnecessaryUserDefinedDonorShaderFunctions(removedControlFlowWrapped)
 
         return ShaderJob(
             tu = removedUnnecessaryUserDefinedFunctions,
@@ -309,7 +309,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
     }
 }
 
-private fun removeUnnecessaryUserDefinedFunctions(tu: TranslationUnit): TranslationUnit {
+private fun removeUnnecessaryUserDefinedDonorShaderFunctions(tu: TranslationUnit): TranslationUnit {
     val userDefinedFunctionNames =
         nodesPreOrder(tu)
             .asSequence()
@@ -327,7 +327,8 @@ private fun removeUnnecessaryUserDefinedFunctions(tu: TranslationUnit): Translat
         globalDecls =
             tu.globalDecls
                 .filter {
-                    it !is GlobalDecl.Function || it.metadata != AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader ||
+                    it !is GlobalDecl.Function ||
+                        it.metadata != AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader ||
                         it.name in userDefinedFunctionNames
                 },
     )
