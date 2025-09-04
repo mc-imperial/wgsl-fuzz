@@ -16,7 +16,6 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
@@ -28,6 +27,7 @@ import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.builtinFunctionNames
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
+import com.wgslfuzz.core.toType
 
 /**
  * @return a pair containing the arbitrary else branch generated and a set containing all user defined function calls in the arbitrary else branch
@@ -134,8 +134,8 @@ fun generateArbitraryCompound(
     val compoundFromDonor = randomCompound(fuzzerSettings, donorShaderJob)
 
     // Process the donorShaderJob code
-    val compoundWithVariablesRenamedAndDeclarationsAdded =
-        compoundFromDonor.renameVariablesAndAddDeclarations(
+    val compoundWithDeclarationsAdded =
+        compoundFromDonor.addDeclarations(
             fuzzerSettings = fuzzerSettings,
             sideEffectsAllowed = sideEffectsAllowed,
             donorShaderJob = donorShaderJob,
@@ -143,7 +143,7 @@ fun generateArbitraryCompound(
         )
 
     val compoundWithReturnsOfCorrectType =
-        compoundWithVariablesRenamedAndDeclarationsAdded.clone { node ->
+        compoundWithDeclarationsAdded.clone { node ->
             if (node is Statement.Return) {
                 Statement.Return(
                     returnType?.let {
@@ -190,7 +190,6 @@ private fun Statement.Compound.addDeclarations(
     donorShaderJob: ShaderJob,
     shaderJob: ShaderJob,
 ): Statement.Compound {
-    TODO()
     val preOrderDonorNodes = nodesPreOrder(this)
 
     val variablesMutatedInCompound =
@@ -223,13 +222,13 @@ private fun Statement.Compound.addDeclarations(
                     is Expression.Identifier -> node.name to donorShaderJob.environment.typeOf(node).asStoreTypeIfReference()
                     is Statement.Value -> {
                         val type =
-                            node.typeDecl?.toType(donorShaderJob.environment)
+                            node.typeDecl?.toType(donorShaderJob.environment.globalScope, donorShaderJob.environment)
                                 ?: donorShaderJob.environment.typeOf(node.initializer).asStoreTypeIfReference()
                         node.name to type
                     }
                     is Statement.Variable -> {
                         val type =
-                            node.typeDecl?.toType(donorShaderJob.environment)
+                            node.typeDecl?.toType(donorShaderJob.environment.globalScope, donorShaderJob.environment)
                                 ?: node.initializer?.let { donorShaderJob.environment.typeOf(it) }?.asStoreTypeIfReference()
 
                         type?.let { node.name to it }
@@ -237,33 +236,6 @@ private fun Statement.Compound.addDeclarations(
                     else -> null
                 }
             }.toMap()
-
-    // Take all variable names and map them to a new unique name
-    // Then, clone the donorCompound and swap all variable names with their new names
-    val oldNamesToNewNames = identifierNamesToTypes.map { it.key }.associateWith { "${it}_${fuzzerSettings.getUniqueId()}" }
-
-    fun renameVariablesHelper(node: AstNode): AstNode? =
-        when (node) {
-            is LhsExpression.Identifier -> LhsExpression.Identifier(oldNamesToNewNames[node.name]!!)
-            is Expression.Identifier -> Expression.Identifier(oldNamesToNewNames[node.name]!!)
-            is Statement.Value ->
-                Statement.Value(
-                    isConst = node.isConst,
-                    name = oldNamesToNewNames[node.name]!!,
-                    typeDecl = node.typeDecl?.clone(::renameVariablesHelper),
-                    initializer = node.initializer.clone(::renameVariablesHelper),
-                )
-            is Statement.Variable ->
-                Statement.Variable(
-                    name = oldNamesToNewNames[node.name]!!,
-                    addressSpace = node.addressSpace,
-                    accessMode = node.accessMode,
-                    typeDecl = node.typeDecl?.clone(::renameVariablesHelper),
-                    initializer = node.initializer?.clone(::renameVariablesHelper),
-                )
-            else -> null
-        }
-    val renamedStatements = this.statements.clone(::renameVariablesHelper)
 
     // Create variable initializers
     val variablesUndefinedInCompound = variablesUsedInCompound - variablesDefinedInCompound
@@ -280,17 +252,17 @@ private fun Statement.Compound.addDeclarations(
                 )
             if (it in variablesMutatedInCompound) {
                 Statement.Variable(
-                    name = oldNamesToNewNames[it]!!,
+                    name = it,
                     initializer = initializer,
                 )
             } else {
                 Statement.Value(
                     isConst = false,
-                    name = oldNamesToNewNames[it]!!,
+                    name = it,
                     initializer = initializer,
                 )
             }
         }
 
-    return Statement.Compound(statements = variableInitializers + renamedStatements)
+    return Statement.Compound(statements = variableInitializers + this.statements, metadata = this.metadata)
 }
