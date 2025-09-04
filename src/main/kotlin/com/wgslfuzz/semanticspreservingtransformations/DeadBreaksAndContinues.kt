@@ -104,19 +104,18 @@ private class InjectDeadBreaksContinues(
                     },
                 ),
             )
-        // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/98) These choices are currently weighted such that there
-        //  is the same probability of choosing if (false) { dead } vs. if (true) { } else { dead }. This weighting
-        //  could instead be controlled via fuzzer settings.
         val choices =
             mutableListOf(
-                1 to {
+                fuzzerSettings.deadBreaksAndContinuesWeights.ifFalse to {
+                    // if (false) { <dead statement> }
                     createIfFalseThenDeadStatement(
                         falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                         deadStatement = deadStatement,
                         includeEmptyElseBranch = fuzzerSettings.randomBool(),
                     )
                 },
-                1 to {
+                fuzzerSettings.deadBreaksAndContinuesWeights.ifTrue to {
+                    // if (true) { } else { <dead statement> }
                     createIfTrueElseDeadStatement(
                         trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                         deadStatement = deadStatement,

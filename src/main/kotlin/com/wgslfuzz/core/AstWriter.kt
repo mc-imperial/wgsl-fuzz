@@ -28,8 +28,15 @@ class AstWriter(
     private val out: PrintStream = System.out,
     private val indentValue: Int = DEFAULT_INDENT,
     private val emitCommentary: Boolean = false,
+    private val emitUniformCommentary: Boolean = false,
+    private val shaderJob: ShaderJob? = null,
 ) {
     private var currentIndentLevel = 0
+
+    fun emit() {
+        require(shaderJob != null) { "ShaderJob cannot be null when calling emit on nothing" }
+        emit(shaderJob.tu)
+    }
 
     fun emit(node: AstNode) {
         when (node) {
@@ -677,7 +684,7 @@ class AstWriter(
                 when (compound.metadata) {
                     is AugmentedMetadata.ControlFlowWrapperMetaData -> {
                         emitIndent()
-                        out.print("/* wrapped original statements: */\n")
+                        out.print("/* wrapped original statements ${compound.metadata.id}: */\n")
                     }
 
                     is AugmentedMetadata.ArbitraryCompoundMetaData -> {
@@ -899,7 +906,15 @@ class AstWriter(
     private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
         if (emitCommentary) {
             emitIndent()
-            out.print("/* control flow wrapped: */\n")
+            out.print("/* control flow wrapped ${statement.id}: */\n")
+        }
+        emitStatement(statement.statement)
+    }
+
+    private fun emitMetamorphicControlFlowWrapHelperStatement(statement: AugmentedStatement.ControlFlowWrapHelperStatement) {
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* control flow wrap helper statement ${statement.id}: */\n")
         }
         emitStatement(statement.statement)
     }
@@ -907,7 +922,7 @@ class AstWriter(
     private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
         if (emitCommentary) {
             emitIndent()
-            out.print("/* control flow wrap return: */\n")
+            out.print("/* control flow wrap return ${statement.id}: */\n")
         }
         emitStatement(statement.statement)
     }
@@ -968,6 +983,7 @@ class AstWriter(
             is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
             is AugmentedStatement.ArbitraryElseBranch -> emitMetamorphicArbitraryElseBranch(statement)
             is AugmentedStatement.ArbitraryStatement -> emitMetamorphicArbitraryStatement(statement)
+            is AugmentedStatement.ControlFlowWrapHelperStatement -> emitMetamorphicControlFlowWrapHelperStatement(statement)
         }
     }
 
@@ -1050,10 +1066,37 @@ class AstWriter(
 
     private fun emitGlobalDeclVariable(variable: GlobalDecl.Variable) {
         with(variable) {
+            if (emitUniformCommentary && addressSpace == AddressSpace.UNIFORM) {
+                emitUniformCommentary(variable)
+            }
             emitAttributes(attributes)
             emitVariableDeclaration(addressSpace, accessMode, name, typeDecl, initializer)
             out.print(";\n")
         }
+    }
+
+    private fun emitUniformCommentary(uniformVariable: GlobalDecl.Variable) {
+        // Cannot emit uniform commentary without shader job as information on uniform values are required
+        require(
+            shaderJob != null,
+        ) { "shaderJob is null and so cannot emit uniform commentary without necessary information from shader job" }
+        val group =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Group>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        val binding =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Binding>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        out.print("// Uniform value: ")
+        emit(shaderJob.pipelineState.getUniformValue(group, binding))
+        out.println()
     }
 
     private fun emitGlobalDeclFunction(function: GlobalDecl.Function) {

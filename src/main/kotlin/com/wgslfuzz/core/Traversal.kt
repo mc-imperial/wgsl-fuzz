@@ -243,6 +243,9 @@ fun <T> traverse(
         is AugmentedStatement.ControlFlowWrapper -> {
             actionWithState(node.statement)
         }
+        is AugmentedStatement.ControlFlowWrapHelperStatement -> {
+            actionWithState(node.statement)
+        }
         is AugmentedStatement.ControlFlowWrapReturn -> {
             actionWithState(node.statement)
         }

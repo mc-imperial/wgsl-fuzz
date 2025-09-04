@@ -113,6 +113,7 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
             UndoIdentityOperations(),
             ReplaceKnownValues(),
             ReduceControlFlowWrapped(),
+            ReduceArbitraryExpression(),
         )
     var reducedShaderJob = this
     var simplerButNotInterestingShaderJob: ShaderJob? = null
@@ -252,6 +253,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
         opportunities: List<AugmentedStatement.ControlFlowWrapper>,
     ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
+        val idsOfOpportunities = opportunitiesAsSet.map { it.id }
 
         fun replaceControlFlowWrapped(node: AstNode): AstNode? {
             if (node is Statement.Compound) {
@@ -266,19 +268,14 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                         }
                     }
 
-                // Remove ControlFlowReturns if possible
-                val wrappedReturnWithoutControlFlowWrapper =
-                    flattenedStatements
-                        .filterIsInstance<AugmentedStatement.ControlFlowWrapReturn>()
-                        .filter { wrappedReturn ->
-                            val uniqueId = wrappedReturn.id
-
-                            !flattenedStatements.any { it is AugmentedStatement.ControlFlowWrapper && it.id == uniqueId }
-                        }
-                val statementsWithReturnsRemoved = flattenedStatements.filter { it !in wrappedReturnWithoutControlFlowWrapper }
+                val statementsWithControlFlowNodesRemoved =
+                    flattenedStatements.filter {
+                        (it !is AugmentedStatement.ControlFlowWrapReturn && it !is AugmentedStatement.ControlFlowWrapHelperStatement) ||
+                            it.id !in idsOfOpportunities
+                    }
 
                 return Statement.Compound(
-                    statements = statementsWithReturnsRemoved,
+                    statements = statementsWithControlFlowNodesRemoved,
                     metadata = node.metadata,
                 )
             }
@@ -287,15 +284,17 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                 return null
             }
 
-            val originalStatementNode =
-                nodesPreOrder(originalShaderJob.tu)
+            val originalStatements =
+                nodesPreOrder(node.statement)
                     .asSequence()
                     .filterIsInstance<Statement.Compound>()
-                    .firstOrNull {
+                    .filter {
                         (it.metadata as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id
-                    } ?: throw AssertionError("Could not find the matching original statement compound for: $node")
+                    }.flatMap { it.statements }
+                    .filter { it !is AugmentedStatement.ControlFlowWrapHelperStatement || it.id == node.id }
+                    .toList()
 
-            return Statement.Compound(originalStatementNode.statements.clone(::replaceControlFlowWrapped))
+            return Statement.Compound(originalStatements.clone(::replaceControlFlowWrapped))
         }
 
         val removedControlFlowWrapped = originalShaderJob.tu.clone(::replaceControlFlowWrapped)
@@ -328,6 +327,102 @@ private fun removeUnnecessaryUserDefinedFunctions(tu: TranslationUnit): Translat
             tu.globalDecls
                 .filter { it !is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction || it.function.name in userDefinedFunctionNames },
     )
+}
+/**
+ * ReduceArbitraryExpression cannot fully remove arbitrary expressions but it can make them smaller
+ */
+private class ReduceArbitraryExpression : ReductionPass<AugmentedExpression.ArbitraryExpression>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.ArbitraryExpression> =
+        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.ArbitraryExpression>()
+
+    override fun removeOpportunities(
+        originalShaderJob: ShaderJob,
+        opportunities: List<AugmentedExpression.ArbitraryExpression>,
+    ): ShaderJob {
+        val opportunitiesAsSet = opportunities.toSet()
+
+        fun removeArbitraryExpression(node: AstNode): AstNode? =
+            if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesAsSet) {
+                null
+            } else {
+                val underlyingExpression = node.expression
+                val underlyingExpressionType = originalShaderJob.environment.typeOf(underlyingExpression).asStoreTypeIfReference()
+
+                when (underlyingExpression) {
+                    is Expression.BoolLiteral,
+                    is Expression.FloatLiteral,
+                    is Expression.IntLiteral,
+                    is Expression.Identifier,
+                    is Expression.IndexLookup,
+                    is Expression.MemberLookup,
+                    is Expression.ArrayValueConstructor,
+                    is Expression.Mat2x2ValueConstructor,
+                    is Expression.Mat2x3ValueConstructor,
+                    is Expression.Mat2x4ValueConstructor,
+                    is Expression.Mat3x2ValueConstructor,
+                    is Expression.Mat3x3ValueConstructor,
+                    is Expression.Mat3x4ValueConstructor,
+                    is Expression.Mat4x2ValueConstructor,
+                    is Expression.Mat4x3ValueConstructor,
+                    is Expression.Mat4x4ValueConstructor,
+                    is Expression.BoolValueConstructor,
+                    is Expression.F16ValueConstructor,
+                    is Expression.F32ValueConstructor,
+                    is Expression.I32ValueConstructor,
+                    is Expression.U32ValueConstructor,
+                    is Expression.StructValueConstructor,
+                    is Expression.TypeAliasValueConstructor,
+                    is Expression.Vec2ValueConstructor,
+                    is Expression.Vec3ValueConstructor,
+                    is Expression.Vec4ValueConstructor,
+                    -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
+
+                    is Expression.Binary ->
+                        when (underlyingExpressionType) {
+                            originalShaderJob.environment.typeOf(underlyingExpression.lhs) ->
+                                underlyingExpression.lhs
+
+                            originalShaderJob.environment.typeOf(underlyingExpression.rhs) ->
+                                underlyingExpression.rhs
+
+                            else -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
+                        }
+
+                    is Expression.Unary ->
+                        if (originalShaderJob.environment.typeOf(underlyingExpression.target) == underlyingExpressionType) {
+                            underlyingExpression.target
+                        } else {
+                            constantWithSameValueEverywhere(
+                                1,
+                                underlyingExpressionType,
+                            )
+                        }
+
+                    is Expression.FunctionCall ->
+                        underlyingExpression.args.firstOrNull {
+                            originalShaderJob.environment.typeOf(it) == underlyingExpressionType
+                        } ?: constantWithSameValueEverywhere(1, underlyingExpressionType)
+
+                    is AugmentedExpression.ArbitraryExpression -> throw IllegalStateException(
+                        "An arbitrary expression should not wrap another arbitrary expression",
+                    )
+                    is Expression.Paren -> throw IllegalStateException(
+                        "An arbitrary expression does not wrap a parentheses",
+                    )
+
+                    is AugmentedExpression.AddZero -> TODO()
+                    is AugmentedExpression.DivOne -> TODO()
+                    is AugmentedExpression.MulOne -> TODO()
+                    is AugmentedExpression.SubZero -> TODO()
+                    is AugmentedExpression.KnownValue -> TODO()
+                }
+            }
+
+        return ShaderJob(
+            originalShaderJob.tu.clone(::removeArbitraryExpression),
+            originalShaderJob.pipelineState,
+        )
+    }
 }
 
 private fun nodeSizeDelta(

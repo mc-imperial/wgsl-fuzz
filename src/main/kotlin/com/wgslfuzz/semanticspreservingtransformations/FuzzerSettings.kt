@@ -18,11 +18,10 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
-import com.wgslfuzz.core.Scope
-import com.wgslfuzz.core.ScopeEntry
-import com.wgslfuzz.core.Type
-import com.wgslfuzz.core.asStoreTypeIfReference
 import java.util.Random
+import kotlin.math.ceil
+import kotlin.math.ln
+import kotlin.math.log
 
 interface FuzzerSettings {
     fun goDeeper(currentDepth: Int): Boolean = randomDouble() < 4.0 / (currentDepth.toDouble() + 2.0) && currentDepth < 18
@@ -79,6 +78,25 @@ interface FuzzerSettings {
     val scalarIdentityOperationWeights: ScalarIdentityOperationWeights
         get() = ScalarIdentityOperationWeights()
 
+    data class DeadBreaksAndContinuesWeights(
+        val ifFalse: Int = 1,
+        val ifTrue: Int = 1,
+    )
+
+    val deadBreaksAndContinuesWeights: DeadBreaksAndContinuesWeights
+        get() = DeadBreaksAndContinuesWeights()
+
+    data class DeadDiscardOrReturnWeights(
+        val ifFalse: Int = 2,
+        val ifTrue: Int = 2,
+        val whileFalse: Int = 1,
+        val forLoopWithFalseCondition: Int = 1,
+        val loopWithUnconditionalBreak: Int = 1,
+    )
+
+    val deadDiscardOrReturnWeights: DeadDiscardOrReturnWeights
+        get() = DeadDiscardOrReturnWeights()
+
     data class KnownValueWeights(
         val plainKnownValue: (depth: Int) -> Int = { 1 },
         val sumOfKnownValues: (depth: Int) -> Int = { 2 },
@@ -91,15 +109,28 @@ interface FuzzerSettings {
         get() = KnownValueWeights()
 
     data class ControlFlowWrappingWeights(
-        val ifTrueWrapping: Int = 1,
-        val ifFalseWrapping: Int = 1,
-        val singleIterForLoop: Int = 1,
-    )
+        val ifTrueWrapping: (depth: Int) -> Int = { 1 },
+        val ifFalseWrapping: (depth: Int) -> Int = { 1 },
+        val singleIterForLoop: (depth: Int) -> Int = { 1 },
+        val singleIterLoop: (depth: Int) -> Int = { 1 },
+        val singleIterWhileLoop: (depth: Int) -> Int = { 1 },
+        val switchCase: (depth: Int) -> Int = { 1 },
+    ) {
+        class SwitchCaseProbabilities {
+            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/249) Find better probability distributions
+            fun numberOfCases(fuzzerSettings: FuzzerSettings): Int = ((-ln(fuzzerSettings.randomDouble())) * 50).toInt()
+
+            fun numberOfCasesInAClause(fuzzerSettings: FuzzerSettings): Int = ceil(log(fuzzerSettings.randomDouble(), 0.5)).toInt()
+        }
+
+        val switchCaseProbabilities: SwitchCaseProbabilities
+            get() = SwitchCaseProbabilities()
+    }
 
     val controlFlowWrappingWeights: ControlFlowWrappingWeights
         get() = ControlFlowWrappingWeights()
 
-    data class ArbitraryBooleanExpressionWeights(
+    class ArbitraryBooleanExpressionWeights(
         val not: (depth: Int) -> Int = { 1 },
         val or: (depth: Int) -> Int = { 2 },
         val and: (depth: Int) -> Int = { 2 },
@@ -202,27 +233,6 @@ fun <T> choose(
         }
     }
     return fuzzerSettings.randomElement(functions)()
-}
-
-fun randomVariableFromScope(
-    scope: Scope,
-    type: Type,
-    fuzzerSettings: FuzzerSettings,
-): Expression? {
-    val scopeEntries =
-        scope.getAllEntries().filter {
-            it is ScopeEntry.TypedDecl &&
-                it !is ScopeEntry.TypeAlias &&
-                it.type.asStoreTypeIfReference() == type
-        }
-
-    if (scopeEntries.isEmpty()) return null
-
-    return (
-        fuzzerSettings.randomElement(
-            scopeEntries,
-        ) as ScopeEntry.TypedDecl
-    ).toExpression()
 }
 
 fun binaryExpressionRandomOperandOrder(

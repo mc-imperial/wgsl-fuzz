@@ -25,6 +25,7 @@ import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.getUniformDeclaration
+import com.wgslfuzz.core.toType
 import kotlin.math.max
 import kotlin.math.truncate
 
@@ -514,7 +515,7 @@ fun randomKnownScalarValueFromUniform(
     val uniformDeclaration = shaderJob.tu.getUniformDeclaration(group, binding)
 
     var currentType: Type =
-        uniformDeclaration.typeDecl?.toType(shaderJob.environment)
+        uniformDeclaration.typeDecl?.toType(shaderJob.environment.globalScope, shaderJob.environment)
             ?: throw IllegalStateException("Uniform should have type")
 
     var currentUniformExpr: Expression = Expression.Identifier(uniformDeclaration.name)
