@@ -306,15 +306,29 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
 /**
  * ReduceArbitraryExpression cannot fully remove arbitrary expressions but it can make them smaller
  */
-private class ReduceArbitraryExpression : ReductionPass<AugmentedExpression.ArbitraryExpression>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.ArbitraryExpression> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.ArbitraryExpression>()
+private class ReduceArbitraryExpression :
+    ReductionPass<Pair<AugmentedExpression.ArbitraryExpression, ReduceArbitraryExpression.Metadata?>>() {
+    interface Metadata {
+        enum class Binary : Metadata { LHS, RHS }
+    }
+
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<Pair<AugmentedExpression.ArbitraryExpression, Metadata?>> =
+        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.ArbitraryExpression>().flatMap {
+            when (it.expression) {
+                is Expression.Binary ->
+                    listOf(
+                        it to Metadata.Binary.LHS,
+                        it to Metadata.Binary.RHS,
+                    )
+                else -> listOf(it to null)
+            }
+        }
 
     override fun removeOpportunities(
         originalShaderJob: ShaderJob,
-        opportunities: List<AugmentedExpression.ArbitraryExpression>,
+        opportunities: List<Pair<AugmentedExpression.ArbitraryExpression, Metadata?>>,
     ): ShaderJob {
-        val opportunitiesAsSet = opportunities.toSet()
+        val opportunitiesMap = opportunities.toMap()
 
         fun removeArbitraryExpression(node: AstNode): AstNode? =
             if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesAsSet) {
@@ -352,16 +366,25 @@ private class ReduceArbitraryExpression : ReductionPass<AugmentedExpression.Arbi
                     is Expression.Vec4ValueConstructor,
                     -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
 
-                    is Expression.Binary ->
-                        when (underlyingExpressionType) {
-                            originalShaderJob.environment.typeOf(underlyingExpression.lhs) ->
-                                underlyingExpression.lhs
+                    is Expression.Binary -> {
+                        when (opportunitiesMap[node]) {
+                            Metadata.Binary.LHS ->
+                                if (originalShaderJob.environment.typeOf(underlyingExpression.lhs) == underlyingExpressionType) {
+                                    underlyingExpression.lhs
+                                } else {
+                                    constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
+                                }
 
-                            originalShaderJob.environment.typeOf(underlyingExpression.rhs) ->
-                                underlyingExpression.rhs
+                            Metadata.Binary.RHS ->
+                                if (originalShaderJob.environment.typeOf(underlyingExpression.rhs) == underlyingExpressionType) {
+                                    underlyingExpression.rhs
+                                } else {
+                                    constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
+                                }
 
-                            else -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
+                            else -> throw IllegalStateException("Removal of binary expression must have a correct Binary metadata")
                         }
+                    }
 
                     is Expression.Unary ->
                         if (originalShaderJob.environment.typeOf(underlyingExpression.target) == underlyingExpressionType) {
