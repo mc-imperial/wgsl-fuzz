@@ -29,6 +29,7 @@ import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.SwitchClause
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
@@ -230,7 +231,7 @@ private class ControlFlowWrapping(
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
                             donorShaderJob = donorShaderJob,
-                            returnType = returnTypeDecl?.toType(shaderJob.environment),
+                            returnType = returnTypeDecl?.toType(shaderJob.environment.globalScope, shaderJob.environment),
                         )
 
                     functionCallsInArbitraryCompounds.addAll(functionCalls)
@@ -257,7 +258,7 @@ private class ControlFlowWrapping(
                             fuzzerSettings = fuzzerSettings,
                             shaderJob = shaderJob,
                             donorShaderJob = donorShaderJob,
-                            returnType = returnTypeDecl?.toType(shaderJob.environment),
+                            returnType = returnTypeDecl?.toType(shaderJob.environment.globalScope, shaderJob.environment),
                         )
 
                     functionCallsInArbitraryCompounds.addAll(functionCalls)
@@ -515,13 +516,21 @@ private class ControlFlowWrapping(
                                         if (knownValue in cases) {
                                             originalStatementCompound
                                         } else {
-                                            generateArbitraryCompound(
-                                                depth = depth + 1,
-                                                sideEffectsAllowed = true,
-                                                fuzzerSettings = fuzzerSettings,
-                                                shaderJob = shaderJob,
-                                                scope = scope,
-                                            )
+                                            val (arbitraryCompound, functionCalls) =
+                                                generateArbitraryCompound(
+                                                    depth = depth + 1,
+                                                    sideEffectsAllowed = true,
+                                                    fuzzerSettings = fuzzerSettings,
+                                                    shaderJob = shaderJob,
+                                                    donorShaderJob = donorShaderJob,
+                                                    returnType =
+                                                        returnTypeDecl?.toType(
+                                                            shaderJob.environment.globalScope,
+                                                            shaderJob.environment,
+                                                        ),
+                                                )
+                                            functionCallsInArbitraryCompounds.addAll(functionCalls)
+                                            arbitraryCompound
                                         },
                                 ),
                             )

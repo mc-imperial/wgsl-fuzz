@@ -17,28 +17,19 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.Attribute
-import com.wgslfuzz.core.AugmentedExpression
-import com.wgslfuzz.core.AugmentedGlobalDecl
-import com.wgslfuzz.core.AugmentedStatement
-import com.wgslfuzz.core.ContinuingStatement
-import com.wgslfuzz.core.Directive
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ParameterDecl
-import com.wgslfuzz.core.ResolvedEnvironment
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.StructMember
-import com.wgslfuzz.core.SwitchClause
-import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
+import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
-import com.wgslfuzz.core.evaluateToInt
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
@@ -150,7 +141,7 @@ fun ShaderJob.renameEverything(fuzzerSettings: FuzzerSettings): ShaderJob {
             is GlobalDecl.Constant ->
                 GlobalDecl.Constant(
                     name = getNewName(node.name),
-                    typeDecl = node.typeDecl.clone(::rename),
+                    typeDecl = node.typeDecl?.clone(::rename),
                     initializer = node.initializer.clone(::rename),
                 )
             is GlobalDecl.Function ->

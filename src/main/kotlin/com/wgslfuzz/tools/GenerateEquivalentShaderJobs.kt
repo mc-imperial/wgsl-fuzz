@@ -125,7 +125,7 @@ fun main(args: Array<String>) {
             ) {
                 break
             }
-            val metamorphicTransformations = initMetamorphicTransformations(donorShaderJob)
+            val metamorphicTransformations = initMetamorphicTransformations(donorShaderJob, fuzzerSettings)
             transformedShaderJob =
                 fuzzerSettings.randomElement(metamorphicTransformations)(
                     transformedShaderJob,

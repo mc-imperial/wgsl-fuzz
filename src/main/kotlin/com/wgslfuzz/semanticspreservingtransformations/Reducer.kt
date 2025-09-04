@@ -27,6 +27,7 @@ import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
+import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
@@ -328,6 +329,7 @@ private fun removeUnnecessaryUserDefinedFunctions(tu: TranslationUnit): Translat
                 .filter { it !is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction || it.function.name in userDefinedFunctionNames },
     )
 }
+
 /**
  * ReduceArbitraryExpression cannot fully remove arbitrary expressions but it can make them smaller
  */

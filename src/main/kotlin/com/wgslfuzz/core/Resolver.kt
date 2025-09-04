@@ -370,6 +370,19 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
     return Pair(nameDependencies, nameToDecl)
 }
 
+private fun collectTopLevelNameDependenciesOfFunction(
+    decl: GlobalDecl.Function,
+    nameToDecl: MutableMap<String, GlobalDecl>,
+    nameDependencies: MutableMap<String, Set<String>>,
+) {
+    nameToDecl[decl.name] = decl
+    collectUsedModuleScopeNames(
+        decl.name,
+        nameDependencies,
+        decl.attributes + decl.parameters + listOf(decl.returnType),
+    )
+}
+
 private fun orderGlobalDeclNames(topLevelNameDependencies: Map<String, Set<String>>): List<String> {
     val toProcess = mutableMapOf<String, MutableSet<String>>()
     for (entry in topLevelNameDependencies) {
