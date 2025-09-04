@@ -16,13 +16,29 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.Attribute
+import com.wgslfuzz.core.AugmentedExpression
+import com.wgslfuzz.core.AugmentedGlobalDecl
+import com.wgslfuzz.core.AugmentedStatement
+import com.wgslfuzz.core.ContinuingStatement
+import com.wgslfuzz.core.Directive
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.GlobalDecl
+import com.wgslfuzz.core.LhsExpression
+import com.wgslfuzz.core.ParameterDecl
 import com.wgslfuzz.core.ResolvedEnvironment
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ScopeEntry
+import com.wgslfuzz.core.ShaderJob
+import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.StructMember
+import com.wgslfuzz.core.SwitchClause
+import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.asStoreTypeIfReference
+import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.evaluateToInt
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
@@ -154,3 +170,131 @@ fun getValueAsDoubleFromConstant(constantExpression: Expression): Double =
         is Expression.IntLiteral -> constantExpression.text.trimEnd('i', 'u').toDouble()
         else -> throw UnsupportedOperationException("Cannot get numeric value from $constantExpression")
     }
+
+fun ShaderJob.renameEverything(fuzzerSettings: FuzzerSettings): ShaderJob {
+    val oldNamesToNewNames = mutableMapOf<String, String>()
+
+    fun getNewName(name: String): String = oldNamesToNewNames.getOrPut(name, { "${name}_${fuzzerSettings.getUniqueId()}" })
+
+    fun rename(node: AstNode): AstNode? =
+        when (node) {
+            is Expression.FunctionCall ->
+                Expression.FunctionCall(
+                    callee = getNewName(node.callee),
+                    templateParameter = node.templateParameter?.clone(::rename),
+                    args = node.args.clone(::rename),
+                )
+            is Expression.Identifier ->
+                Expression.Identifier(
+                    name = getNewName(node.name),
+                )
+            is Expression.MemberLookup ->
+                Expression.MemberLookup(
+                    receiver = node.receiver.clone(::rename),
+                    memberName = getNewName(node.memberName),
+                )
+            is Expression.StructValueConstructor ->
+                Expression.StructValueConstructor(
+                    constructorName = getNewName(node.constructorName),
+                    args = node.args.clone(::rename),
+                )
+            is Expression.TypeAliasValueConstructor ->
+                Expression.TypeAliasValueConstructor(
+                    constructorName = getNewName(node.constructorName),
+                    args = node.args.clone(::rename),
+                )
+            is GlobalDecl.Constant ->
+                GlobalDecl.Constant(
+                    name = getNewName(node.name),
+                    typeDecl = node.typeDecl.clone(::rename),
+                    initializer = node.initializer.clone(::rename),
+                )
+            is GlobalDecl.Function ->
+                GlobalDecl.Function(
+                    attributes = node.attributes.clone(::rename),
+                    name = getNewName(node.name),
+                    parameters = node.parameters.clone(::rename),
+                    returnAttributes = node.returnAttributes.clone(::rename),
+                    returnType = node.returnType?.clone(::rename),
+                    body = node.body.clone(::rename),
+                )
+            is GlobalDecl.Override ->
+                GlobalDecl.Override(
+                    attributes = node.attributes.clone(::rename),
+                    name = getNewName(node.name),
+                    typeDecl = node.typeDecl?.clone(::rename),
+                    initializer = node.initializer?.clone(::rename),
+                )
+            is GlobalDecl.Struct ->
+                GlobalDecl.Struct(
+                    name = getNewName(node.name),
+                    members = node.members.clone(::rename),
+                )
+            is GlobalDecl.TypeAlias ->
+                GlobalDecl.TypeAlias(
+                    name = getNewName(node.name),
+                    typeDecl = node.typeDecl.clone(::rename),
+                )
+            is GlobalDecl.Variable ->
+                GlobalDecl.Variable(
+                    attributes = node.attributes.clone(::rename),
+                    name = getNewName(node.name),
+                    addressSpace = node.addressSpace,
+                    accessMode = node.accessMode,
+                    typeDecl = node.typeDecl?.clone(::rename),
+                    initializer = node.initializer?.clone(::rename),
+                )
+            is LhsExpression.Identifier ->
+                LhsExpression.Identifier(
+                    name = getNewName(node.name),
+                )
+            is LhsExpression.MemberLookup ->
+                LhsExpression.MemberLookup(
+                    receiver = node.receiver.clone(::rename),
+                    memberName = getNewName(node.memberName),
+                )
+            is ParameterDecl ->
+                ParameterDecl(
+                    attributes = node.attributes.clone(::rename),
+                    name = getNewName(node.name),
+                    typeDecl = node.typeDecl.clone(::rename),
+                )
+            is Statement.Value ->
+                Statement.Value(
+                    isConst = node.isConst,
+                    name = getNewName(node.name),
+                    typeDecl = node.typeDecl?.clone(::rename),
+                    initializer = node.initializer.clone(::rename),
+                )
+            is Statement.Variable ->
+                Statement.Variable(
+                    name = getNewName(node.name),
+                    addressSpace = node.addressSpace,
+                    accessMode = node.accessMode,
+                    typeDecl = node.typeDecl?.clone(::rename),
+                    initializer = node.initializer?.clone(::rename),
+                )
+            is StructMember ->
+                StructMember(
+                    attributes = node.attributes.clone(::rename),
+                    name = getNewName(node.name),
+                    typeDecl = node.typeDecl.clone(::rename),
+                )
+            is TypeDecl.NamedType -> {
+                val newName = TODO()
+                TypeDecl.NamedType(
+                    name = newName,
+                )
+            }
+            else -> null
+        }
+
+    val newTu = this.tu.clone(::rename)
+
+    val newPipelineState = TODO()
+
+    return ShaderJob(
+        tu = newTu,
+        pipelineState = newPipelineState,
+    )
+}
