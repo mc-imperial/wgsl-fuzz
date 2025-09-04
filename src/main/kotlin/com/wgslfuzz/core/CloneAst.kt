@@ -162,6 +162,7 @@ private fun cloneHelper(
                     returnAttributes.clone(replacements),
                     returnType?.clone(replacements),
                     body.clone(replacements),
+                    metadata,
                 )
             is GlobalDecl.Override ->
                 GlobalDecl.Override(
@@ -340,10 +341,6 @@ private fun cloneHelper(
             is AugmentedStatement.ArbitraryStatement ->
                 AugmentedStatement.ArbitraryStatement(
                     statement.clone(replacements),
-                )
-            is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction ->
-                AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction(
-                    function.clone(replacements),
                 )
         }
     }

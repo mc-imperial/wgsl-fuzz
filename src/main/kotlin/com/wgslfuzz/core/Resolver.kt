@@ -359,12 +359,6 @@ private fun collectTopLevelNameDependencies(tu: TranslationUnit): Pair<
                     decl.attributes + listOf(decl.typeDecl, decl.initializer),
                 )
             }
-            is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction ->
-                collectTopLevelNameDependenciesOfFunction(
-                    decl.function,
-                    nameToDecl,
-                    nameDependencies,
-                )
         }
     }
     return Pair(nameDependencies, nameToDecl)

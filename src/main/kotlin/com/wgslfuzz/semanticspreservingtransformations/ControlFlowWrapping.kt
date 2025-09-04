@@ -18,7 +18,6 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AssignmentOperator
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedGlobalDecl
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
@@ -748,12 +747,21 @@ private class ControlFlowWrapping(
 
         val helperFunctions =
             functionCallsInArbitraryCompounds.map { functionName ->
-                AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction(
+                val functionDecl =
                     donorShaderJob.tu.globalDecls
                         .filterIsInstance<GlobalDecl.Function>()
                         .firstOrNull {
                             it.name == functionName
-                        } ?: throw RuntimeException("Could not find $functionName in donor shader global decls"),
+                        } ?: throw RuntimeException("Could not find $functionName in donor shader global decls")
+
+                GlobalDecl.Function(
+                    attributes = functionDecl.attributes,
+                    name = functionDecl.name,
+                    parameters = functionDecl.parameters,
+                    returnAttributes = functionDecl.returnAttributes,
+                    returnType = functionDecl.returnType,
+                    body = functionDecl.body,
+                    metadata = AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader,
                 )
             }
 

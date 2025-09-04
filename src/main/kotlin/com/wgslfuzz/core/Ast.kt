@@ -270,6 +270,7 @@ sealed interface GlobalDecl : AstNode {
         val returnAttributes: List<Attribute> = emptyList(),
         val returnType: TypeDecl? = null,
         val body: Statement.Compound,
+        val metadata: AugmentedMetadata? = null,
     ) : GlobalDecl
 
     @Serializable
@@ -1253,14 +1254,6 @@ sealed interface AugmentedStatement :
 }
 
 @Serializable
-sealed interface AugmentedGlobalDecl : GlobalDecl {
-    @Serializable
-    class ArbitraryCompoundUserDefinedFunction(
-        val function: GlobalDecl.Function,
-    ) : AugmentedGlobalDecl
-}
-
-@Serializable
 sealed interface AugmentedMetadata {
     @Serializable
     data class ControlFlowWrapperMetaData(
@@ -1275,4 +1268,7 @@ sealed interface AugmentedMetadata {
      */
     @Serializable
     object ArbitraryCompoundMetaData : AugmentedMetadata
+
+    @Serializable
+    object FunctionForArbitraryCompoundsFromDonorShader : AugmentedMetadata
 }

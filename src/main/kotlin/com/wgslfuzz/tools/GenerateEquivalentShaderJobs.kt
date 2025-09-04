@@ -19,6 +19,7 @@ package com.wgslfuzz.tools
 import com.wgslfuzz.core.AstWriter
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.ShaderJob
+import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.UniformBufferInfoByteLevel
 import com.wgslfuzz.core.createShaderJob
 import com.wgslfuzz.core.nodesPreOrder

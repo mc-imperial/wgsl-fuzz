@@ -255,9 +255,6 @@ fun <T> traverse(
         is AugmentedStatement.ArbitraryElseBranch -> {
             actionWithState(node.statement)
         }
-        is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction -> {
-            actionWithState(node.function)
-        }
         is StructMember -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.typeDecl)

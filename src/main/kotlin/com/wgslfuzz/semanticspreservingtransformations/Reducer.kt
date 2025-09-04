@@ -19,10 +19,10 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
-import com.wgslfuzz.core.AugmentedGlobalDecl
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
@@ -326,7 +326,10 @@ private fun removeUnnecessaryUserDefinedFunctions(tu: TranslationUnit): Translat
         directives = tu.directives,
         globalDecls =
             tu.globalDecls
-                .filter { it !is AugmentedGlobalDecl.ArbitraryCompoundUserDefinedFunction || it.function.name in userDefinedFunctionNames },
+                .filter {
+                    it !is GlobalDecl.Function || it.metadata != AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader ||
+                        it.name in userDefinedFunctionNames
+                },
     )
 }
 
