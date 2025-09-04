@@ -128,7 +128,12 @@ fun ShaderJob.renameEverything(fuzzerSettings: FuzzerSettings): ShaderJob {
             is Expression.MemberLookup ->
                 Expression.MemberLookup(
                     receiver = node.receiver.clone(::rename),
-                    memberName = getNewName(node.memberName),
+                    memberName =
+                        if (this.environment.typeOf(node.receiver) is Type.Vector) {
+                            node.memberName
+                        } else {
+                            getNewName(node.memberName)
+                        },
                 )
             is Expression.StructValueConstructor ->
                 Expression.StructValueConstructor(

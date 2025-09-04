@@ -31,6 +31,23 @@ fun initMetamorphicTransformations(
         ::addDeadContinues,
         ::addDeadReturns,
         ::addIdentityOperations,
-        addControlFlowWrappers(transformedDonorShaderJob),
+        PerformTransformationOnce(addControlFlowWrappers(transformedDonorShaderJob))::transform,
     )
+}
+
+private class PerformTransformationOnce(
+    private val transformation: MetamorphicTransformation,
+) {
+    private var transformationPerformed: Boolean = false
+
+    fun transform(
+        shaderJob: ShaderJob,
+        fuzzerSettings: FuzzerSettings,
+    ): ShaderJob =
+        if (transformationPerformed) {
+            shaderJob
+        } else {
+            transformationPerformed = true
+            transformation(shaderJob, fuzzerSettings)
+        }
 }
