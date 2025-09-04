@@ -29,6 +29,8 @@ import com.wgslfuzz.core.StructMember
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
 import com.wgslfuzz.core.asStoreTypeIfReference
+import com.wgslfuzz.core.builtinFunctionNames
+import com.wgslfuzz.core.builtinNamedTypes
 import com.wgslfuzz.core.clone
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
@@ -115,7 +117,7 @@ fun ShaderJob.renameEverything(fuzzerSettings: FuzzerSettings): ShaderJob {
         when (node) {
             is Expression.FunctionCall ->
                 Expression.FunctionCall(
-                    callee = getNewName(node.callee),
+                    callee = if (node.callee in builtinFunctionNames) node.callee else getNewName(node.callee),
                     templateParameter = node.templateParameter?.clone(::rename),
                     args = node.args.clone(::rename),
                 )
@@ -147,7 +149,7 @@ fun ShaderJob.renameEverything(fuzzerSettings: FuzzerSettings): ShaderJob {
             is GlobalDecl.Function ->
                 GlobalDecl.Function(
                     attributes = node.attributes.clone(::rename),
-                    name = getNewName(node.name),
+                    name = if (node.name in builtinFunctionNames) node.name else getNewName(node.name),
                     parameters = node.parameters.clone(::rename),
                     returnAttributes = node.returnAttributes.clone(::rename),
                     returnType = node.returnType?.clone(::rename),
@@ -215,12 +217,10 @@ fun ShaderJob.renameEverything(fuzzerSettings: FuzzerSettings): ShaderJob {
                     name = getNewName(node.name),
                     typeDecl = node.typeDecl.clone(::rename),
                 )
-            is TypeDecl.NamedType -> {
-                val newName = TODO()
+            is TypeDecl.NamedType ->
                 TypeDecl.NamedType(
-                    name = newName,
+                    name = if (node.name in builtinNamedTypes) node.name else getNewName(node.name),
                 )
-            }
             else -> null
         }
 

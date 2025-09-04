@@ -190,6 +190,14 @@ val builtinFunctionNames =
         "quadSwapY",
     )
 
+// TODO(Complete this list)
+val builtinNamedTypes =
+    listOf(
+        "vec2f",
+        "vec3f",
+        "vec4f",
+    )
+
 /**
  * A shader module declares "uniform" variables to allow data to be passed into a pipeline invocation. Uniforms can be
  * dynamic between pipeline invocations, but are constant during a particular pipeline invocation.
