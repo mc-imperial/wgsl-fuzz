@@ -684,7 +684,7 @@ class AstWriter(
                 when (compound.metadata) {
                     is AugmentedMetadata.ControlFlowWrapperMetaData -> {
                         emitIndent()
-                        out.print("/* wrapped original statements: */\n")
+                        out.print("/* wrapped original statements ${compound.metadata.id}: */\n")
                     }
 
                     is AugmentedMetadata.ArbitraryCompoundMetaData -> {
@@ -906,7 +906,15 @@ class AstWriter(
     private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
         if (emitCommentary) {
             emitIndent()
-            out.print("/* control flow wrapped: */\n")
+            out.print("/* control flow wrapped ${statement.id}: */\n")
+        }
+        emitStatement(statement.statement)
+    }
+
+    private fun emitMetamorphicControlFlowWrapHelperStatement(statement: AugmentedStatement.ControlFlowWrapHelperStatement) {
+        if (emitCommentary) {
+            emitIndent()
+            out.print("/* control flow wrap helper statement ${statement.id}: */\n")
         }
         emitStatement(statement.statement)
     }
@@ -914,7 +922,7 @@ class AstWriter(
     private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
         if (emitCommentary) {
             emitIndent()
-            out.print("/* control flow wrap return: */\n")
+            out.print("/* control flow wrap return ${statement.id}: */\n")
         }
         emitStatement(statement.statement)
     }
@@ -975,6 +983,7 @@ class AstWriter(
             is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
             is AugmentedStatement.ArbitraryElseBranch -> emitMetamorphicArbitraryElseBranch(statement)
             is AugmentedStatement.ArbitraryStatement -> emitMetamorphicArbitraryStatement(statement)
+            is AugmentedStatement.ControlFlowWrapHelperStatement -> emitMetamorphicControlFlowWrapHelperStatement(statement)
         }
     }
 
