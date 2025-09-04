@@ -226,10 +226,8 @@ fun ShaderJob.renameEverything(fuzzerSettings: FuzzerSettings): ShaderJob {
 
     val newTu = this.tu.clone(::rename)
 
-    val newPipelineState = TODO()
-
     return ShaderJob(
         tu = newTu,
-        pipelineState = newPipelineState,
+        pipelineState = this.pipelineState,
     )
 }
