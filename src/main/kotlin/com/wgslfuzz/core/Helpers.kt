@@ -190,12 +190,29 @@ val builtinFunctionNames =
         "quadSwapY",
     )
 
-// TODO(Complete this list)
 val builtinNamedTypes =
-    listOf(
+    setOf(
         "vec2f",
         "vec3f",
         "vec4f",
+        "vec2i",
+        "vec3i",
+        "vec4i",
+        "vec2u",
+        "vec3u",
+        "vec4u",
+        "vec2b",
+        "vec3b",
+        "vec4b",
+        "mat2x2f",
+        "mat2x3f",
+        "mat2x4f",
+        "mat3x2f",
+        "mat3x3f",
+        "mat3x4f",
+        "mat4x2f",
+        "mat4x3f",
+        "mat4x4f",
     )
 
 /**
