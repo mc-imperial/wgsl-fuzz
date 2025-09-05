@@ -29,6 +29,7 @@ ignoreList=(
   "reverse_linked_list"
   "collatz"
   "logic_operations"
+  "counting_sort" # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/250) Counting sort uses pointers which can cause invalid aliased pointer argument
 )
 
 numVariants=1
