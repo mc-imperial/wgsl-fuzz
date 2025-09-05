@@ -115,6 +115,7 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
             ReplaceKnownValues(),
             ReduceControlFlowWrapped(),
             ReduceArbitraryExpression(),
+            ReduceArbitraryCompound(),
         )
     var reducedShaderJob = this
     var simplerButNotInterestingShaderJob: ShaderJob? = null
@@ -427,6 +428,32 @@ private class ReduceArbitraryExpression : ReductionPass<AugmentedExpression.Arbi
         return ShaderJob(
             originalShaderJob.tu.clone(::removeArbitraryExpression),
             originalShaderJob.pipelineState,
+        )
+    }
+}
+
+private class ReduceArbitraryCompound : ReductionPass<Statement.Compound>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<Statement.Compound> =
+        nodesPreOrder(originalShaderJob.tu).filterIsInstance<Statement.Compound>().filter {
+            it.metadata == AugmentedMetadata.ArbitraryCompoundMetaData
+        }
+
+    override fun removeOpportunities(
+        originalShaderJob: ShaderJob,
+        opportunities: List<Statement.Compound>,
+    ): ShaderJob {
+        val opportunitiesAsSet = opportunities.toSet()
+
+        fun removeOpportunitiesHelper(node: AstNode): AstNode? =
+            if (node !in opportunitiesAsSet) {
+                null
+            } else {
+                Statement.Compound(statements = listOf(Statement.Empty()))
+            }
+
+        return ShaderJob(
+            tu = originalShaderJob.tu.clone(::removeOpportunitiesHelper),
+            pipelineState = originalShaderJob.pipelineState,
         )
     }
 }
