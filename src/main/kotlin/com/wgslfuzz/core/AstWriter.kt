@@ -1101,6 +1101,10 @@ class AstWriter(
 
     private fun emitGlobalDeclFunction(function: GlobalDecl.Function) {
         with(function) {
+            if (emitCommentary && metadata == AugmentedMetadata.ArbitraryCompoundMetaData) {
+                emitIndent()
+                out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
+            }
             emitAttributes(attributes)
             out.print("fn $name(")
             if (parameters.isNotEmpty()) {

@@ -73,7 +73,7 @@ async function capturePage(pagePath, outputDir) {
 
   const canvas = await page.waitForSelector("#thecanvas", { timeout: 1000 });
 
-  await page.waitForSelector("#doneRender", { timeout: 60000 });
+  await page.waitForSelector("#doneRender", { timeout: 300000 });
 
   await canvas.screenshot({
     path: outputDir + "/" + fileName + ".png",

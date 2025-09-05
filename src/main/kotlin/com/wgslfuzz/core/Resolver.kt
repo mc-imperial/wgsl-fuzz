@@ -16,6 +16,8 @@
 
 package com.wgslfuzz.core
 
+import kotlin.collections.set
+
 sealed interface ScopeEntry {
     val astNode: AstNode
     val declName: String

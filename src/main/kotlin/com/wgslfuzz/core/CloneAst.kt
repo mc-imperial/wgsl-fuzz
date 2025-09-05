@@ -162,6 +162,7 @@ private fun cloneHelper(
                     returnAttributes.clone(replacements),
                     returnType?.clone(replacements),
                     body.clone(replacements),
+                    metadata,
                 )
             is GlobalDecl.Override ->
                 GlobalDecl.Override(

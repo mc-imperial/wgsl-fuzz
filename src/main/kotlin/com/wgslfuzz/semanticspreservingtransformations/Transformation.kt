@@ -20,12 +20,17 @@ import com.wgslfuzz.core.ShaderJob
 
 typealias MetamorphicTransformation = (shaderJob: ShaderJob, fuzzerSettings: FuzzerSettings) -> ShaderJob
 
-val metamorphicTransformations: List<MetamorphicTransformation> =
-    listOf(
+fun initMetamorphicTransformations(
+    donorShaderJob: ShaderJob,
+    fuzzerSettings: FuzzerSettings,
+): List<MetamorphicTransformation> {
+    val transformedDonorShaderJob = donorShaderJob.renameEverything(fuzzerSettings)
+    return listOf(
         ::addDeadDiscards,
         ::addDeadBreaks,
         ::addDeadContinues,
         ::addDeadReturns,
         ::addIdentityOperations,
-        ::addControlFlowWrappers,
+        addControlFlowWrappers(transformedDonorShaderJob),
     )
+}

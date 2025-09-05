@@ -18,51 +18,71 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
-import com.wgslfuzz.core.Scope
+import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.Type
+import com.wgslfuzz.core.asStoreTypeIfReference
+import com.wgslfuzz.core.builtinFunctionNames
+import com.wgslfuzz.core.clone
+import com.wgslfuzz.core.nodesPreOrder
+import com.wgslfuzz.core.toType
 
+/**
+ * @return a pair containing the arbitrary else branch generated and a set containing all user defined function calls in the arbitrary else branch
+ */
 fun generateArbitraryElseBranch(
     depth: Int,
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
-    scope: Scope,
-): Statement.ElseBranch? {
-    val choices =
+    donorShaderJob: ShaderJob,
+    returnType: Type?,
+): Pair<AugmentedStatement.ArbitraryElseBranch?, Set<String>> {
+    val nonRecursiveChoices: List<Pair<Int, () -> Pair<Statement.ElseBranch?, Set<String>>>> =
         listOf(
             fuzzerSettings.arbitraryElseBranchWeights.empty(depth) to {
-                null
+                Pair(null, emptySet())
             },
+        )
+    val recursiveChoices: List<Pair<Int, () -> Pair<Statement.ElseBranch?, Set<String>>>> =
+        listOf(
             fuzzerSettings.arbitraryElseBranchWeights.ifStatement(depth) to {
-                Statement.If(
-                    attributes = emptyList(),
-                    condition =
-                        generateArbitraryExpression(
-                            depth = depth + 1,
-                            type = Type.Bool,
-                            sideEffectsAllowed = sideEffectsAllowed,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                    thenBranch =
-                        generateArbitraryCompound(
-                            depth = depth + 1,
-                            sideEffectsAllowed = sideEffectsAllowed,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                    elseBranch =
-                        generateArbitraryElseBranch(
-                            depth = depth + 1,
-                            sideEffectsAllowed = sideEffectsAllowed,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
+                val (thenCompound, thenFunctionCalls) =
+                    generateArbitraryCompound(
+                        depth = depth + 1,
+                        sideEffectsAllowed = sideEffectsAllowed,
+                        fuzzerSettings = fuzzerSettings,
+                        shaderJob = shaderJob,
+                        donorShaderJob = donorShaderJob,
+                        returnType = returnType,
+                    )
+                val (elseCompound, elseFunctionCalls) =
+                    generateArbitraryElseBranch(
+                        depth = depth + 1,
+                        sideEffectsAllowed = sideEffectsAllowed,
+                        fuzzerSettings = fuzzerSettings,
+                        shaderJob = shaderJob,
+                        donorShaderJob = donorShaderJob,
+                        returnType = returnType,
+                    )
+                Pair(
+                    Statement.If(
+                        attributes = emptyList(),
+                        condition =
+                            generateArbitraryExpression(
+                                depth = depth + 1,
+                                type = Type.Bool,
+                                sideEffectsAllowed = sideEffectsAllowed,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = shaderJob.environment.globalScope,
+                            ),
+                        thenBranch = thenCompound,
+                        elseBranch = elseCompound,
+                    ),
+                    thenFunctionCalls + elseFunctionCalls,
                 )
             },
             fuzzerSettings.arbitraryElseBranchWeights.compound(depth) to {
@@ -71,34 +91,178 @@ fun generateArbitraryElseBranch(
                     sideEffectsAllowed = sideEffectsAllowed,
                     fuzzerSettings = fuzzerSettings,
                     shaderJob = shaderJob,
-                    scope = scope,
+                    donorShaderJob = donorShaderJob,
+                    returnType = returnType,
                 )
             },
         )
-    return choose(fuzzerSettings, choices)?.let { AugmentedStatement.ArbitraryElseBranch(it) }
+
+    val (arbitraryCompound, functionCalls) =
+        if (fuzzerSettings.goDeeper(depth)) {
+            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+        } else {
+            choose(fuzzerSettings, nonRecursiveChoices)
+        }
+    return Pair(
+        arbitraryCompound?.let { AugmentedStatement.ArbitraryElseBranch(it) },
+        functionCalls,
+    )
 }
 
+/**
+ * generateArbitraryCompound generates arbitrary compounds by taking in a donor shader and selecting a random compound from the donor shader and returning it.
+ * It performs a few transformations to the donor compound to ensure it is semantics preserving.
+ * - Adds variable declarations for all variables undeclared from the donor compound
+ * - Changes all return expressions to be arbitrary expressions of the correct type
+ *
+ * @return a pair containing the arbitrary compound generated and a set containing all user defined function calls in the arbitrary compound
+ *
+ * Note: the donor shader cannot contain any structs and not share any variable names with shaderJob
+ */
 fun generateArbitraryCompound(
     depth: Int,
     sideEffectsAllowed: Boolean,
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
-    scope: Scope,
-): Statement.Compound {
-    val compoundLength = fuzzerSettings.randomArbitraryCompoundLength(depth)
-    return Statement.Compound(
-        statements =
-            List(compoundLength) {
-                generateArbitraryStatement(depth + 1, sideEffectsAllowed, shaderJob, scope)
-            },
-        metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
+    donorShaderJob: ShaderJob,
+    returnType: Type?,
+): Pair<Statement.Compound, Set<String>> {
+    if (!sideEffectsAllowed) {
+        TODO("Not yet implemented side effect free arbitrary compound generation")
+    }
+    // Select random compound out of donorShaderJob
+    val compoundFromDonor = randomCompound(fuzzerSettings, donorShaderJob)
+
+    // Process the donorShaderJob code
+    val compoundWithDeclarationsAdded =
+        compoundFromDonor.addDeclarations(
+            fuzzerSettings = fuzzerSettings,
+            sideEffectsAllowed = sideEffectsAllowed,
+            donorShaderJob = donorShaderJob,
+            shaderJob = shaderJob,
+        )
+
+    val compoundWithReturnsOfCorrectType =
+        compoundWithDeclarationsAdded.clone { node ->
+            if (node is Statement.Return) {
+                Statement.Return(
+                    returnType?.let {
+                        generateArbitraryExpression(
+                            depth = depth + 1,
+                            type = it,
+                            sideEffectsAllowed = sideEffectsAllowed,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = shaderJob.environment.globalScope,
+                        )
+                    },
+                )
+            } else {
+                null
+            }
+        }
+
+    val functionCalls =
+        nodesPreOrder(compoundWithReturnsOfCorrectType)
+            .filterIsInstance<Expression.FunctionCall>()
+            .map { it.callee }
+            .filter {
+                it !in builtinFunctionNames
+            }.toSet()
+
+    return Pair(
+        Statement.Compound(
+            statements = compoundWithReturnsOfCorrectType.statements,
+            metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
+        ),
+        functionCalls,
     )
 }
 
-// TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/223)
-fun generateArbitraryStatement(
-    depth: Int,
-    sideEffectsAllowed: Boolean,
+private fun randomCompound(
+    fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
-    scope: Scope,
-): Statement = AugmentedStatement.ArbitraryStatement(Statement.Empty())
+): Statement.Compound = fuzzerSettings.randomElement(nodesPreOrder(shaderJob.tu).filterIsInstance<Statement.Compound>())
+
+private fun Statement.Compound.addDeclarations(
+    fuzzerSettings: FuzzerSettings,
+    sideEffectsAllowed: Boolean,
+    donorShaderJob: ShaderJob,
+    shaderJob: ShaderJob,
+): Statement.Compound {
+    val preOrderDonorNodes = nodesPreOrder(this)
+
+    val variablesMutatedInCompound =
+        preOrderDonorNodes
+            .filterIsInstance<LhsExpression.Identifier>()
+            .map { it.name }
+            .toSet()
+
+    val variablesUsedInCompound =
+        preOrderDonorNodes
+            .filterIsInstance<Expression.Identifier>()
+            .map { it.name }
+            .toSet() + variablesMutatedInCompound
+
+    val variablesDefinedInCompound =
+        preOrderDonorNodes
+            .mapNotNull {
+                when (it) {
+                    is Statement.Value -> it.name
+                    is Statement.Variable -> it.name
+                    else -> null
+                }
+            }.toSet()
+
+    val identifierNamesToTypes =
+        preOrderDonorNodes
+            .mapNotNull { node ->
+                when (node) {
+                    is LhsExpression.Identifier -> node.name to donorShaderJob.environment.typeOf(node).asStoreTypeIfReference()
+                    is Expression.Identifier -> node.name to donorShaderJob.environment.typeOf(node).asStoreTypeIfReference()
+                    is Statement.Value -> {
+                        val type =
+                            node.typeDecl?.toType(donorShaderJob.environment.globalScope, donorShaderJob.environment)
+                                ?: donorShaderJob.environment.typeOf(node.initializer).asStoreTypeIfReference()
+                        node.name to type
+                    }
+                    is Statement.Variable -> {
+                        val type =
+                            node.typeDecl?.toType(donorShaderJob.environment.globalScope, donorShaderJob.environment)
+                                ?: node.initializer?.let { donorShaderJob.environment.typeOf(it) }?.asStoreTypeIfReference()
+
+                        type?.let { node.name to it }
+                    }
+                    else -> null
+                }
+            }.toMap()
+
+    // Create variable initializers
+    val variablesUndefinedInCompound = variablesUsedInCompound - variablesDefinedInCompound
+    val variableInitializers =
+        variablesUndefinedInCompound.map {
+            val initializer =
+                generateArbitraryExpression(
+                    depth = 0,
+                    type = identifierNamesToTypes[it]!!,
+                    sideEffectsAllowed = sideEffectsAllowed,
+                    fuzzerSettings = fuzzerSettings,
+                    shaderJob = shaderJob,
+                    scope = shaderJob.environment.globalScope,
+                )
+            if (it in variablesMutatedInCompound) {
+                Statement.Variable(
+                    name = it,
+                    initializer = initializer,
+                )
+            } else {
+                Statement.Value(
+                    isConst = false,
+                    name = it,
+                    initializer = initializer,
+                )
+            }
+        }
+
+    return Statement.Compound(statements = variableInitializers + this.statements, metadata = this.metadata)
+}
