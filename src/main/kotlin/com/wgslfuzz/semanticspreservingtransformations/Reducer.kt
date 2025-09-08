@@ -331,7 +331,7 @@ private class ReduceArbitraryExpression :
         val opportunitiesMap = opportunities.toMap()
 
         fun removeArbitraryExpression(node: AstNode): AstNode? =
-            if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesAsSet) {
+            if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesMap) {
                 null
             } else {
                 val underlyingExpression = node.expression
