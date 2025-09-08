@@ -310,17 +310,24 @@ private class ReduceArbitraryExpression :
     ReductionPass<Pair<AugmentedExpression.ArbitraryExpression, ReduceArbitraryExpression.Metadata?>>() {
     interface Metadata {
         enum class Binary : Metadata { LHS, RHS }
+
+        data class FunctionCall(
+            val parameterIndex: Int,
+        ) : Metadata
     }
 
     override fun findOpportunities(originalShaderJob: ShaderJob): List<Pair<AugmentedExpression.ArbitraryExpression, Metadata?>> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.ArbitraryExpression>().flatMap {
-            when (it.expression) {
+        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.ArbitraryExpression>().flatMap { arbitraryExpression ->
+            when (arbitraryExpression.expression) {
                 is Expression.Binary ->
                     listOf(
-                        it to Metadata.Binary.LHS,
-                        it to Metadata.Binary.RHS,
+                        arbitraryExpression to Metadata.Binary.LHS,
+                        arbitraryExpression to Metadata.Binary.RHS,
                     )
-                else -> listOf(it to null)
+                is Expression.FunctionCall ->
+                    (0..<arbitraryExpression.expression.args.size)
+                        .map { arbitraryExpression to Metadata.FunctionCall(it) }
+                else -> listOf(arbitraryExpression to null)
             }
         }
 
@@ -397,9 +404,11 @@ private class ReduceArbitraryExpression :
                         }
 
                     is Expression.FunctionCall ->
-                        underlyingExpression.args.firstOrNull {
-                            originalShaderJob.environment.typeOf(it) == underlyingExpressionType
-                        } ?: constantWithSameValueEverywhere(1, underlyingExpressionType)
+                        underlyingExpression
+                            .args[(opportunitiesMap[node] as Metadata.FunctionCall).parameterIndex]
+                            .takeIf {
+                                originalShaderJob.environment.typeOf(it) == underlyingExpressionType
+                            } ?: constantWithSameValueEverywhere(1, underlyingExpressionType)
 
                     is AugmentedExpression.ArbitraryExpression -> throw IllegalStateException(
                         "An arbitrary expression should not wrap another arbitrary expression",
