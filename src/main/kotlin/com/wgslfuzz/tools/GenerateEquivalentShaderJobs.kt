@@ -17,13 +17,14 @@
 package com.wgslfuzz.tools
 
 import com.wgslfuzz.core.AstWriter
+import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.UniformBufferInfoByteLevel
 import com.wgslfuzz.core.createShaderJob
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.semanticspreservingtransformations.DefaultFuzzerSettings
 import com.wgslfuzz.semanticspreservingtransformations.FuzzerSettings
-import com.wgslfuzz.semanticspreservingtransformations.metamorphicTransformations
+import com.wgslfuzz.semanticspreservingtransformations.initMetamorphicTransformations
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.default
@@ -42,7 +43,7 @@ import kotlin.system.exitProcess
 fun main(args: Array<String>) {
     val parser = ArgParser("wgsl-fuzz generator")
 
-    val originalShader by parser
+    val originalShaderFilePath by parser
         .option(
             ArgType.String,
             fullName = "originalShader",
@@ -79,37 +80,32 @@ fun main(args: Array<String>) {
                     "applied before the limit was reached than then takes the number of nodes beyond the limit",
         ).default(200000)
 
+    val donorShaderFilePath by parser
+        .option(
+            ArgType.String,
+            fullName = "donorShader",
+            description =
+                "File path to a donor shader to be used to generate arbitrary compounds. " +
+                    "Donor shader must not contain any Structs",
+        ).required()
+
     parser.parse(args)
 
-    println("Original shader file: $originalShader")
+    println("Original shader file: $originalShaderFilePath")
     println("Number of variants: $numVariants")
     println("Output directory: $outputDir")
     println("Seed: ${seed ?: "not provided"}")
 
-    if (!originalShader.endsWith(".wgsl")) {
-        System.err.println("Original shader file $originalShader must have extension .wgsl")
-        exitProcess(1)
-    }
-
-    if (!File(originalShader).exists()) {
-        System.err.println("Original shader file $originalShader does not exist")
-        exitProcess(1)
-    }
-
-    val uniforms = originalShader.removeSuffix(".wgsl") + ".uniforms.json"
-    if (!File(uniforms).exists()) {
-        System.err.println("Uniforms file $originalShader does not exist")
-        exitProcess(1)
-    }
-
-    if (!File(outputDir).isDirectory()) {
+    // Check output directory exists and is a directory
+    if (!File(outputDir).isDirectory) {
         System.err.println("Output directory $outputDir must be a directory")
         exitProcess(1)
     }
 
-    val shaderText = File(originalShader).readText()
-    val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(File(uniforms).readText())
-    val shaderJob = createShaderJob(shaderText, uniformBuffers)
+    val shaderJob = getShaderJobFromFile(originalShaderFilePath)
+
+    val donorShaderJob = getShaderJobFromFile(donorShaderFilePath)
+    require(donorShaderJob.tu.globalDecls.none { it is GlobalDecl.Struct }) { "Donor shader must not contain any Structs" }
 
     val seedAsLong = seed?.toLong() ?: Random.nextLong() // If a seed is not passed in get a random seed from the default Random object
     println("Using seed: $seedAsLong")
@@ -129,6 +125,7 @@ fun main(args: Array<String>) {
             ) {
                 break
             }
+            val metamorphicTransformations = initMetamorphicTransformations(donorShaderJob, fuzzerSettings)
             transformedShaderJob =
                 fuzzerSettings.randomElement(metamorphicTransformations)(
                     transformedShaderJob,
@@ -150,4 +147,26 @@ fun main(args: Array<String>) {
         ).writeText(prettyJson.encodeToString(transformedShaderJob.getByteLevelContentsForUniformBuffers()))
         File(outputDir, "variant$paddedNumber.shaderjob.json").writeText(Json.encodeToString(transformedShaderJob))
     }
+}
+
+private fun getShaderJobFromFile(shaderFilePath: String): ShaderJob {
+    if (!shaderFilePath.endsWith(".wgsl")) {
+        System.err.println("Donor shader file $shaderFilePath must have extension .wgsl")
+        exitProcess(1)
+    }
+
+    if (!File(shaderFilePath).exists()) {
+        System.err.println("Donor shader file $shaderFilePath does not exist")
+        exitProcess(1)
+    }
+
+    val uniformsFilePath = shaderFilePath.removeSuffix(".wgsl") + ".uniforms.json"
+    if (!File(uniformsFilePath).exists()) {
+        System.err.println("Uniforms file $shaderFilePath does not exist")
+        exitProcess(1)
+    }
+
+    val shaderText = File(shaderFilePath).readText()
+    val uniformBuffers = Json.decodeFromString<List<UniformBufferInfoByteLevel>>(File(uniformsFilePath).readText())
+    return createShaderJob(shaderText, uniformBuffers)
 }

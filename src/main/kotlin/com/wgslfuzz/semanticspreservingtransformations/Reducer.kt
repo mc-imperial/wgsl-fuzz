@@ -22,9 +22,11 @@ import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
@@ -296,11 +298,40 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
             return Statement.Compound(originalStatements.clone(::replaceControlFlowWrapped))
         }
 
+        val removedControlFlowWrapped = originalShaderJob.tu.clone(::replaceControlFlowWrapped)
+
+        val removedUnnecessaryUserDefinedFunctions = removeUnnecessaryUserDefinedDonorShaderFunctions(removedControlFlowWrapped)
+
         return ShaderJob(
-            originalShaderJob.tu.clone(::replaceControlFlowWrapped),
-            originalShaderJob.pipelineState,
+            tu = removedUnnecessaryUserDefinedFunctions,
+            pipelineState = originalShaderJob.pipelineState,
         )
     }
+}
+
+private fun removeUnnecessaryUserDefinedDonorShaderFunctions(tu: TranslationUnit): TranslationUnit {
+    val userDefinedFunctionNames =
+        nodesPreOrder(tu)
+            .asSequence()
+            .filterIsInstance<Statement.Compound>()
+            .filter { it.metadata is AugmentedMetadata.ControlFlowWrapperMetaData }
+            .flatMap { arbitraryCompound ->
+                nodesPreOrder(arbitraryCompound)
+                    .asSequence()
+                    .filterIsInstance<Expression.FunctionCall>()
+                    .map { it.callee }
+            }.toSet()
+
+    return TranslationUnit(
+        directives = tu.directives,
+        globalDecls =
+            tu.globalDecls
+                .filter {
+                    it !is GlobalDecl.Function ||
+                        it.metadata != AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader ||
+                        it.name in userDefinedFunctionNames
+                },
+    )
 }
 
 /**
