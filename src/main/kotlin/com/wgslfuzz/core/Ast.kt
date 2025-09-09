@@ -121,7 +121,9 @@ enum class InterpolateSampling {
  * Every AST node (indirectly) implements this interface.
  */
 @Serializable
-sealed interface AstNode
+sealed interface AstNode {
+    val metadata: Set<Metadata>
+}
 
 /**
  * A translation unit corresponds to a fully parsed WGSL program.
@@ -130,6 +132,7 @@ sealed interface AstNode
 class TranslationUnit(
     val directives: List<Directive>,
     val globalDecls: List<GlobalDecl>,
+    override val metadata: Set<Metadata>,
 ) : AstNode
 
 /**
@@ -140,78 +143,101 @@ sealed interface Attribute : AstNode {
     @Serializable
     class Align(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
     class Binding(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
     class BlendSrc(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
     class Builtin(
         val name: BuiltinValue,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
-    class Compute : Attribute
+    class Compute(
+        override val metadata: Set<Metadata>,
+    ) : Attribute
 
     @Serializable
-    class Const : Attribute
+    class Const(
+        override val metadata: Set<Metadata>,
+    ) : Attribute
 
     @Serializable
     class Diagnostic(
         val severityControl: SeverityControl,
         val diagnosticRule: DiagnosticRule,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
-    class Fragment : Attribute
+    class Fragment(
+        override val metadata: Set<Metadata>,
+    ) : Attribute
 
     @Serializable
     class Group(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
     class Id(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
     class Interpolate(
         val interpolateType: InterpolateType,
         val interpolateSampling: InterpolateSampling? = null,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
-    class Invariant : Attribute
+    class Invariant(
+        override val metadata: Set<Metadata>,
+    ) : Attribute
 
     @Serializable
     class Location(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
-    class MustUse : Attribute
+    class MustUse(
+        override val metadata: Set<Metadata>,
+    ) : Attribute
 
     @Serializable
     class Size(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     @Serializable
-    class Vertex : Attribute
+    class Vertex(
+        override val metadata: Set<Metadata>,
+    ) : Attribute
 
     @Serializable
     class WorkgroupSize(
         val sizeX: Expression,
         val sizeY: Expression? = null,
         val sizeZ: Expression? = null,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 
     // Extensions:
@@ -219,6 +245,7 @@ sealed interface Attribute : AstNode {
     @Serializable
     class InputAttachmentIndex(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Attribute
 }
 
@@ -230,6 +257,7 @@ sealed interface Attribute : AstNode {
 @Serializable
 class Directive(
     val text: String,
+    override val metadata: Set<Metadata>,
 ) : AstNode
 
 /**
@@ -242,6 +270,7 @@ sealed interface GlobalDecl : AstNode {
         val name: String,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression,
+        override val metadata: Set<Metadata>,
     ) : GlobalDecl
 
     @Serializable
@@ -250,6 +279,7 @@ sealed interface GlobalDecl : AstNode {
         val name: String,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
+        override val metadata: Set<Metadata>,
     ) : GlobalDecl
 
     @Serializable
@@ -260,6 +290,7 @@ sealed interface GlobalDecl : AstNode {
         val accessMode: AccessMode? = null,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
+        override val metadata: Set<Metadata>,
     ) : GlobalDecl
 
     @Serializable
@@ -270,28 +301,33 @@ sealed interface GlobalDecl : AstNode {
         val returnAttributes: List<Attribute> = emptyList(),
         val returnType: TypeDecl? = null,
         val body: Statement.Compound,
-        val metadata: Set<Metadata> = emptySet(),
+        override val metadata: Set<Metadata>,
     ) : GlobalDecl
 
     @Serializable
     class Struct(
         val name: String,
         val members: List<StructMember>,
+        override val metadata: Set<Metadata>,
     ) : GlobalDecl
 
     @Serializable
     class TypeAlias(
         val name: String,
         val typeDecl: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : GlobalDecl
 
     @Serializable
     class ConstAssert(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : GlobalDecl
 
     @Serializable
-    class Empty : GlobalDecl
+    class Empty(
+        override val metadata: Set<Metadata>,
+    ) : GlobalDecl
 }
 
 /**
@@ -307,19 +343,25 @@ sealed interface TypeDecl : AstNode {
     }
 
     @Serializable
-    class Bool : ScalarTypeDecl {
+    class Bool(
+        override val metadata: Set<Metadata>,
+    ) : ScalarTypeDecl {
         override val name: String
             get() = "bool"
     }
 
     @Serializable
-    class I32 : ScalarTypeDecl {
+    class I32(
+        override val metadata: Set<Metadata>,
+    ) : ScalarTypeDecl {
         override val name: String
             get() = "i32"
     }
 
     @Serializable
-    class U32 : ScalarTypeDecl {
+    class U32(
+        override val metadata: Set<Metadata>,
+    ) : ScalarTypeDecl {
         override val name: String
             get() = "u32"
     }
@@ -328,13 +370,17 @@ sealed interface TypeDecl : AstNode {
     sealed interface FloatTypeDecl : ScalarTypeDecl
 
     @Serializable
-    class F32 : FloatTypeDecl {
+    class F32(
+        override val metadata: Set<Metadata>,
+    ) : FloatTypeDecl {
         override val name: String
             get() = "f32"
     }
 
     @Serializable
-    class F16 : FloatTypeDecl {
+    class F16(
+        override val metadata: Set<Metadata>,
+    ) : FloatTypeDecl {
         override val name: String
             get() = "f16"
     }
@@ -348,6 +394,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Vec2(
         override val elementType: ScalarTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : VectorTypeDecl {
         override val name: String
             get() = "vec2"
@@ -356,6 +403,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Vec3(
         override val elementType: ScalarTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : VectorTypeDecl {
         override val name: String
             get() = "vec3"
@@ -364,6 +412,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Vec4(
         override val elementType: ScalarTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : VectorTypeDecl {
         override val name: String
             get() = "vec4"
@@ -378,6 +427,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat2x2(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat2x2"
@@ -386,6 +436,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat2x3(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat2x3"
@@ -394,6 +445,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat2x4(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat2x4"
@@ -402,6 +454,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat3x2(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat3x2"
@@ -410,6 +463,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat3x3(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat3x3"
@@ -418,6 +472,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat3x4(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat3x4"
@@ -426,6 +481,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat4x2(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat4x2"
@@ -434,6 +490,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat4x3(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat4x3"
@@ -442,6 +499,7 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class Mat4x4(
         override val elementType: FloatTypeDecl,
+        override val metadata: Set<Metadata>,
     ) : MatrixTypeDecl {
         override val name: String
             get() = "mat4x4"
@@ -451,11 +509,13 @@ sealed interface TypeDecl : AstNode {
     class Array(
         val elementType: TypeDecl,
         val elementCount: Expression? = null,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class NamedType(
         val name: String,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
@@ -463,49 +523,61 @@ sealed interface TypeDecl : AstNode {
         val addressSpace: AddressSpace,
         val pointeeType: TypeDecl,
         val accessMode: AccessMode? = null,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class Atomic(
         val targetType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
-    class SamplerRegular : TypeDecl
+    class SamplerRegular(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 
     @Serializable
-    class SamplerComparison : TypeDecl
+    class SamplerComparison(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 
     // Sampled Texture Types
 
     @Serializable
     class TextureSampled1D(
         val sampledType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureSampled2D(
         val sampledType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureSampled2DArray(
         val sampledType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureSampled3D(
         val sampledType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureSampledCube(
         val sampledType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureSampledCubeArray(
         val sampledType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     // Multisampled Texture Types
@@ -513,15 +585,20 @@ sealed interface TypeDecl : AstNode {
     @Serializable
     class TextureMultisampled2d(
         val sampledType: TypeDecl,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
-    class TextureDepthMultisampled2D : TypeDecl
+    class TextureDepthMultisampled2D(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 
     // External Sampled Texture Types
 
     @Serializable
-    class TextureExternal : TypeDecl
+    class TextureExternal(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 
     // Storage Texture Types
 
@@ -529,39 +606,51 @@ sealed interface TypeDecl : AstNode {
     class TextureStorage1D(
         val format: TexelFormat,
         val accessMode: AccessMode,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureStorage2D(
         val format: TexelFormat,
         val accessMode: AccessMode,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureStorage2DArray(
         val format: TexelFormat,
         val accessMode: AccessMode,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     @Serializable
     class TextureStorage3D(
         val format: TexelFormat,
         val accessMode: AccessMode,
+        override val metadata: Set<Metadata>,
     ) : TypeDecl
 
     // Depth Texture Types
 
     @Serializable
-    class TextureDepth2D : TypeDecl
+    class TextureDepth2D(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 
     @Serializable
-    class TextureDepth2DArray : TypeDecl
+    class TextureDepth2DArray(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 
     @Serializable
-    class TextureDepthCube : TypeDecl
+    class TextureDepthCube(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 
     @Serializable
-    class TextureDepthCubeArray : TypeDecl
+    class TextureDepthCubeArray(
+        override val metadata: Set<Metadata>,
+    ) : TypeDecl
 }
 
 /**
@@ -573,32 +662,38 @@ sealed interface Expression : AstNode {
     @Serializable
     class BoolLiteral(
         val text: String,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
     class FloatLiteral(
         val text: String,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
     class IntLiteral(
         val text: String,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
     class Identifier(
         val name: String,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
     class Paren(
         val target: Expression,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
     class Unary(
         val operator: UnaryOperator,
         val target: Expression,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
@@ -606,6 +701,7 @@ sealed interface Expression : AstNode {
         val operator: BinaryOperator,
         val lhs: Expression,
         val rhs: Expression,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
@@ -613,6 +709,7 @@ sealed interface Expression : AstNode {
         val callee: String,
         val templateParameter: TypeDecl? = null,
         val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
@@ -627,6 +724,7 @@ sealed interface Expression : AstNode {
     @Serializable
     class BoolValueConstructor(
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ScalarValueConstructor {
         override val constructorName: String
             get() = "bool"
@@ -635,6 +733,7 @@ sealed interface Expression : AstNode {
     @Serializable
     class I32ValueConstructor(
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ScalarValueConstructor {
         override val constructorName: String
             get() = "i32"
@@ -643,6 +742,7 @@ sealed interface Expression : AstNode {
     @Serializable
     class U32ValueConstructor(
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ScalarValueConstructor {
         override val constructorName: String
             get() = "u32"
@@ -651,6 +751,7 @@ sealed interface Expression : AstNode {
     @Serializable
     class F16ValueConstructor(
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ScalarValueConstructor {
         override val constructorName: String
             get() = "f16"
@@ -659,6 +760,7 @@ sealed interface Expression : AstNode {
     @Serializable
     class F32ValueConstructor(
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ScalarValueConstructor {
         override val constructorName: String
             get() = "f32"
@@ -673,6 +775,7 @@ sealed interface Expression : AstNode {
     class Vec2ValueConstructor(
         override val elementType: TypeDecl.ScalarTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : VectorValueConstructor {
         override val constructorName: String
             get() = "vec2"
@@ -682,6 +785,7 @@ sealed interface Expression : AstNode {
     class Vec3ValueConstructor(
         override val elementType: TypeDecl.ScalarTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : VectorValueConstructor {
         override val constructorName: String
             get() = "vec3"
@@ -691,6 +795,7 @@ sealed interface Expression : AstNode {
     class Vec4ValueConstructor(
         override val elementType: TypeDecl.ScalarTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : VectorValueConstructor {
         override val constructorName: String
             get() = "vec4"
@@ -705,6 +810,7 @@ sealed interface Expression : AstNode {
     class Mat2x2ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat2x2"
@@ -714,6 +820,7 @@ sealed interface Expression : AstNode {
     class Mat2x3ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat2x3"
@@ -723,6 +830,7 @@ sealed interface Expression : AstNode {
     class Mat2x4ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat2x4"
@@ -732,6 +840,7 @@ sealed interface Expression : AstNode {
     class Mat3x2ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat3x2"
@@ -741,6 +850,7 @@ sealed interface Expression : AstNode {
     class Mat3x3ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat3x3"
@@ -750,6 +860,7 @@ sealed interface Expression : AstNode {
     class Mat3x4ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat3x4"
@@ -759,6 +870,7 @@ sealed interface Expression : AstNode {
     class Mat4x2ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat4x2"
@@ -768,6 +880,7 @@ sealed interface Expression : AstNode {
     class Mat4x3ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat4x3"
@@ -777,6 +890,7 @@ sealed interface Expression : AstNode {
     class Mat4x4ValueConstructor(
         override val elementType: TypeDecl.FloatTypeDecl? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : MatrixValueConstructor {
         override val constructorName: String
             get() = "mat4x4"
@@ -786,12 +900,14 @@ sealed interface Expression : AstNode {
     class StructValueConstructor(
         override val constructorName: String,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ValueConstructor
 
     @Serializable
     class TypeAliasValueConstructor(
         override val constructorName: String,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ValueConstructor
 
     @Serializable
@@ -799,6 +915,7 @@ sealed interface Expression : AstNode {
         val elementType: TypeDecl? = null,
         val elementCount: Expression? = null,
         override val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ValueConstructor {
         override val constructorName: String
             get() = "array"
@@ -808,12 +925,14 @@ sealed interface Expression : AstNode {
     class MemberLookup(
         val receiver: Expression,
         val memberName: String,
+        override val metadata: Set<Metadata>,
     ) : Expression
 
     @Serializable
     class IndexLookup(
         val target: Expression,
         val index: Expression,
+        override val metadata: Set<Metadata>,
     ) : Expression
 }
 
@@ -829,33 +948,39 @@ sealed interface LhsExpression : AstNode {
     @Serializable
     class Identifier(
         val name: String,
+        override val metadata: Set<Metadata>,
     ) : LhsExpression
 
     @Serializable
     class Paren(
         val target: LhsExpression,
+        override val metadata: Set<Metadata>,
     ) : LhsExpression
 
     @Serializable
     class MemberLookup(
         val receiver: LhsExpression,
         val memberName: String,
+        override val metadata: Set<Metadata>,
     ) : LhsExpression
 
     @Serializable
     class IndexLookup(
         val target: LhsExpression,
         val index: Expression,
+        override val metadata: Set<Metadata>,
     ) : LhsExpression
 
     @Serializable
     class Dereference(
         val target: LhsExpression,
+        override val metadata: Set<Metadata>,
     ) : LhsExpression
 
     @Serializable
     class AddressOf(
         val target: LhsExpression,
+        override val metadata: Set<Metadata>,
     ) : LhsExpression
 }
 
@@ -886,20 +1011,29 @@ sealed interface Statement : AstNode {
     sealed interface ForUpdate : Statement
 
     @Serializable
-    class Empty : Statement
+    class Empty(
+        override val metadata: Set<Metadata>,
+    ) : Statement
 
     @Serializable
-    class Break : Statement
+    class Break(
+        override val metadata: Set<Metadata>,
+    ) : Statement
 
     @Serializable
-    class Continue : Statement
+    class Continue(
+        override val metadata: Set<Metadata>,
+    ) : Statement
 
     @Serializable
-    class Discard : Statement
+    class Discard(
+        override val metadata: Set<Metadata>,
+    ) : Statement
 
     @Serializable
     class Return(
         val expression: Expression? = null,
+        override val metadata: Set<Metadata>,
     ) : Statement
 
     @Serializable
@@ -907,32 +1041,34 @@ sealed interface Statement : AstNode {
         val lhsExpression: LhsExpression? = null,
         val assignmentOperator: AssignmentOperator,
         val rhs: Expression,
+        override val metadata: Set<Metadata>,
     ) : ForInit,
         ForUpdate
 
     @Serializable
     class Increment(
         val target: LhsExpression,
+        override val metadata: Set<Metadata>,
     ) : ForInit,
         ForUpdate
 
     @Serializable
     class Decrement(
         val target: LhsExpression,
+        override val metadata: Set<Metadata>,
     ) : ForInit,
         ForUpdate
 
     @Serializable
     class ConstAssert(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : Statement
 
     @Serializable
     class Compound(
         val statements: List<Statement>,
-        // metadata is not need for standard WGSL parsing and analysis and so will be null in most situations,
-        // but can be used to carry extra information associated with the compound for transformations.
-        val metadata: Set<Metadata> = emptySet(),
+        override val metadata: Set<Metadata>,
     ) : ElseBranch
 
     @Serializable
@@ -941,6 +1077,7 @@ sealed interface Statement : AstNode {
         val condition: Expression,
         val thenBranch: Compound,
         val elseBranch: ElseBranch? = null,
+        override val metadata: Set<Metadata>,
     ) : ElseBranch
 
     @Serializable
@@ -949,6 +1086,7 @@ sealed interface Statement : AstNode {
         val expression: Expression,
         val attributesBeforeBody: List<Attribute> = emptyList(),
         val clauses: List<SwitchClause>,
+        override val metadata: Set<Metadata>,
     ) : Statement
 
     @Serializable
@@ -957,6 +1095,7 @@ sealed interface Statement : AstNode {
         val attributesBeforeBody: List<Attribute> = emptyList(),
         val body: Compound,
         val continuingStatement: ContinuingStatement? = null,
+        override val metadata: Set<Metadata>,
     ) : Statement
 
     @Serializable
@@ -966,6 +1105,7 @@ sealed interface Statement : AstNode {
         val condition: Expression? = null,
         val update: ForUpdate? = null,
         val body: Compound,
+        override val metadata: Set<Metadata>,
     ) : Statement
 
     @Serializable
@@ -973,12 +1113,14 @@ sealed interface Statement : AstNode {
         val attributes: List<Attribute> = emptyList(),
         val condition: Expression,
         val body: Compound,
+        override val metadata: Set<Metadata>,
     ) : Statement
 
     @Serializable
     class FunctionCall(
         val callee: String,
         val args: List<Expression>,
+        override val metadata: Set<Metadata>,
     ) : ForInit,
         ForUpdate
 
@@ -988,6 +1130,7 @@ sealed interface Statement : AstNode {
         val name: String,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression,
+        override val metadata: Set<Metadata>,
     ) : ForInit
 
     @Serializable
@@ -997,6 +1140,7 @@ sealed interface Statement : AstNode {
         val accessMode: AccessMode? = null,
         val typeDecl: TypeDecl? = null,
         val initializer: Expression? = null,
+        override val metadata: Set<Metadata>,
     ) : ForInit
 }
 
@@ -1012,6 +1156,7 @@ class ContinuingStatement(
     val attributes: List<Attribute> = emptyList(),
     val statements: Statement.Compound,
     val breakIfExpr: Expression? = null,
+    override val metadata: Set<Metadata>,
 ) : AstNode
 
 /**
@@ -1027,6 +1172,7 @@ class ContinuingStatement(
 class SwitchClause(
     val caseSelectors: List<Expression?>,
     val compoundStatement: Statement.Compound,
+    override val metadata: Set<Metadata>,
 ) : AstNode {
     init {
         require(caseSelectors.isNotEmpty()) { "caseSelectors cannot be empty" }
@@ -1041,6 +1187,7 @@ class ParameterDecl(
     val attributes: List<Attribute> = emptyList(),
     val name: String,
     val typeDecl: TypeDecl,
+    override val metadata: Set<Metadata>,
 ) : AstNode
 
 /**
@@ -1051,6 +1198,7 @@ class StructMember(
     val attributes: List<Attribute> = emptyList(),
     val name: String,
     val typeDecl: TypeDecl,
+    override val metadata: Set<Metadata>,
 ) : AstNode
 
 @Serializable
@@ -1083,12 +1231,14 @@ sealed interface AugmentedExpression :
     @Serializable
     class ArbitraryExpression(
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : AugmentedExpression
 
     @Serializable
     class KnownValue(
         val knownValue: Expression,
         val expression: Expression,
+        override val metadata: Set<Metadata>,
     ) : AugmentedExpression {
         init {
             if (knownValue is Expression.FloatLiteral) {
@@ -1117,6 +1267,7 @@ sealed interface AugmentedExpression :
         override val originalExpression: Expression,
         val zeroExpression: Expression,
         val zeroOnLeft: Boolean,
+        override val metadata: Set<Metadata>,
     ) : IdentityOperation
 
     @Serializable
@@ -1124,18 +1275,21 @@ sealed interface AugmentedExpression :
         override val originalExpression: Expression,
         val oneExpression: Expression,
         val oneOnLeft: Boolean,
+        override val metadata: Set<Metadata>,
     ) : IdentityOperation
 
     @Serializable
     class SubZero(
         override val originalExpression: Expression,
         val zeroExpression: Expression,
+        override val metadata: Set<Metadata>,
     ) : IdentityOperation
 
     @Serializable
     class DivOne(
         override val originalExpression: Expression,
         val oneExpression: Expression,
+        override val metadata: Set<Metadata>,
     ) : IdentityOperation
 }
 
@@ -1173,6 +1327,7 @@ sealed interface AugmentedStatement :
     @Serializable
     class DeadCodeFragment(
         val statement: Statement,
+        override val metadata: Set<Metadata>,
     ) : AugmentedStatement
 
     sealed interface ControlFlowTransformationNode {
@@ -1201,6 +1356,7 @@ sealed interface AugmentedStatement :
         // This compound contains the original set of statements of the transformation.
         // The ids purpose is to associate the two together using a unique identifier.
         override val id: Int,
+        override val metadata: Set<Metadata>,
     ) : AugmentedStatement,
         ControlFlowTransformationNode
 
@@ -1208,6 +1364,7 @@ sealed interface AugmentedStatement :
     class ControlFlowWrapHelperStatement(
         val statement: Statement,
         override val id: Int,
+        override val metadata: Set<Metadata>,
     ) : AugmentedStatement,
         ControlFlowTransformationNode
 
@@ -1235,6 +1392,7 @@ sealed interface AugmentedStatement :
     class ControlFlowWrapReturn(
         val statement: Statement.Return,
         override val id: Int,
+        override val metadata: Set<Metadata>,
     ) : AugmentedStatement,
         ControlFlowTransformationNode
 
@@ -1244,6 +1402,7 @@ sealed interface AugmentedStatement :
     @Serializable
     class ArbitraryStatement(
         val statement: Statement,
+        override val metadata: Set<Metadata>,
     ) : AugmentedStatement
 
     /**
@@ -1252,6 +1411,7 @@ sealed interface AugmentedStatement :
     @Serializable
     class ArbitraryElseBranch(
         val statement: Statement.ElseBranch,
+        override val metadata: Set<Metadata>,
     ) : Statement.ElseBranch,
         AugmentedStatement
 }
