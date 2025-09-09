@@ -216,7 +216,7 @@ private class ControlFlowWrapping(
                 originalStatements.clone {
                     injectControlFlowWrapper(it, injections, returnTypeDecl)
                 },
-                metadata = AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId),
+                metadata = setOf(AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId)),
             )
 
         val choices =
@@ -761,7 +761,7 @@ private class ControlFlowWrapping(
                     returnAttributes = functionDecl.returnAttributes,
                     returnType = functionDecl.returnType,
                     body = functionDecl.body,
-                    metadata = AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader,
+                    metadata = functionDecl.metadata + AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader,
                 )
             }
 

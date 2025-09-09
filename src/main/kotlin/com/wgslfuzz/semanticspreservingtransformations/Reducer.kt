@@ -31,6 +31,7 @@ import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
+import com.wgslfuzz.utils.containsInstanceOf
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -258,27 +259,33 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
         val idsOfOpportunities = opportunitiesAsSet.map { it.id }
 
         fun replaceControlFlowWrapped(node: AstNode): AstNode? {
+            if (node is AugmentedStatement.ControlFlowWrapHelperStatement) return null
+
             if (node is Statement.Compound) {
                 // This flattens compounds within compounds if they occur
-                val flattenedStatements =
-                    node.statements.clone(::replaceControlFlowWrapped).flatMap {
-                        if (it is Statement.Compound) {
-                            assert(it.metadata == null)
-                            it.statements
-                        } else {
-                            listOf(it)
-                        }
-                    }
+                val (unflattenedStatements, unflattenedMetadata) =
+                    node.statements
+                        .clone(::replaceControlFlowWrapped)
+                        .map {
+                            if (it is Statement.Compound) {
+                                it.statements to it.metadata
+                            } else {
+                                listOf(it) to emptySet()
+                            }
+                        }.unzip()
 
                 val statementsWithControlFlowNodesRemoved =
-                    flattenedStatements.filter {
+                    unflattenedStatements.flatten().filter {
                         (it !is AugmentedStatement.ControlFlowWrapReturn && it !is AugmentedStatement.ControlFlowWrapHelperStatement) ||
                             it.id !in idsOfOpportunities
                     }
 
+                val compoundsMetadata = unflattenedMetadata.flatten()
+                assert(compoundsMetadata.none { it is AugmentedMetadata.ControlFlowWrapperMetaData && it.id in idsOfOpportunities })
+
                 return Statement.Compound(
                     statements = statementsWithControlFlowNodesRemoved,
-                    metadata = node.metadata,
+                    metadata = node.metadata + compoundsMetadata,
                 )
             }
 
@@ -290,10 +297,9 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                 nodesPreOrder(node.statement)
                     .asSequence()
                     .filterIsInstance<Statement.Compound>()
-                    .filter {
-                        (it.metadata as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id
+                    .filter { compound ->
+                        compound.metadata.any { (it as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id }
                     }.flatMap { it.statements }
-                    .filter { it !is AugmentedStatement.ControlFlowWrapHelperStatement || it.id == node.id }
                     .toList()
 
             return Statement.Compound(originalStatements.clone(::replaceControlFlowWrapped))
@@ -315,7 +321,7 @@ private fun removeUnnecessaryUserDefinedDonorShaderFunctions(tu: TranslationUnit
         nodesPreOrder(tu)
             .asSequence()
             .filterIsInstance<Statement.Compound>()
-            .filter { it.metadata is AugmentedMetadata.ControlFlowWrapperMetaData }
+            .filter { it.metadata.containsInstanceOf<AugmentedMetadata.ControlFlowWrapperMetaData>() }
             .flatMap { arbitraryCompound ->
                 nodesPreOrder(arbitraryCompound)
                     .asSequence()
@@ -467,7 +473,7 @@ private class ReduceArbitraryExpression :
 private class ReduceArbitraryCompound : ReductionPass<Statement.Compound>() {
     override fun findOpportunities(originalShaderJob: ShaderJob): List<Statement.Compound> =
         nodesPreOrder(originalShaderJob.tu).filterIsInstance<Statement.Compound>().filter {
-            it.metadata == AugmentedMetadata.ArbitraryCompoundMetaData
+            it.metadata.containsInstanceOf<AugmentedMetadata.ArbitraryCompoundMetaData>()
         }
 
     override fun removeOpportunities(

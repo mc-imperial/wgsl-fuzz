@@ -270,7 +270,7 @@ sealed interface GlobalDecl : AstNode {
         val returnAttributes: List<Attribute> = emptyList(),
         val returnType: TypeDecl? = null,
         val body: Statement.Compound,
-        val metadata: AugmentedMetadata? = null,
+        val metadata: Set<Metadata> = emptySet(),
     ) : GlobalDecl
 
     @Serializable
@@ -932,7 +932,7 @@ sealed interface Statement : AstNode {
         val statements: List<Statement>,
         // metadata is not need for standard WGSL parsing and analysis and so will be null in most situations,
         // but can be used to carry extra information associated with the compound for transformations.
-        val metadata: AugmentedMetadata? = null,
+        val metadata: Set<Metadata> = emptySet(),
     ) : ElseBranch
 
     @Serializable
@@ -1052,6 +1052,9 @@ class StructMember(
     val name: String,
     val typeDecl: TypeDecl,
 ) : AstNode
+
+@Serializable
+sealed interface Metadata
 
 // The following interfaces and classes extend the AstNode hierarchy with additional nodes that *augment* the AST to
 // encode transformations that have been applied to a translation unit.
@@ -1251,24 +1254,4 @@ sealed interface AugmentedStatement :
         val statement: Statement.ElseBranch,
     ) : Statement.ElseBranch,
         AugmentedStatement
-}
-
-@Serializable
-sealed interface AugmentedMetadata {
-    @Serializable
-    data class ControlFlowWrapperMetaData(
-        // id uniquely corresponds to a parent ControlFlowWrapper node.
-        // For more information look at the comments of ControlFlowWrapper.
-        val id: Int,
-    ) : AugmentedMetadata
-
-    /**
-     * Metadata held by an arbitrary compound
-     * If a Compound has this then it can be removed by the reducer since it is an arbitrarily generated compound
-     */
-    @Serializable
-    object ArbitraryCompoundMetaData : AugmentedMetadata
-
-    @Serializable
-    object FunctionForArbitraryCompoundsFromDonorShader : AugmentedMetadata
 }
