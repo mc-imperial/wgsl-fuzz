@@ -17,7 +17,6 @@
 package com.wgslfuzz.core
 
 import java.io.PrintStream
-import kotlin.math.exp
 
 private const val DEFAULT_INDENT = 4
 
