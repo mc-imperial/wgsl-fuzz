@@ -259,7 +259,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
         val idsOfOpportunities = opportunitiesAsSet.map { it.id }
 
         fun replaceControlFlowWrapped(node: AstNode): AstNode? {
-            if (node is AugmentedStatement.ControlFlowWrapHelperStatement) return null
+            if (node is AugmentedStatement.ControlFlowWrapHelperStatement && node.id in idsOfOpportunities) return null
 
             if (node is Statement.Compound) {
                 // This flattens compounds within compounds if they occur
