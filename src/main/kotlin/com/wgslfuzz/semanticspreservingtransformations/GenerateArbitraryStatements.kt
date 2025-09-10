@@ -173,7 +173,7 @@ fun generateArbitraryCompound(
     return Pair(
         Statement.Compound(
             statements = compoundWithReturnsOfCorrectType.statements,
-            metadata = setOf(AugmentedMetadata.ArbitraryCompoundMetaData),
+            metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
         ),
         functionCalls,
     )

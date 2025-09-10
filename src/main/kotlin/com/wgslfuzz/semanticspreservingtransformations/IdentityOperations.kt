@@ -19,6 +19,8 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Attribute
 import com.wgslfuzz.core.AugmentedExpression
+import com.wgslfuzz.core.AugmentedMetadata
+import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
@@ -29,7 +31,7 @@ import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
 
-private typealias IdentityOperationReplacements = MutableMap<Expression, AugmentedExpression.IdentityOperation>
+private typealias IdentityOperationReplacements = MutableMap<Expression, Expression.Binary>
 
 private class AddIdentityOperations(
     private val shaderJob: ShaderJob,
@@ -74,46 +76,54 @@ private class AddIdentityOperations(
         }
         val type = shaderJob.environment.typeOf(node).asStoreTypeIfReference()
         if (type is Type.Integer || type is Type.Float) {
-            val choices: List<Pair<Int, () -> AugmentedExpression.IdentityOperation>> =
+            val choices =
                 listOf(
                     fuzzerSettings.scalarIdentityOperationWeights.addZeroLeft to {
-                        AugmentedExpression.AddZero(
-                            originalExpression = node,
-                            zeroExpression = generateZero(type),
-                            zeroOnLeft = true,
+                        Expression.Binary(
+                            operator = BinaryOperator.PLUS,
+                            lhs = generateZero(type),
+                            rhs = node,
+                            metadata = AugmentedMetadata.BinaryIdentityOperation(originalOnLeft = false, commentary = "add zero on left"),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.addZeroRight to {
-                        AugmentedExpression.AddZero(
-                            originalExpression = node,
-                            zeroExpression = generateZero(type),
-                            zeroOnLeft = false,
+                        Expression.Binary(
+                            operator = BinaryOperator.PLUS,
+                            lhs = node,
+                            rhs = generateZero(type),
+                            metadata = AugmentedMetadata.BinaryIdentityOperation(originalOnLeft = true, commentary = "add zero on right"),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.subZero to {
-                        AugmentedExpression.SubZero(
-                            originalExpression = node,
-                            zeroExpression = generateZero(type),
+                        Expression.Binary(
+                            operator = BinaryOperator.MINUS,
+                            lhs = node,
+                            rhs = generateZero(type),
+                            metadata = AugmentedMetadata.BinaryIdentityOperation(originalOnLeft = true, commentary = "sub zero"),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.mulOneLeft to {
-                        AugmentedExpression.MulOne(
-                            originalExpression = node,
-                            oneExpression = generateOne(type),
-                            oneOnLeft = true,
+                        Expression.Binary(
+                            operator = BinaryOperator.TIMES,
+                            lhs = generateOne(type),
+                            rhs = node,
+                            metadata = AugmentedMetadata.BinaryIdentityOperation(originalOnLeft = false, commentary = "mul by one on left"),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.mulOneRight to {
-                        AugmentedExpression.MulOne(
-                            originalExpression = node,
-                            oneExpression = generateOne(type),
-                            oneOnLeft = false,
+                        Expression.Binary(
+                            operator = BinaryOperator.TIMES,
+                            lhs = node,
+                            rhs = generateOne(type),
+                            metadata = AugmentedMetadata.BinaryIdentityOperation(originalOnLeft = true, commentary = "mul by one on right"),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.divOne to {
-                        AugmentedExpression.DivOne(
-                            originalExpression = node,
-                            oneExpression = generateOne(type),
+                        Expression.Binary(
+                            operator = BinaryOperator.DIVIDE,
+                            lhs = node,
+                            rhs = generateOne(type),
+                            metadata = AugmentedMetadata.BinaryIdentityOperation(originalOnLeft = true, commentary = "div by one"),
                         )
                     },
                 )

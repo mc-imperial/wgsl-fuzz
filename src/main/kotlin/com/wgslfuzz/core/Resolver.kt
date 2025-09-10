@@ -750,10 +750,16 @@ fun evaluate(
                 BinaryOperator.DIVIDE -> {
                     EvaluatedValue.Integer(lhs.value / rhs.value)
                 }
+                BinaryOperator.PLUS -> {
+                    EvaluatedValue.Integer(lhs.value + rhs.value)
+                }
+                BinaryOperator.MINUS -> {
+                    EvaluatedValue.Integer(lhs.value - rhs.value)
+                }
                 else -> TODO("${expression.operator}")
             }
         }
-        is AugmentedExpression.IdentityOperation -> evaluate(expression.originalExpression, scope, resolvedEnvironment)
+        is AugmentedExpression.KnownValue -> evaluate(expression.knownValue, scope, resolvedEnvironment)
         else -> TODO("$expression")
     }
 

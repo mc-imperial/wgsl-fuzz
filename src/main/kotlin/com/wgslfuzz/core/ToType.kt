@@ -872,7 +872,6 @@ fun Expression.toType(
                     this.constructorName,
                 ) as ScopeEntry.TypeAlias
             ).type
-        is AugmentedExpression.IdentityOperation -> resolvedEnvironment.typeOf(this.originalExpression)
         is AugmentedExpression.ArbitraryExpression -> resolvedEnvironment.typeOf(this.expression)
         is AugmentedExpression.KnownValue -> {
             val knownValueType = resolvedEnvironment.typeOf(this.knownValue).asStoreTypeIfReference()

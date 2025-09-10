@@ -457,72 +457,6 @@ class AstWriter(
                 emitExpression(expression.expression)
                 out.print(")")
             }
-            is AugmentedExpression.AddZero -> {
-                if (expression.zeroOnLeft) {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* add zero on left */ ")
-                    }
-                    emitExpression(expression.zeroExpression)
-                    out.print(" + (")
-                    emitExpression(expression.originalExpression)
-                    out.print("))")
-                } else {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* add zero on right */ ")
-                    }
-                    out.print("(")
-                    emitExpression(expression.originalExpression)
-                    out.print(") + ")
-                    emitExpression(expression.zeroExpression)
-                    out.print(")")
-                }
-            }
-            is AugmentedExpression.DivOne -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* div by one */ ")
-                }
-                out.print("(")
-                emitExpression(expression.originalExpression)
-                out.print(") / ")
-                emitExpression(expression.oneExpression)
-                out.print(")")
-            }
-            is AugmentedExpression.MulOne -> {
-                if (expression.oneOnLeft) {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* mul by one on left */ ")
-                    }
-                    emitExpression(expression.oneExpression)
-                    out.print(" * (")
-                    emitExpression(expression.originalExpression)
-                    out.print("))")
-                } else {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* mul by one on right */ ")
-                    }
-                    out.print("(")
-                    emitExpression(expression.originalExpression)
-                    out.print(") * ")
-                    emitExpression(expression.oneExpression)
-                    out.print(")")
-                }
-            }
-            is AugmentedExpression.SubZero -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* sub zero */ ")
-                }
-                out.print("(")
-                emitExpression(expression.originalExpression)
-                out.print(") - ")
-                emitExpression(expression.zeroExpression)
-                out.print(")")
-            }
             is AugmentedExpression.KnownValue -> {
                 out.print("(")
                 if (emitCommentary) {
@@ -1238,24 +1172,27 @@ class AstWriter(
         }
     }
 
-    private fun emitMetadata(metadata: Set<Metadata>) {
-        if (!emitCommentary) return
-        metadata.forEach {
-            when (it) {
-                is AugmentedMetadata.ControlFlowWrapperMetaData -> {
-                    emitIndent()
-                    out.print("/* wrapped original statements ${it.id}: */\n")
-                }
+    private fun emitMetadata(metadata: Metadata?) {
+        if (!emitCommentary || metadata == null) return
+        when (metadata) {
+            is AugmentedMetadata.ControlFlowWrapperMetaData -> {
+                emitIndent()
+                out.print("/* wrapped original statements ${metadata.id}: */\n")
+            }
 
-                is AugmentedMetadata.ArbitraryCompoundMetaData -> {
-                    emitIndent()
-                    out.print("/* arbitrary compound: */\n")
-                }
+            is AugmentedMetadata.ArbitraryCompoundMetaData -> {
+                emitIndent()
+                out.print("/* arbitrary compound: */\n")
+            }
 
-                AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader -> {
-                    emitIndent()
-                    out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
-                }
+            AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader -> {
+                emitIndent()
+                out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
+            }
+
+            is AugmentedMetadata.BinaryIdentityOperation -> {
+                emitIndent()
+                out.print("/* ${metadata.commentary} */")
             }
         }
     }

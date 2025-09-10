@@ -216,7 +216,7 @@ private class ControlFlowWrapping(
                 originalStatements.clone {
                     injectControlFlowWrapper(it, injections, returnTypeDecl)
                 },
-                metadata = setOf(AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId)),
+                metadata = AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId),
             )
 
         val choices =
@@ -754,6 +754,7 @@ private class ControlFlowWrapping(
                             it.name == functionName
                         } ?: throw RuntimeException("Could not find $functionName in donor shader global decls")
 
+                check(functionDecl.metadata == null) { "Adding metadata to a function with it already" }
                 GlobalDecl.Function(
                     attributes = functionDecl.attributes,
                     name = functionDecl.name,
@@ -761,7 +762,7 @@ private class ControlFlowWrapping(
                     returnAttributes = functionDecl.returnAttributes,
                     returnType = functionDecl.returnType,
                     body = functionDecl.body,
-                    metadata = functionDecl.metadata + AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader,
+                    metadata = AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader,
                 )
             }
 

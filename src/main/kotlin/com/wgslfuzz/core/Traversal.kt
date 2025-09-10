@@ -107,22 +107,6 @@ fun <T> traverse(
         is AugmentedExpression.ArbitraryExpression -> {
             actionWithState(node.expression)
         }
-        is AugmentedExpression.AddZero -> {
-            actionWithState(node.originalExpression)
-            actionWithState(node.zeroExpression)
-        }
-        is AugmentedExpression.DivOne -> {
-            actionWithState(node.originalExpression)
-            actionWithState(node.oneExpression)
-        }
-        is AugmentedExpression.MulOne -> {
-            actionWithState(node.originalExpression)
-            actionWithState(node.oneExpression)
-        }
-        is AugmentedExpression.SubZero -> {
-            actionWithState(node.originalExpression)
-            actionWithState(node.zeroExpression)
-        }
         is AugmentedExpression.KnownValue -> {
             actionWithState(node.knownValue)
             actionWithState(node.expression)

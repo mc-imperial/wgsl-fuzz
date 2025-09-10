@@ -31,7 +31,6 @@ import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.nodesPreOrder
 import com.wgslfuzz.core.traverse
-import com.wgslfuzz.utils.containsInstanceOf
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -201,21 +200,24 @@ private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>
     }
 }
 
-private class UndoIdentityOperations : ReductionPass<AugmentedExpression.IdentityOperation>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.IdentityOperation> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.IdentityOperation>()
+private class UndoIdentityOperations : ReductionPass<Expression.Binary>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<Expression.Binary> =
+        nodesPreOrder(originalShaderJob.tu).filterIsInstance<Expression.Binary>().filter {
+            it.metadata is AugmentedMetadata.BinaryIdentityOperation
+        }
 
     override fun removeOpportunities(
         originalShaderJob: ShaderJob,
-        opportunities: List<AugmentedExpression.IdentityOperation>,
+        opportunities: List<Expression.Binary>,
     ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
 
         fun undoIdentityOperations(node: AstNode): AstNode? {
-            if (node !is AugmentedExpression.IdentityOperation || node !in opportunitiesAsSet) {
+            if (node !is Expression.Binary || node !in opportunitiesAsSet) {
                 return null
             }
-            return node.originalExpression.clone(::undoIdentityOperations)
+            check(node.metadata is AugmentedMetadata.BinaryIdentityOperation)
+            return node.metadata.originalExpression(node).clone(::undoIdentityOperations)
         }
         return ShaderJob(
             originalShaderJob.tu.clone(::undoIdentityOperations),
@@ -263,29 +265,29 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
 
             if (node is Statement.Compound) {
                 // This flattens compounds within compounds if they occur
-                val (unflattenedStatements, unflattenedMetadata) =
+                val statements =
                     node.statements
                         .clone(::replaceControlFlowWrapped)
-                        .map {
+                        .flatMap {
                             if (it is Statement.Compound) {
-                                it.statements to it.metadata
+                                check(
+                                    it.metadata == null,
+                                ) { "Metadata is not null for Compound within Compound and hence cannot be flattened" }
+                                it.statements
                             } else {
-                                listOf(it) to emptySet()
+                                listOf(it)
                             }
-                        }.unzip()
+                        }
 
                 val statementsWithControlFlowNodesRemoved =
-                    unflattenedStatements.flatten().filter {
+                    statements.filter {
                         (it !is AugmentedStatement.ControlFlowWrapReturn && it !is AugmentedStatement.ControlFlowWrapHelperStatement) ||
                             it.id !in idsOfOpportunities
                     }
 
-                val compoundsMetadata = unflattenedMetadata.flatten()
-                assert(compoundsMetadata.none { it is AugmentedMetadata.ControlFlowWrapperMetaData && it.id in idsOfOpportunities })
-
                 return Statement.Compound(
                     statements = statementsWithControlFlowNodesRemoved,
-                    metadata = node.metadata + compoundsMetadata,
+                    metadata = node.metadata,
                 )
             }
 
@@ -298,7 +300,7 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                     .asSequence()
                     .filterIsInstance<Statement.Compound>()
                     .filter { compound ->
-                        compound.metadata.any { (it as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id }
+                        (compound.metadata as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id
                     }.flatMap { it.statements }
                     .toList()
 
@@ -321,7 +323,7 @@ private fun removeUnnecessaryUserDefinedDonorShaderFunctions(tu: TranslationUnit
         nodesPreOrder(tu)
             .asSequence()
             .filterIsInstance<Statement.Compound>()
-            .filter { it.metadata.containsInstanceOf<AugmentedMetadata.ControlFlowWrapperMetaData>() }
+            .filter { it.metadata is AugmentedMetadata.ControlFlowWrapperMetaData }
             .flatMap { arbitraryCompound ->
                 nodesPreOrder(arbitraryCompound)
                     .asSequence()
@@ -455,10 +457,6 @@ private class ReduceArbitraryExpression :
                         "An arbitrary expression does not wrap a parentheses",
                     )
 
-                    is AugmentedExpression.AddZero -> TODO()
-                    is AugmentedExpression.DivOne -> TODO()
-                    is AugmentedExpression.MulOne -> TODO()
-                    is AugmentedExpression.SubZero -> TODO()
                     is AugmentedExpression.KnownValue -> TODO()
                 }
             }
@@ -473,7 +471,7 @@ private class ReduceArbitraryExpression :
 private class ReduceArbitraryCompound : ReductionPass<Statement.Compound>() {
     override fun findOpportunities(originalShaderJob: ShaderJob): List<Statement.Compound> =
         nodesPreOrder(originalShaderJob.tu).filterIsInstance<Statement.Compound>().filter {
-            it.metadata.containsInstanceOf<AugmentedMetadata.ArbitraryCompoundMetaData>()
+            it.metadata is AugmentedMetadata.ArbitraryCompoundMetaData
         }
 
     override fun removeOpportunities(
