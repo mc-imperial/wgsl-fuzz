@@ -145,6 +145,7 @@ class AstWriter(
     }
 
     private fun emitAttribute(attribute: Attribute) {
+        emitMetadata(attribute.metadata)
         emitIndent()
         when (attribute) {
             is Attribute.Align -> {
@@ -331,6 +332,7 @@ class AstWriter(
     }
 
     private fun emitLhsExpression(lhsExpression: LhsExpression) {
+        emitMetadata(lhsExpression.metadata)
         when (lhsExpression) {
             is LhsExpression.AddressOf -> {
                 out.print("&")
@@ -360,6 +362,7 @@ class AstWriter(
     }
 
     private fun emitExpression(expression: Expression) {
+        emitMetadata(expression.metadata)
         when (expression) {
             is Expression.Binary -> {
                 emitExpression(expression.lhs)
@@ -534,6 +537,7 @@ class AstWriter(
     }
 
     private fun emitTypeDecl(typeDecl: TypeDecl) {
+        emitMetadata(typeDecl.metadata)
         when (typeDecl) {
             is TypeDecl.ScalarTypeDecl -> out.print(typeDecl.name)
             is TypeDecl.MatrixTypeDecl -> {
@@ -657,6 +661,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(assignment) {
+            emitMetadata(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -680,21 +685,7 @@ class AstWriter(
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            if (emitCommentary) {
-                when (compound.metadata) {
-                    is AugmentedMetadata.ControlFlowWrapperMetaData -> {
-                        emitIndent()
-                        out.print("/* wrapped original statements ${compound.metadata.id}: */\n")
-                    }
-
-                    is AugmentedMetadata.ArbitraryCompoundMetaData -> {
-                        emitIndent()
-                        out.print("/* arbitrary compound: */\n")
-                    }
-
-                    else -> {}
-                }
-            }
+            emitMetadata(metadata)
             statements.forEach(::emitStatement)
             decreaseIndent()
             emitIndent()
@@ -704,6 +695,7 @@ class AstWriter(
 
     private fun emitStatementConstAssert(constAssert: Statement.ConstAssert) {
         with(constAssert) {
+            emitMetadata(metadata)
             out.print("const_assert ")
             emitExpression(expression)
             out.print(";\n")
@@ -715,6 +707,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(increment) {
+            emitMetadata(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -731,6 +724,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(decrement) {
+            emitMetadata(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -744,6 +738,7 @@ class AstWriter(
 
     private fun emitStatementFor(statementFor: Statement.For) {
         with(statementFor) {
+            emitMetadata(metadata)
             emitAttributes(attributes)
             emitIndent()
             out.print("for (")
@@ -762,6 +757,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(functionCall) {
+            emitMetadata(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -780,6 +776,7 @@ class AstWriter(
 
     private fun emitStatementIf(statementIf: Statement.If) {
         with(statementIf) {
+            emitMetadata(metadata)
             emitAttributes(attributes)
             emitIndent()
             out.print("if ")
@@ -796,6 +793,7 @@ class AstWriter(
 
     private fun emitStatementLoop(loop: Statement.Loop) {
         with(loop) {
+            emitMetadata(metadata)
             emitAttributes(attributesAtStart)
             emitIndent()
             out.print("loop\n")
@@ -813,6 +811,7 @@ class AstWriter(
 
     private fun emitStatementReturn(statementReturn: Statement.Return) {
         with(statementReturn) {
+            emitMetadata(metadata)
             emitIndent()
             out.print("return")
             expression?.let {
@@ -825,6 +824,7 @@ class AstWriter(
 
     private fun emitStatementSwitch(switch: Statement.Switch) {
         with(switch) {
+            emitMetadata(metadata)
             emitAttributes(attributesAtStart)
             emitIndent()
             out.print("switch ")
@@ -846,6 +846,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(value) {
+            emitMetadata(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -874,6 +875,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(variable) {
+            emitMetadata(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -886,6 +888,7 @@ class AstWriter(
 
     private fun emitStatementWhile(statementWhile: Statement.While) {
         with(statementWhile) {
+            emitMetadata(metadata)
             emitAttributes(attributes)
             emitIndent()
             out.print("while ")
@@ -989,6 +992,7 @@ class AstWriter(
 
     private fun emitContinuingStatement(continuingStatement: ContinuingStatement) {
         with(continuingStatement) {
+            emitMetadata(metadata)
             emitIndent()
             out.print("continuing\n")
             emitAttributes(attributes)
@@ -1009,6 +1013,7 @@ class AstWriter(
     }
 
     private fun emitSwitchClause(switchClause: SwitchClause) {
+        emitMetadata(switchClause.metadata)
         emitIndent()
         if (switchClause.caseSelectors == listOf(null)) {
             out.print("default")
@@ -1027,6 +1032,7 @@ class AstWriter(
 
     private fun emitGlobalDeclStruct(struct: GlobalDecl.Struct) {
         with(struct) {
+            emitMetadata(metadata)
             out.print("struct $name {\n")
             increaseIndent()
             members.forEach(::emitStructMember)
@@ -1037,6 +1043,7 @@ class AstWriter(
 
     private fun emitGlobalDeclConstant(constant: GlobalDecl.Constant) {
         with(constant) {
+            emitMetadata(metadata)
             out.print("const $name ")
             typeDecl?.let {
                 out.print(": ")
@@ -1050,6 +1057,7 @@ class AstWriter(
 
     private fun emitGlobalDeclOverride(override: GlobalDecl.Override) {
         with(override) {
+            emitMetadata(metadata)
             emitAttributes(attributes)
             out.print("override $name ")
             typeDecl?.let {
@@ -1066,6 +1074,7 @@ class AstWriter(
 
     private fun emitGlobalDeclVariable(variable: GlobalDecl.Variable) {
         with(variable) {
+            emitMetadata(metadata)
             if (emitUniformCommentary && addressSpace == AddressSpace.UNIFORM) {
                 emitUniformCommentary(variable)
             }
@@ -1101,10 +1110,7 @@ class AstWriter(
 
     private fun emitGlobalDeclFunction(function: GlobalDecl.Function) {
         with(function) {
-            if (emitCommentary && metadata == AugmentedMetadata.ArbitraryCompoundMetaData) {
-                emitIndent()
-                out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
-            }
+            emitMetadata(metadata)
             emitAttributes(attributes)
             out.print("fn $name(")
             if (parameters.isNotEmpty()) {
@@ -1134,12 +1140,14 @@ class AstWriter(
     }
 
     private fun emitGlobalDeclTypeAlias(typeAlias: GlobalDecl.TypeAlias) {
+        emitMetadata(typeAlias.metadata)
         out.print("alias ${typeAlias.name} = ")
         emitTypeDecl(typeAlias.typeDecl)
         out.print(";\n")
     }
 
     private fun emitGlobalDeclConstAssert(constAssert: GlobalDecl.ConstAssert) {
+        emitMetadata(constAssert.metadata)
         out.print("const_assert ")
         emitExpression(constAssert.expression)
         out.print(";\n")
@@ -1155,20 +1163,25 @@ class AstWriter(
             is GlobalDecl.TypeAlias -> emitGlobalDeclTypeAlias(decl)
             is GlobalDecl.ConstAssert -> emitGlobalDeclConstAssert(decl)
             is GlobalDecl.Empty -> {
+                emitMetadata(decl.metadata)
                 out.print(";\n")
             }
         }
     }
 
     private fun emitParameterDecl(parameterDecl: ParameterDecl) {
-        emitAttributes(parameterDecl.attributes)
-        emitIndent()
-        out.print("${parameterDecl.name} : ")
-        emitTypeDecl(parameterDecl.typeDecl)
-        out.print(",\n")
+        with(parameterDecl) {
+            emitMetadata(metadata)
+            emitAttributes(attributes)
+            emitIndent()
+            out.print("$name : ")
+            emitTypeDecl(typeDecl)
+            out.print(",\n")
+        }
     }
 
     private fun emitDirective(directive: Directive) {
+        emitMetadata(directive.metadata)
         out.print("${directive.text}\n")
     }
 
@@ -1201,14 +1214,18 @@ class AstWriter(
     }
 
     private fun emitStructMember(member: StructMember) {
-        emitAttributes(member.attributes)
-        emitIndent()
-        out.print("${member.name} : ")
-        emitTypeDecl(member.typeDecl)
-        out.print(",\n")
+        with(member) {
+            emitMetadata(metadata)
+            emitAttributes(attributes)
+            emitIndent()
+            out.print("$name : ")
+            emitTypeDecl(typeDecl)
+            out.print(",\n")
+        }
     }
 
     private fun emitTranslationUnit(tu: TranslationUnit) {
+        emitMetadata(tu.metadata)
         tu.directives.forEach {
             emitDirective(it)
             out.print("\n")
@@ -1217,6 +1234,28 @@ class AstWriter(
             emitGlobalDecl(decl)
             if (index < tu.globalDecls.size - 1) {
                 out.print("\n")
+            }
+        }
+    }
+
+    private fun emitMetadata(metadata: Set<Metadata>) {
+        if (!emitCommentary) return
+        metadata.forEach {
+            when (it) {
+                is AugmentedMetadata.ControlFlowWrapperMetaData -> {
+                    emitIndent()
+                    out.print("/* wrapped original statements ${it.id}: */\n")
+                }
+
+                is AugmentedMetadata.ArbitraryCompoundMetaData -> {
+                    emitIndent()
+                    out.print("/* arbitrary compound: */\n")
+                }
+
+                AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader -> {
+                    emitIndent()
+                    out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
+                }
             }
         }
     }
