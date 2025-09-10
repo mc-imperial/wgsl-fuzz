@@ -59,6 +59,10 @@ class ParseTintTests {
                 "external/dawn/test/tint/bug/tint/1474-b.wgsl.expected.wgsl",
                 "external/dawn/test/tint/bug/chromium/1395241.wgsl.expected.wgsl",
                 "external/dawn/test/tint/reader/combined_texture_sampler/SplitCombinedImageSamplerPassTest_FunctionBody_PtrSampledImage.spvasm.expected.wgsl",
+                "external/dawn/test/tint/reader/combined_texture_sampler/SplitCombinedImageSamplerPassTest_FunctionBody_ScalarNoChange.spvasm.expected.wgsl",
+                "external/dawn/test/tint/reader/combined_texture_sampler/SplitCombinedImageSamplerPassTest_FunctionCall_PtrImage_NoChange.spvasm.expected.wgsl",
+                "external/dawn/test/tint/reader/combined_texture_sampler/SplitCombinedImageSamplerPassTest_FunctionCall_PtrSampledImage_Split.spvasm.expected.wgsl",
+                "external/dawn/test/tint/reader/combined_texture_sampler/SplitCombinedImageSamplerPassTest_FunctionCall_PtrSampler_NoChange.spvasm.expected.wgsl",
             ).map { it.replace("/", File.separator) }
 
         val tooHard =
