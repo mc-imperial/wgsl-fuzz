@@ -200,25 +200,40 @@ private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>
     }
 }
 
-private class UndoIdentityOperations : ReductionPass<Expression.Binary>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<Expression.Binary> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<Expression.Binary>().filter {
-            it.metadata is AugmentedMetadata.BinaryIdentityOperation
-        }
+private class UndoIdentityOperations : ReductionPass<Int>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<Int> =
+        nodesPreOrder(originalShaderJob.tu)
+            .mapNotNull {
+                (it.metadata as? AugmentedMetadata.IdentityOperation)?.id
+            }.distinct()
 
     override fun removeOpportunities(
         originalShaderJob: ShaderJob,
-        opportunities: List<Expression.Binary>,
+        opportunities: List<Int>,
     ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
 
-        fun undoIdentityOperations(node: AstNode): AstNode? {
-            if (node !is Expression.Binary || node !in opportunitiesAsSet) {
-                return null
+        fun undoIdentityOperations(node: AstNode): AstNode? =
+            when (node) {
+                is Expression.Binary ->
+                    if (node.metadata is AugmentedMetadata.IdentityOperation.BinaryIdentityOperation &&
+                        node.metadata.id in opportunitiesAsSet
+                    ) {
+                        node.metadata.originalExpression(node).clone(::undoIdentityOperations)
+                    } else {
+                        null
+                    }
+                is Expression.Paren ->
+                    if (node.metadata is AugmentedMetadata.IdentityOperation.IdentityParen &&
+                        node.metadata.id in opportunitiesAsSet
+                    ) {
+                        node.target
+                    } else {
+                        null
+                    }
+                else -> null
             }
-            check(node.metadata is AugmentedMetadata.BinaryIdentityOperation)
-            return node.metadata.originalExpression(node).clone(::undoIdentityOperations)
-        }
+
         return ShaderJob(
             originalShaderJob.tu.clone(::undoIdentityOperations),
             originalShaderJob.pipelineState,

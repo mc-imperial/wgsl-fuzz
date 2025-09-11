@@ -38,10 +38,21 @@ sealed interface AugmentedMetadata : Metadata {
     object FunctionForArbitraryCompoundsFromDonorShader : AugmentedMetadata
 
     @Serializable
-    data class BinaryIdentityOperation(
-        private val originalOnLeft: Boolean,
-        val commentary: String,
-    ) : AugmentedMetadata {
-        fun originalExpression(expression: Expression.Binary): Expression = if (originalOnLeft) expression.lhs else expression.rhs
+    sealed interface IdentityOperation : AugmentedMetadata {
+        val id: Int
+
+        @Serializable
+        data class BinaryIdentityOperation(
+            private val originalOnLeft: Boolean,
+            val commentary: String,
+            override val id: Int,
+        ) : IdentityOperation {
+            fun originalExpression(expression: Expression.Binary): Expression = if (originalOnLeft) expression.lhs else expression.rhs
+        }
+
+        @Serializable
+        data class IdentityParen(
+            override val id: Int,
+        ) : IdentityOperation
     }
 }

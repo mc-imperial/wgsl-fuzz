@@ -1350,18 +1350,21 @@ class AstWriter(
                 }
             }
 
-            is AugmentedMetadata.BinaryIdentityOperation -> {
+            is AugmentedMetadata.IdentityOperation.BinaryIdentityOperation -> {
                 if (emitCommentary) {
                     out.print("/* ${metadata.commentary} */ ")
                 }
                 with(node as Expression.Binary) {
-                    out.print("((")
                     emitExpression(lhs)
-                    out.print(") ")
                     emitBinaryOperator(operator)
-                    out.print(" (")
                     emitExpression(rhs)
-                    out.print("))")
+                }
+            }
+            is AugmentedMetadata.IdentityOperation.IdentityParen -> {
+                with(node as Expression.Paren) {
+                    out.print("(")
+                    emitExpression(target)
+                    out.print(")")
                 }
             }
         }
