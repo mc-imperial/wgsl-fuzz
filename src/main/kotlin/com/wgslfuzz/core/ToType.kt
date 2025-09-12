@@ -16,8 +16,6 @@
 
 package com.wgslfuzz.core
 
-import kotlin.math.exp
-
 fun TypeDecl.toType(
     scope: Scope,
     resolvedEnvironment: ResolvedEnvironment,
