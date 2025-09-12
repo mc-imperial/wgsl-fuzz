@@ -17,7 +17,6 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.Scope
@@ -94,7 +93,7 @@ private class InjectDeadReturns(
             }
         }
 
-    private fun createDeadReturn(scope: Scope): AugmentedStatement.DeadCodeFragment {
+    private fun createDeadReturn(scope: Scope): Statement {
         // Make a return statement, returning a randomly-generated expression of the right type when there is a return
         // type.
         val returnStatement =

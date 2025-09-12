@@ -17,42 +17,116 @@
 package com.wgslfuzz.core
 
 import kotlinx.serialization.Serializable
+import java.io.PrintStream
 
 @Serializable
-sealed interface AugmentedMetadata : Metadata {
+sealed interface AugmentedMetadata : MetadataWithCommentary {
+    val id: Int
+
+    fun reverse(node: AstNode): ReverseResult
+
+    @Serializable
+    class AdditionalParen(
+        override val id: Int,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode) = ReverseResult.ReversedNode((node as Expression.Paren).target)
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {}
+    }
+
+    @Serializable
+    class ReverseToLhsBinaryOperator(
+        override val id: Int,
+        private val commentary: String?,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult {
+            require(node is Expression.Binary)
+            return ReverseResult.ReversedNode(node.lhs)
+        }
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            if (commentary != null) {
+                out.print("/* $commentary */ ")
+            }
+        }
+    }
+
+    @Serializable
+    class ReverseToRhsBinaryOperator(
+        override val id: Int,
+        private val commentary: String?,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult {
+            require(node is Expression.Binary)
+            return ReverseResult.ReversedNode(node.rhs)
+        }
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            if (commentary != null) {
+                out.print("/* $commentary */ ")
+            }
+        }
+    }
+
+    @Serializable
+    class DeletableStatement(
+        override val id: Int,
+        private val commentary: String,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult = ReverseResult.DeletedNode
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            emitIndent()
+            out.print("/* $commentary */\n")
+        }
+    }
+
+    @Serializable
+    class EmptiableCompound(
+        override val id: Int,
+        private val commentary: String,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult = ReverseResult.ReversedNode(Statement.Compound(emptyList()))
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            emitIndent()
+            out.print("/* $commentary */\n")
+        }
+    }
+}
+
+sealed interface ReverseResult {
+    data class ReversedNode(
+        val node: AstNode,
+    ) : ReverseResult
+
+    object DeletedNode : ReverseResult
+}
+
+@Serializable
+sealed interface OldAugmentedMetadata : Metadata {
     @Serializable
     data class ControlFlowWrapperMetaData(
         // id uniquely corresponds to a parent ControlFlowWrapper node.
         // For more information look at the comments of ControlFlowWrapper.
         val id: Int,
-    ) : AugmentedMetadata
-
-    /**
-     * Metadata held by an arbitrary compound
-     * If a Compound has this then it can be removed by the reducer since it is an arbitrarily generated compound
-     */
-    @Serializable
-    object ArbitraryCompoundMetaData : AugmentedMetadata
+    ) : OldAugmentedMetadata
 
     @Serializable
-    object FunctionForArbitraryCompoundsFromDonorShader : AugmentedMetadata
-
-    @Serializable
-    sealed interface IdentityOperation : AugmentedMetadata {
-        val id: Int
-
-        @Serializable
-        data class BinaryIdentityOperation(
-            private val originalOnLeft: Boolean,
-            val commentary: String,
-            override val id: Int,
-        ) : IdentityOperation {
-            fun originalExpression(expression: Expression.Binary): Expression = if (originalOnLeft) expression.lhs else expression.rhs
-        }
-
-        @Serializable
-        data class IdentityParen(
-            override val id: Int,
-        ) : IdentityOperation
-    }
+    object FunctionForArbitraryCompoundsFromDonorShader : OldAugmentedMetadata
 }

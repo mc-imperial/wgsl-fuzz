@@ -87,21 +87,22 @@ private class AddIdentityOperations(
                                     lhs =
                                         Expression.Paren(
                                             target = generateZero(type),
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     rhs =
                                         Expression.Paren(
                                             target = node,
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     metadata =
-                                        AugmentedMetadata.IdentityOperation.BinaryIdentityOperation(
-                                            originalOnLeft = false,
-                                            commentary = "add zero on left",
-                                            id = id,
+                                        setOf(
+                                            AugmentedMetadata.ReverseToRhsBinaryOperator(
+                                                commentary = "add zero on left",
+                                                id = id,
+                                            ),
                                         ),
                                 ),
-                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.addZeroRight to {
@@ -112,21 +113,22 @@ private class AddIdentityOperations(
                                     lhs =
                                         Expression.Paren(
                                             target = node,
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     rhs =
                                         Expression.Paren(
                                             target = generateZero(type),
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     metadata =
-                                        AugmentedMetadata.IdentityOperation.BinaryIdentityOperation(
-                                            originalOnLeft = true,
-                                            commentary = "add zero on right",
-                                            id = id,
+                                        setOf(
+                                            AugmentedMetadata.ReverseToLhsBinaryOperator(
+                                                commentary = "add zero on right",
+                                                id = id,
+                                            ),
                                         ),
                                 ),
-                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.subZero to {
@@ -137,21 +139,22 @@ private class AddIdentityOperations(
                                     lhs =
                                         Expression.Paren(
                                             target = node,
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     rhs =
                                         Expression.Paren(
                                             target = generateZero(type),
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     metadata =
-                                        AugmentedMetadata.IdentityOperation.BinaryIdentityOperation(
-                                            originalOnLeft = true,
-                                            commentary = "sub zero",
-                                            id = id,
+                                        setOf(
+                                            AugmentedMetadata.ReverseToLhsBinaryOperator(
+                                                commentary = "sub zero",
+                                                id = id,
+                                            ),
                                         ),
                                 ),
-                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.mulOneLeft to {
@@ -162,21 +165,22 @@ private class AddIdentityOperations(
                                     lhs =
                                         Expression.Paren(
                                             target = generateOne(type),
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     rhs =
                                         Expression.Paren(
                                             target = node,
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     metadata =
-                                        AugmentedMetadata.IdentityOperation.BinaryIdentityOperation(
-                                            originalOnLeft = false,
-                                            commentary = "mul by one on left",
-                                            id = id,
+                                        setOf(
+                                            AugmentedMetadata.ReverseToRhsBinaryOperator(
+                                                commentary = "mul by one on left",
+                                                id = id,
+                                            ),
                                         ),
                                 ),
-                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.mulOneRight to {
@@ -187,21 +191,22 @@ private class AddIdentityOperations(
                                     lhs =
                                         Expression.Paren(
                                             target = node,
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     rhs =
                                         Expression.Paren(
                                             target = generateOne(type),
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     metadata =
-                                        AugmentedMetadata.IdentityOperation.BinaryIdentityOperation(
-                                            originalOnLeft = true,
-                                            commentary = "mul by one on right",
-                                            id = id,
+                                        setOf(
+                                            AugmentedMetadata.ReverseToLhsBinaryOperator(
+                                                commentary = "mul by one on right",
+                                                id = id,
+                                            ),
                                         ),
                                 ),
-                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.divOne to {
@@ -212,21 +217,22 @@ private class AddIdentityOperations(
                                     lhs =
                                         Expression.Paren(
                                             target = node,
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     rhs =
                                         Expression.Paren(
                                             target = generateOne(type),
-                                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                                         ),
                                     metadata =
-                                        AugmentedMetadata.IdentityOperation.BinaryIdentityOperation(
-                                            originalOnLeft = true,
-                                            commentary = "div by one",
-                                            id = id,
+                                        setOf(
+                                            AugmentedMetadata.ReverseToLhsBinaryOperator(
+                                                commentary = "div by one",
+                                                id = id,
+                                            ),
                                         ),
                                 ),
-                            metadata = AugmentedMetadata.IdentityOperation.IdentityParen(id),
+                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                         )
                     },
                 )

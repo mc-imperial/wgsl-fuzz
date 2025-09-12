@@ -104,9 +104,6 @@ fun <T> traverse(
             }
             node.args.forEach(actionWithState)
         }
-        is AugmentedExpression.ArbitraryExpression -> {
-            actionWithState(node.expression)
-        }
         is AugmentedExpression.KnownValue -> {
             actionWithState(node.knownValue)
             actionWithState(node.expression)
@@ -221,9 +218,6 @@ fun <T> traverse(
             actionWithState(node.condition)
             actionWithState(node.body)
         }
-        is AugmentedStatement.DeadCodeFragment -> {
-            actionWithState(node.statement)
-        }
         is AugmentedStatement.ControlFlowWrapper -> {
             actionWithState(node.statement)
         }
@@ -231,12 +225,6 @@ fun <T> traverse(
             actionWithState(node.statement)
         }
         is AugmentedStatement.ControlFlowWrapReturn -> {
-            actionWithState(node.statement)
-        }
-        is AugmentedStatement.ArbitraryStatement -> {
-            actionWithState(node.statement)
-        }
-        is AugmentedStatement.ArbitraryElseBranch -> {
             actionWithState(node.statement)
         }
         is StructMember -> {

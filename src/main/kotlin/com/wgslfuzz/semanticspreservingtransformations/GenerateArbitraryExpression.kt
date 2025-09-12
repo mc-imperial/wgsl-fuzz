@@ -46,32 +46,8 @@ fun generateArbitraryExpression(
     when (type) {
         is Type.Bool -> generateArbitraryBool(depth, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
         is Type.I32, is Type.U32 -> generateArbitraryInt(depth, sideEffectsAllowed, fuzzerSettings, shaderJob, scope, type)
-        is Type.F32 -> {
-            // Fix this to not rely on hacky solution.
-            // The hacky solution works by getting a known value with a random integer value and then replacing every
-            // location of AugmentedExpression.KnownValue in the returned AST tree with
-            // AugmentedExpression.ArbitraryExpression which then creates an arbitrary expression.
-            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/109)
-            generateKnownValueExpression(
-                depth = depth,
-                knownValue = constantWithSameValueEverywhere(fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE), type),
-                type = type,
-                fuzzerSettings = fuzzerSettings,
-                shaderJob = shaderJob,
-                scope = scope,
-            ).clone(::replaceKnownValueWithArbitraryExpression)
-        }
         // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
         else -> constantWithSameValueEverywhere(1, type)
-    }
-
-private fun replaceKnownValueWithArbitraryExpression(node: AstNode): AstNode? =
-    when (node) {
-        is AugmentedExpression.KnownValue ->
-            AugmentedExpression.ArbitraryExpression(
-                node.expression.clone(::replaceKnownValueWithArbitraryExpression),
-            )
-        else -> null
     }
 
 private fun generateArbitraryBool(
@@ -80,7 +56,7 @@ private fun generateArbitraryBool(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
     scope: Scope,
-): AugmentedExpression.ArbitraryExpression {
+): Expression {
     val nonRecursiveChoices: List<Pair<Int, () -> Expression>> =
         listOfNotNull(
             fuzzerSettings.arbitraryBooleanExpressionWeights.literal(depth) to {
@@ -195,13 +171,11 @@ private fun generateArbitraryBool(
             },
         )
 
-    return AugmentedExpression.ArbitraryExpression(
-        if (fuzzerSettings.goDeeper(depth)) {
-            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
-        } else {
-            choose(fuzzerSettings, nonRecursiveChoices)
-        },
-    )
+    return if (fuzzerSettings.goDeeper(depth)) {
+        choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+    } else {
+        choose(fuzzerSettings, nonRecursiveChoices)
+    }
 }
 
 private fun generateArbitraryInt(
@@ -211,7 +185,7 @@ private fun generateArbitraryInt(
     shaderJob: ShaderJob,
     scope: Scope,
     outputType: Type.Integer,
-): AugmentedExpression.ArbitraryExpression {
+): Expression {
     require(outputType !is Type.AbstractInteger) { "outputType must be a concrete type" }
 
     val literalSuffix =
@@ -558,13 +532,11 @@ private fun generateArbitraryInt(
             },
         )
 
-    return AugmentedExpression.ArbitraryExpression(
-        if (fuzzerSettings.goDeeper(depth)) {
-            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
-        } else {
-            choose(fuzzerSettings, nonRecursiveChoices)
-        },
-    )
+    return if (fuzzerSettings.goDeeper(depth)) {
+        choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+    } else {
+        choose(fuzzerSettings, nonRecursiveChoices)
+    }
 }
 
 private fun randomVariableFromScope(

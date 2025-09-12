@@ -18,13 +18,13 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AssignmentOperator
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
+import com.wgslfuzz.core.OldAugmentedMetadata
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
@@ -216,7 +216,7 @@ private class ControlFlowWrapping(
                 originalStatements.clone {
                     injectControlFlowWrapper(it, injections, returnTypeDecl)
                 },
-                metadata = AugmentedMetadata.ControlFlowWrapperMetaData(uniqueId),
+                metadata = setOf(OldAugmentedMetadata.ControlFlowWrapperMetaData(uniqueId)),
             )
 
         val choices =
@@ -754,7 +754,7 @@ private class ControlFlowWrapping(
                             it.name == functionName
                         } ?: throw RuntimeException("Could not find $functionName in donor shader global decls")
 
-                check(functionDecl.metadata == null) { "Adding metadata to a function with it already" }
+                check(functionDecl.metadata.isEmpty()) { "Cannot add metadata to a function with it already" }
                 GlobalDecl.Function(
                     attributes = functionDecl.attributes,
                     name = functionDecl.name,
@@ -762,7 +762,7 @@ private class ControlFlowWrapping(
                     returnAttributes = functionDecl.returnAttributes,
                     returnType = functionDecl.returnType,
                     body = functionDecl.body,
-                    metadata = AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader,
+                    metadata = setOf(OldAugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader),
                 )
             }
 
