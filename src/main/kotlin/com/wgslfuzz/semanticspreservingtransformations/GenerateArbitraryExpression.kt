@@ -17,8 +17,6 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AccessMode
-import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.Scope
@@ -27,7 +25,6 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.asStoreTypeIfReference
-import com.wgslfuzz.core.clone
 import kotlin.random.Random
 
 private const val I32_LOWEST_VALUE: Long = -0x80000000

@@ -27,7 +27,6 @@ import com.wgslfuzz.core.ReverseResult
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
-import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.cloneWithoutReplacementOnThis
 import com.wgslfuzz.core.nodesPreOrder
