@@ -18,7 +18,6 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.Attribute
-import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
@@ -49,12 +48,6 @@ private class AddIdentityOperations(
         }
         if (node is TypeDecl) {
             // We do not want to mutate, for example, a constant array size.
-            return
-        }
-        if (node is AugmentedExpression.KnownValue) {
-            // In the case of a known value expression, the "known value" part should be left intact, and only the
-            // obfuscated expression that evaluates to the known value should be considered for transformation.
-            traverse(::selectIdentityOperationReplacements, node.expression, identityReplacements)
             return
         }
         if (node is Statement) {

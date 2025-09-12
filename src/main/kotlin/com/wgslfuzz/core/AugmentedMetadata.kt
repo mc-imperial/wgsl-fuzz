@@ -108,6 +108,46 @@ sealed interface AugmentedMetadata : MetadataWithCommentary {
             out.print("/* $commentary */\n")
         }
     }
+
+    @Serializable
+    class KnownValue(
+        override val id: Int,
+        val knownValue: Expression,
+    ) : AugmentedMetadata {
+        init {
+            if (knownValue is Expression.FloatLiteral) {
+                val doubleValue = knownValue.text.removeSuffix("f").toDouble()
+                val floatValue =
+                    knownValue.text
+                        .removeSuffix("f")
+                        .toFloat()
+                        .toDouble()
+                if (doubleValue != floatValue) {
+                    throw UnsupportedOperationException(
+                        "A floating-point known value must be exactly representable; found value $doubleValue which does not match float representation $floatValue.",
+                    )
+                }
+            }
+        }
+
+        override fun reverse(node: AstNode): ReverseResult = ReverseResult.ReversedNode(knownValue.clone())
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            out.print("/* known value: ")
+            out.print(
+                when (knownValue) {
+                    is Expression.BoolLiteral -> knownValue.text
+                    is Expression.IntLiteral -> knownValue.text
+                    is Expression.FloatLiteral -> knownValue.text
+                    else -> TODO("Emit commentary not implement for $knownValue")
+                },
+            )
+            out.print(" */ ")
+        }
+    }
 }
 
 sealed interface ReverseResult {

@@ -16,6 +16,8 @@
 
 package com.wgslfuzz.core
 
+import kotlin.math.exp
+
 fun TypeDecl.toType(
     scope: Scope,
     resolvedEnvironment: ResolvedEnvironment,
@@ -820,67 +822,70 @@ fun Expression.FunctionCall.toType(
 fun Expression.toType(
     scope: Scope,
     resolvedEnvironment: ResolvedEnvironment,
-): Type =
-    when (this) {
-        is Expression.FunctionCall -> this.toType(scope, resolvedEnvironment)
-        is Expression.IndexLookup -> this.toType(resolvedEnvironment)
-        is Expression.MemberLookup -> this.toType(resolvedEnvironment)
-        is Expression.FloatLiteral ->
-            if (this.text.endsWith("f")) {
-                Type.F32
-            } else if (this.text.endsWith("h")) {
-                Type.F16
-            } else {
-                Type.AbstractFloat
-            }
-        is Expression.IntLiteral ->
-            if (this.text.endsWith("u")) {
-                Type.U32
-            } else if (this.text.endsWith("i")) {
-                Type.I32
-            } else {
-                Type.AbstractInteger
-            }
-        is Expression.BoolLiteral ->
-            Type.Bool
-        is Expression.Binary -> this.toType(resolvedEnvironment)
-        is Expression.Unary -> this.toType(resolvedEnvironment)
-        is Expression.Paren -> resolvedEnvironment.typeOf(this.target)
-        is Expression.Identifier ->
-            when (val scopeEntry = scope.getEntry(this.name)) {
-                is ScopeEntry.TypedDecl -> scopeEntry.type
-                else -> throw IllegalArgumentException("Identifier ${this.name} does not have a typed scope entry")
-            }
-        is Expression.BoolValueConstructor -> Type.Bool
-        is Expression.I32ValueConstructor -> Type.I32
-        is Expression.U32ValueConstructor -> Type.U32
-        is Expression.F32ValueConstructor -> Type.F32
-        is Expression.F16ValueConstructor -> Type.F16
-        is Expression.VectorValueConstructor -> this.toType(scope, resolvedEnvironment)
-        is Expression.MatrixValueConstructor -> this.toType(scope, resolvedEnvironment)
-        is Expression.ArrayValueConstructor -> this.toType(scope, resolvedEnvironment)
-        is Expression.StructValueConstructor ->
-            when (val scopeEntry = scope.getEntry(this.constructorName)) {
-                is ScopeEntry.Struct -> scopeEntry.type
-                else -> throw IllegalArgumentException(
-                    "Attempt to construct a struct with constructor ${this.constructorName}, which is not a struct type",
-                )
-            }
-        is Expression.TypeAliasValueConstructor ->
-            (
-                scope.getEntry(
-                    this.constructorName,
-                ) as ScopeEntry.TypeAlias
-            ).type
-        is AugmentedExpression.KnownValue -> {
-            val knownValueType = resolvedEnvironment.typeOf(this.knownValue).asStoreTypeIfReference()
-            val expressionType = resolvedEnvironment.typeOf(this.expression).asStoreTypeIfReference()
-            if (knownValueType != expressionType) {
-                throw RuntimeException("Types for known value expression and its corresponding obfuscated expression do not match.")
-            }
-            expressionType
+): Type {
+    val expressionType =
+        when (this) {
+            is Expression.FunctionCall -> this.toType(scope, resolvedEnvironment)
+            is Expression.IndexLookup -> this.toType(resolvedEnvironment)
+            is Expression.MemberLookup -> this.toType(resolvedEnvironment)
+            is Expression.FloatLiteral ->
+                if (this.text.endsWith("f")) {
+                    Type.F32
+                } else if (this.text.endsWith("h")) {
+                    Type.F16
+                } else {
+                    Type.AbstractFloat
+                }
+
+            is Expression.IntLiteral ->
+                if (this.text.endsWith("u")) {
+                    Type.U32
+                } else if (this.text.endsWith("i")) {
+                    Type.I32
+                } else {
+                    Type.AbstractInteger
+                }
+
+            is Expression.BoolLiteral ->
+                Type.Bool
+
+            is Expression.Binary -> this.toType(resolvedEnvironment)
+            is Expression.Unary -> this.toType(resolvedEnvironment)
+            is Expression.Paren -> resolvedEnvironment.typeOf(this.target)
+            is Expression.Identifier ->
+                when (val scopeEntry = scope.getEntry(this.name)) {
+                    is ScopeEntry.TypedDecl -> scopeEntry.type
+                    else -> throw IllegalArgumentException("Identifier ${this.name} does not have a typed scope entry")
+                }
+
+            is Expression.BoolValueConstructor -> Type.Bool
+            is Expression.I32ValueConstructor -> Type.I32
+            is Expression.U32ValueConstructor -> Type.U32
+            is Expression.F32ValueConstructor -> Type.F32
+            is Expression.F16ValueConstructor -> Type.F16
+            is Expression.VectorValueConstructor -> this.toType(scope, resolvedEnvironment)
+            is Expression.MatrixValueConstructor -> this.toType(scope, resolvedEnvironment)
+            is Expression.ArrayValueConstructor -> this.toType(scope, resolvedEnvironment)
+            is Expression.StructValueConstructor ->
+                when (val scopeEntry = scope.getEntry(this.constructorName)) {
+                    is ScopeEntry.Struct -> scopeEntry.type
+                    else -> throw IllegalArgumentException(
+                        "Attempt to construct a struct with constructor ${this.constructorName}, which is not a struct type",
+                    )
+                }
+
+            is Expression.TypeAliasValueConstructor ->
+                (
+                    scope.getEntry(
+                        this.constructorName,
+                    ) as ScopeEntry.TypeAlias
+                ).type
         }
-    }
+
+    // TODO(Added known value ex[ression check)
+
+    return expressionType
+}
 
 fun Expression.IndexLookup.toType(resolvedEnvironment: ResolvedEnvironment): Type {
     fun resolveDirectIndexType(type: Type): Type =

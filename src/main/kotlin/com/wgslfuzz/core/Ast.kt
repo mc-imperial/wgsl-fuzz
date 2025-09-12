@@ -1229,38 +1229,6 @@ sealed interface MetadataWithCommentary : Metadata {
 sealed interface AugmentedAstNode : AstNode
 
 /**
- * Augmented expressions, which may include (for example) transformations applied to existing expressions, or
- * expressions that support transformations applied to statements.
- */
-@Serializable
-sealed interface AugmentedExpression :
-    AugmentedAstNode,
-    Expression {
-    @Serializable
-    class KnownValue(
-        val knownValue: Expression,
-        val expression: Expression,
-        override val metadata: Set<Metadata> = emptySet(),
-    ) : AugmentedExpression {
-        init {
-            if (knownValue is Expression.FloatLiteral) {
-                val doubleValue = knownValue.text.removeSuffix("f").toDouble()
-                val floatValue =
-                    knownValue.text
-                        .removeSuffix("f")
-                        .toFloat()
-                        .toDouble()
-                if (doubleValue != floatValue) {
-                    throw UnsupportedOperationException(
-                        "A floating-point known value must be exactly representable; found value $doubleValue which does not match float representation $floatValue.",
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
  * Augmented statements, such as dead code fragments.
  */
 @Serializable

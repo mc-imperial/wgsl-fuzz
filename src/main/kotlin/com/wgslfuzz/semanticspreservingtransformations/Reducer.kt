@@ -17,7 +17,6 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
@@ -28,7 +27,7 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.clone
-import com.wgslfuzz.core.cloneWithoutReplacementOnThis
+import com.wgslfuzz.core.cloneWithoutReplacementOnFirstNode
 import com.wgslfuzz.core.nodesPreOrder
 import kotlin.math.abs
 import kotlin.math.max
@@ -110,7 +109,6 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
     val passes: List<ReductionPass<*>> =
         listOf(
             UndoTransformations(),
-            ReplaceKnownValues(),
             ReduceControlFlowWrapped(),
         )
     var reducedShaderJob = this
@@ -173,7 +171,7 @@ private class UndoTransformations : ReductionPass<Int>() {
                                     ReverseResult.DeletedNode -> null
                                     is ReverseResult.ReversedNode -> result.node as Statement
                                     null ->
-                                        statement.cloneWithoutReplacementOnThis {
+                                        statement.cloneWithoutReplacementOnFirstNode {
                                             reverseResultToClone(undoTransformations(it))
                                         }
                                 }
@@ -187,29 +185,6 @@ private class UndoTransformations : ReductionPass<Int>() {
 
         return ShaderJob(
             originalShaderJob.tu.clone { reverseResultToClone(undoTransformations(it)) },
-            originalShaderJob.pipelineState,
-        )
-    }
-}
-
-private class ReplaceKnownValues : ReductionPass<AugmentedExpression.KnownValue>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.KnownValue> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.KnownValue>()
-
-    override fun removeOpportunities(
-        originalShaderJob: ShaderJob,
-        opportunities: List<AugmentedExpression.KnownValue>,
-    ): ShaderJob {
-        val opportunitiesAsSet = opportunities.toSet()
-
-        fun replaceKnownValue(node: AstNode): AstNode? {
-            if (node !is AugmentedExpression.KnownValue || node !in opportunitiesAsSet) {
-                return null
-            }
-            return node.knownValue.clone(::replaceKnownValue)
-        }
-        return ShaderJob(
-            originalShaderJob.tu.clone(::replaceKnownValue),
             originalShaderJob.pipelineState,
         )
     }

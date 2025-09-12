@@ -759,7 +759,6 @@ fun evaluate(
                 else -> TODO("${expression.operator}")
             }
         }
-        is AugmentedExpression.KnownValue -> evaluate(expression.knownValue, scope, resolvedEnvironment)
         else -> TODO("$expression")
     }
 

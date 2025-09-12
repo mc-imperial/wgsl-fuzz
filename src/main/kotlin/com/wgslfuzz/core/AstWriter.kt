@@ -456,16 +456,6 @@ class AstWriter(
                 emitExpression(expression.receiver)
                 out.print(".${expression.memberName}")
             }
-            is AugmentedExpression.KnownValue -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* known value: ")
-                    emitExpression(expression.knownValue)
-                    out.print(" */ ")
-                }
-                emitExpression(expression.expression)
-                out.print(")")
-            }
         }
     }
 

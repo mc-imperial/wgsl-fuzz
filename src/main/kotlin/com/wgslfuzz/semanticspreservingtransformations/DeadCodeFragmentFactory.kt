@@ -16,7 +16,6 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
@@ -41,7 +40,7 @@ import com.wgslfuzz.core.Statement
  * with an optional empty else branch.
  */
 fun createIfFalseThenDeadStatement(
-    falseCondition: AugmentedExpression.KnownValue,
+    falseCondition: Expression,
     deadStatement: Statement.Compound,
     includeEmptyElseBranch: Boolean,
     id: Int,
@@ -67,7 +66,7 @@ fun createIfFalseThenDeadStatement(
  * }
  */
 fun createIfTrueElseDeadStatement(
-    trueCondition: AugmentedExpression.KnownValue,
+    trueCondition: Expression,
     deadStatement: Statement.Compound,
     id: Int,
 ) = Statement.If(
@@ -85,7 +84,7 @@ fun createIfTrueElseDeadStatement(
  * }
  */
 fun createWhileFalseDeadStatement(
-    falseCondition: AugmentedExpression.KnownValue,
+    falseCondition: Expression,
     deadStatement: Statement.Compound,
     id: Int,
 ) = Statement.While(
@@ -102,7 +101,7 @@ fun createWhileFalseDeadStatement(
  * }
  */
 fun createForWithFalseConditionDeadStatement(
-    falseCondition: AugmentedExpression.KnownValue,
+    falseCondition: Expression,
     deadStatement: Statement.Compound,
     unreachableUpdate: Statement.ForUpdate?,
     id: Int,
@@ -129,7 +128,7 @@ fun createForWithFalseConditionDeadStatement(
  * }
  */
 fun createLoopWithUnconditionalBreakDeadStatement(
-    trueCondition: AugmentedExpression.KnownValue,
+    trueCondition: Expression,
     deadStatement: Statement.Compound,
     includeContinuingStatement: Boolean,
     breakIfExpr: Expression?,

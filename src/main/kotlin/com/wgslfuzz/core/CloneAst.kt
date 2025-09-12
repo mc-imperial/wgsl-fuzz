@@ -34,7 +34,7 @@ fun <T : AstNode> List<T>.clone(replacements: (AstNode) -> AstNode? = { null }):
  * Deeply clones an [AstNode] but does not apply the replacements function to `this` only the children of `this`
  */
 @Suppress("UNCHECKED_CAST")
-fun <T : AstNode> T.cloneWithoutReplacementOnThis(replacements: (AstNode) -> AstNode?): T = deepCloneHelper(this, replacements) as T
+fun <T : AstNode> T.cloneWithoutReplacementOnFirstNode(replacements: (AstNode) -> AstNode?): T = deepCloneHelper(this, replacements) as T
 
 private fun cloneHelper(
     node: AstNode,
@@ -338,12 +338,6 @@ private fun deepCloneHelper(
         is TypeDecl.Vec2 -> TypeDecl.Vec2(elementType.clone(replacements), metadata)
         is TypeDecl.Vec3 -> TypeDecl.Vec3(elementType.clone(replacements), metadata)
         is TypeDecl.Vec4 -> TypeDecl.Vec4(elementType.clone(replacements), metadata)
-        is AugmentedExpression.KnownValue ->
-            AugmentedExpression.KnownValue(
-                knownValue.clone(replacements),
-                expression.clone(replacements),
-                metadata,
-            )
         is AugmentedStatement.ControlFlowWrapper ->
             AugmentedStatement.ControlFlowWrapper(
                 statement.clone(replacements),

@@ -18,6 +18,7 @@ package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
+import com.wgslfuzz.core.Metadata
 import java.util.Random
 import kotlin.math.ceil
 import kotlin.math.ln
@@ -240,9 +241,10 @@ fun binaryExpressionRandomOperandOrder(
     operator: BinaryOperator,
     operand1: Expression,
     operand2: Expression,
+    metadata: Set<Metadata>,
 ): Expression =
     if (fuzzerSettings.randomBool()) {
-        Expression.Binary(operator, operand1, operand2)
+        Expression.Binary(operator, operand1, operand2, metadata)
     } else {
-        Expression.Binary(operator, operand2, operand1)
+        Expression.Binary(operator, operand2, operand1, metadata)
     }

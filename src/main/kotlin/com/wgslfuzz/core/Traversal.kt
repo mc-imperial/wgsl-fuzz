@@ -104,10 +104,6 @@ fun <T> traverse(
             }
             node.args.forEach(actionWithState)
         }
-        is AugmentedExpression.KnownValue -> {
-            actionWithState(node.knownValue)
-            actionWithState(node.expression)
-        }
         is GlobalDecl.ConstAssert -> {
             actionWithState(node.expression)
         }
