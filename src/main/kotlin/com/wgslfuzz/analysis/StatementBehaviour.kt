@@ -186,11 +186,8 @@ private fun statementBehaviour(
                 }
 
             // NON-STANDARD: the code here is statically unreachable so has behaviour next.
-            is AugmentedStatement.DeadCodeFragment -> setOf(StatementBehaviour.NEXT)
             is AugmentedStatement.ControlFlowWrapper -> TODO("Not implemented ControlFlowWrapper in statementBehaviour")
             is AugmentedStatement.ControlFlowWrapReturn -> TODO("Not implemented ControlFlowWrapReturn in statementBehaviour")
-            is AugmentedStatement.ArbitraryElseBranch -> TODO("Not implemented ArbitraryElseBranch in statementBehaviour")
-            is AugmentedStatement.ArbitraryStatement -> TODO("Not implemented ArbitraryStatement in statementBehaviour")
             is AugmentedStatement.ControlFlowWrapHelperStatement ->
                 TODO("Not implemented ControlFlowWrapHelperStatement in statementBehaviour")
         }

@@ -17,8 +17,6 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AccessMode
-import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.Scope
@@ -27,7 +25,6 @@ import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.asStoreTypeIfReference
-import com.wgslfuzz.core.clone
 import kotlin.random.Random
 
 private const val I32_LOWEST_VALUE: Long = -0x80000000
@@ -46,32 +43,8 @@ fun generateArbitraryExpression(
     when (type) {
         is Type.Bool -> generateArbitraryBool(depth, sideEffectsAllowed, fuzzerSettings, shaderJob, scope)
         is Type.I32, is Type.U32 -> generateArbitraryInt(depth, sideEffectsAllowed, fuzzerSettings, shaderJob, scope, type)
-        is Type.F32 -> {
-            // Fix this to not rely on hacky solution.
-            // The hacky solution works by getting a known value with a random integer value and then replacing every
-            // location of AugmentedExpression.KnownValue in the returned AST tree with
-            // AugmentedExpression.ArbitraryExpression which then creates an arbitrary expression.
-            // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/109)
-            generateKnownValueExpression(
-                depth = depth,
-                knownValue = constantWithSameValueEverywhere(fuzzerSettings.randomInt(LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE), type),
-                type = type,
-                fuzzerSettings = fuzzerSettings,
-                shaderJob = shaderJob,
-                scope = scope,
-            ).clone(::replaceKnownValueWithArbitraryExpression)
-        }
         // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/42): Support arbitrary expression generation
         else -> constantWithSameValueEverywhere(1, type)
-    }
-
-private fun replaceKnownValueWithArbitraryExpression(node: AstNode): AstNode? =
-    when (node) {
-        is AugmentedExpression.KnownValue ->
-            AugmentedExpression.ArbitraryExpression(
-                node.expression.clone(::replaceKnownValueWithArbitraryExpression),
-            )
-        else -> null
     }
 
 private fun generateArbitraryBool(
@@ -80,7 +53,7 @@ private fun generateArbitraryBool(
     fuzzerSettings: FuzzerSettings,
     shaderJob: ShaderJob,
     scope: Scope,
-): AugmentedExpression.ArbitraryExpression {
+): Expression {
     val nonRecursiveChoices: List<Pair<Int, () -> Expression>> =
         listOfNotNull(
             fuzzerSettings.arbitraryBooleanExpressionWeights.literal(depth) to {
@@ -95,84 +68,92 @@ private fun generateArbitraryBool(
 
     fun arbitraryIntComparison(operator: BinaryOperator): Expression {
         val type = fuzzerSettings.randomElement(listOf(Type.I32, Type.U32))
-        return Expression.Binary(
-            operator = operator,
-            lhs =
-                generateArbitraryInt(
-                    depth = depth + 1,
-                    sideEffectsAllowed,
-                    fuzzerSettings,
-                    shaderJob,
-                    scope,
-                    type,
-                ),
-            rhs =
-                generateArbitraryInt(
-                    depth = depth + 1,
-                    sideEffectsAllowed,
-                    fuzzerSettings,
-                    shaderJob,
-                    scope,
-                    type,
-                ),
+        return Expression.Paren(
+            Expression.Binary(
+                operator = operator,
+                lhs =
+                    generateArbitraryInt(
+                        depth = depth + 1,
+                        sideEffectsAllowed,
+                        fuzzerSettings,
+                        shaderJob,
+                        scope,
+                        type,
+                    ),
+                rhs =
+                    generateArbitraryInt(
+                        depth = depth + 1,
+                        sideEffectsAllowed,
+                        fuzzerSettings,
+                        shaderJob,
+                        scope,
+                        type,
+                    ),
+            ),
         )
     }
 
     val recursiveChoices: List<Pair<Int, () -> Expression>> =
         listOf(
             fuzzerSettings.arbitraryBooleanExpressionWeights.not(depth) to {
-                Expression.Unary(
-                    operator = UnaryOperator.LOGICAL_NOT,
-                    target =
-                        generateArbitraryBool(
-                            depth = depth + 1,
-                            sideEffectsAllowed,
-                            fuzzerSettings,
-                            shaderJob,
-                            scope,
-                        ),
+                Expression.Paren(
+                    Expression.Unary(
+                        operator = UnaryOperator.LOGICAL_NOT,
+                        target =
+                            generateArbitraryBool(
+                                depth = depth + 1,
+                                sideEffectsAllowed,
+                                fuzzerSettings,
+                                shaderJob,
+                                scope,
+                            ),
+                    ),
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.or(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                    lhs =
-                        generateArbitraryBool(
-                            depth = depth + 1,
-                            sideEffectsAllowed,
-                            fuzzerSettings,
-                            shaderJob,
-                            scope,
-                        ),
-                    rhs =
-                        generateArbitraryBool(
-                            depth = depth + 1,
-                            sideEffectsAllowed,
-                            fuzzerSettings,
-                            shaderJob,
-                            scope,
-                        ),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.SHORT_CIRCUIT_OR,
+                        lhs =
+                            generateArbitraryBool(
+                                depth = depth + 1,
+                                sideEffectsAllowed,
+                                fuzzerSettings,
+                                shaderJob,
+                                scope,
+                            ),
+                        rhs =
+                            generateArbitraryBool(
+                                depth = depth + 1,
+                                sideEffectsAllowed,
+                                fuzzerSettings,
+                                shaderJob,
+                                scope,
+                            ),
+                    ),
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.and(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                    lhs =
-                        generateArbitraryBool(
-                            depth = depth + 1,
-                            sideEffectsAllowed,
-                            fuzzerSettings,
-                            shaderJob,
-                            scope,
-                        ),
-                    rhs =
-                        generateArbitraryBool(
-                            depth = depth + 1,
-                            sideEffectsAllowed,
-                            fuzzerSettings,
-                            shaderJob,
-                            scope,
-                        ),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.SHORT_CIRCUIT_AND,
+                        lhs =
+                            generateArbitraryBool(
+                                depth = depth + 1,
+                                sideEffectsAllowed,
+                                fuzzerSettings,
+                                shaderJob,
+                                scope,
+                            ),
+                        rhs =
+                            generateArbitraryBool(
+                                depth = depth + 1,
+                                sideEffectsAllowed,
+                                fuzzerSettings,
+                                shaderJob,
+                                scope,
+                            ),
+                    ),
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.lessThan(depth) to {
@@ -195,13 +176,11 @@ private fun generateArbitraryBool(
             },
         )
 
-    return AugmentedExpression.ArbitraryExpression(
-        if (fuzzerSettings.goDeeper(depth)) {
-            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
-        } else {
-            choose(fuzzerSettings, nonRecursiveChoices)
-        },
-    )
+    return if (fuzzerSettings.goDeeper(depth)) {
+        choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+    } else {
+        choose(fuzzerSettings, nonRecursiveChoices)
+    }
 }
 
 private fun generateArbitraryInt(
@@ -211,7 +190,7 @@ private fun generateArbitraryInt(
     shaderJob: ShaderJob,
     scope: Scope,
     outputType: Type.Integer,
-): AugmentedExpression.ArbitraryExpression {
+): Expression {
     require(outputType !is Type.AbstractInteger) { "outputType must be a concrete type" }
 
     val literalSuffix =
@@ -253,10 +232,12 @@ private fun generateArbitraryInt(
         )
 
     fun arbitraryBinaryOperation(operator: BinaryOperator) =
-        Expression.Binary(
-            operator = operator,
-            lhs = generateArbitraryIntHelper(outputType),
-            rhs = generateArbitraryIntHelper(outputType),
+        Expression.Paren(
+            Expression.Binary(
+                operator = operator,
+                lhs = generateArbitraryIntHelper(outputType),
+                rhs = generateArbitraryIntHelper(outputType),
+            ),
         )
 
     // Overflow characteristics of i32 and u32 are define here: https://www.w3.org/TR/WGSL/#integer-types
@@ -281,9 +262,11 @@ private fun generateArbitraryInt(
             },
             if (outputType is Type.I32) {
                 fuzzerSettings.arbitraryIntExpressionWeights.negate(depth) to {
-                    Expression.Unary(
-                        operator = UnaryOperator.MINUS,
-                        target = generateArbitraryIntHelper(outputType),
+                    Expression.Paren(
+                        Expression.Unary(
+                            operator = UnaryOperator.MINUS,
+                            target = generateArbitraryIntHelper(outputType),
+                        ),
                     )
                 }
             } else {
@@ -299,43 +282,47 @@ private fun generateArbitraryInt(
                 arbitraryBinaryOperation(BinaryOperator.TIMES)
             },
             fuzzerSettings.arbitraryIntExpressionWeights.division(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.DIVIDE,
-                    lhs = generateArbitraryIntHelper(outputType),
-                    rhs =
-                        generateKnownValueExpression(
-                            depth = depth + 1,
-                            knownValue =
-                                Expression.IntLiteral(
-                                    fuzzerSettings
-                                        .randomElementFromRange(1..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
-                                        .toString() + literalSuffix,
-                                ),
-                            type = outputType,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.DIVIDE,
+                        lhs = generateArbitraryIntHelper(outputType),
+                        rhs =
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue =
+                                    Expression.IntLiteral(
+                                        fuzzerSettings
+                                            .randomElementFromRange(1..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
+                                            .toString() + literalSuffix,
+                                    ),
+                                type = outputType,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                    ),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.modulo(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.MODULO,
-                    lhs = generateArbitraryIntHelper(outputType),
-                    rhs =
-                        generateKnownValueExpression(
-                            depth = depth + 1,
-                            knownValue =
-                                Expression.IntLiteral(
-                                    fuzzerSettings
-                                        .randomElementFromRange(1..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
-                                        .toString() + literalSuffix,
-                                ),
-                            type = outputType,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.MODULO,
+                        lhs = generateArbitraryIntHelper(outputType),
+                        rhs =
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue =
+                                    Expression.IntLiteral(
+                                        fuzzerSettings
+                                            .randomElementFromRange(1..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
+                                            .toString() + literalSuffix,
+                                    ),
+                                type = outputType,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                    ),
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.abs(depth) to {
@@ -558,13 +545,11 @@ private fun generateArbitraryInt(
             },
         )
 
-    return AugmentedExpression.ArbitraryExpression(
-        if (fuzzerSettings.goDeeper(depth)) {
-            choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
-        } else {
-            choose(fuzzerSettings, nonRecursiveChoices)
-        },
-    )
+    return if (fuzzerSettings.goDeeper(depth)) {
+        choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
+    } else {
+        choose(fuzzerSettings, nonRecursiveChoices)
+    }
 }
 
 private fun randomVariableFromScope(
@@ -622,11 +607,11 @@ private fun randomVariableFromScope(
             name = scopeEntry.declName,
         )
 
-    return getRandomExpressionOfType(scopeEntryIdentifierExpression, scopeEntry.type, type, fuzzerSettings)
+    return getRandomVariableExpressionOfType(scopeEntryIdentifierExpression, scopeEntry.type, type, fuzzerSettings)
         ?: throw AssertionError("Could not find element of type: $type in ${scopeEntry.type}")
 }
 
-private fun getRandomExpressionOfType(
+private fun getRandomVariableExpressionOfType(
     expression: Expression,
     expressionType: Type,
     requiredType: Type,
@@ -642,7 +627,7 @@ private fun getRandomExpressionOfType(
                 expressionType.elementCount?.let { Expression.IntLiteral(fuzzerSettings.randomInt(it).toString()) }
                     ?: return null
 
-            getRandomExpressionOfType(
+            getRandomVariableExpressionOfType(
                 expression =
                     Expression.IndexLookup(
                         target = expression,
@@ -654,7 +639,7 @@ private fun getRandomExpressionOfType(
             )
         }
         is Type.Vector -> {
-            getRandomExpressionOfType(
+            getRandomVariableExpressionOfType(
                 expression =
                     Expression.IndexLookup(
                         target = expression,
@@ -669,7 +654,7 @@ private fun getRandomExpressionOfType(
             val columnIndex = Expression.IntLiteral(fuzzerSettings.randomInt(expressionType.numCols).toString())
             val rowIndex = Expression.IntLiteral(fuzzerSettings.randomInt(expressionType.numRows).toString())
 
-            getRandomExpressionOfType(
+            getRandomVariableExpressionOfType(
                 expression =
                     Expression.IndexLookup(
                         target = expression,
@@ -689,7 +674,7 @@ private fun getRandomExpressionOfType(
 
             for ((memberName, memberType) in shuffledMembers) {
                 val randomExpression =
-                    getRandomExpressionOfType(
+                    getRandomVariableExpressionOfType(
                         expression =
                             Expression.MemberLookup(
                                 receiver = expression,
@@ -708,7 +693,7 @@ private fun getRandomExpressionOfType(
             null
         }
         is Type.Reference -> {
-            getRandomExpressionOfType(
+            getRandomVariableExpressionOfType(
                 expression = expression,
                 expressionType = expressionType.storeType,
                 requiredType = requiredType,
@@ -717,7 +702,7 @@ private fun getRandomExpressionOfType(
         }
 
         is Type.Pointer -> {
-            getRandomExpressionOfType(
+            getRandomVariableExpressionOfType(
                 expression =
                     Expression.Unary(
                         operator = UnaryOperator.DEREFERENCE,

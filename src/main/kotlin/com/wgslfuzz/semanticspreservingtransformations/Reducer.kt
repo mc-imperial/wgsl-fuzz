@@ -17,20 +17,19 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.Attribute
-import com.wgslfuzz.core.AugmentedExpression
 import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
-import com.wgslfuzz.core.LhsExpression
+import com.wgslfuzz.core.OldAugmentedMetadata
+import com.wgslfuzz.core.ReverseResult
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
-import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.clone
+import com.wgslfuzz.core.cloneWithoutReplacementOnFirstNode
+import com.wgslfuzz.core.map
 import com.wgslfuzz.core.nodesPreOrder
-import com.wgslfuzz.core.traverse
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -110,12 +109,8 @@ abstract class ReductionPass<ReductionOpportunityT> {
 fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, ShaderJob?>? {
     val passes: List<ReductionPass<*>> =
         listOf(
-            ReduceDeadCodeFragments(),
-            UndoIdentityOperations(),
-            ReplaceKnownValues(),
+            UndoTransformations(),
             ReduceControlFlowWrapped(),
-            ReduceArbitraryExpression(),
-            ReduceArbitraryCompound(),
         )
     var reducedShaderJob = this
     var simplerButNotInterestingShaderJob: ShaderJob? = null
@@ -143,104 +138,65 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
     return Pair(reducedShaderJob, second = simplerButNotInterestingShaderJob)
 }
 
-private class CandidateDeadCodeFragment(
-    val enclosingCompound: Statement.Compound,
-    val offset: Int,
-)
-
-private class ReduceDeadCodeFragments : ReductionPass<CandidateDeadCodeFragment>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<CandidateDeadCodeFragment> {
-        fun finder(
-            node: AstNode,
-            fragments: MutableList<CandidateDeadCodeFragment>,
-        ) {
-            when (node) {
-                is Expression -> return
-                is LhsExpression -> return
-                is Attribute -> return
-                is Statement.Compound -> {
-                    node.statements.forEachIndexed { index, statement ->
-                        if (statement is AugmentedStatement.DeadCodeFragment) {
-                            fragments.add(CandidateDeadCodeFragment(node, index))
-                        }
-                    }
-                }
-                else -> {}
-            }
-            traverse(::finder, node, fragments)
-        }
-        val fragments = mutableListOf<CandidateDeadCodeFragment>()
-        traverse(::finder, originalShaderJob.tu, fragments)
-        return fragments
-    }
+private class UndoTransformations : ReductionPass<Int>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<Int> =
+        nodesPreOrder(originalShaderJob.tu)
+            .flatMap { node ->
+                node.metadata.mapNotNull { metadata -> (metadata as? AugmentedMetadata)?.id }
+            }.distinct()
 
     override fun removeOpportunities(
         originalShaderJob: ShaderJob,
-        opportunities: List<CandidateDeadCodeFragment>,
-    ): ShaderJob {
-        val fragmentsByCompound: Map<Statement.Compound, List<CandidateDeadCodeFragment>> = opportunities.groupBy { it.enclosingCompound }
-        return ShaderJob(
-            originalShaderJob.tu.clone { node ->
-                fragmentsByCompound[node]?.let { relevantFragments ->
-                    // To have been a key in the map, node must be a Compound.
-                    node as Statement.Compound
-                    val indices = relevantFragments.map { it.offset }.toSet()
-                    val newStatements = mutableListOf<Statement>()
-                    for (i in 0..<node.statements.size) {
-                        if (i in indices && node.statements[i] is AugmentedStatement.DeadCodeFragment) {
-                            continue
-                        }
-                        newStatements.add(node.statements[i])
-                    }
-                    Statement.Compound(newStatements, node.metadata)
-                }
-            },
-            originalShaderJob.pipelineState,
-        )
-    }
-}
-
-private class UndoIdentityOperations : ReductionPass<AugmentedExpression.IdentityOperation>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.IdentityOperation> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.IdentityOperation>()
-
-    override fun removeOpportunities(
-        originalShaderJob: ShaderJob,
-        opportunities: List<AugmentedExpression.IdentityOperation>,
+        opportunities: List<Int>,
     ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
 
-        fun undoIdentityOperations(node: AstNode): AstNode? {
-            if (node !is AugmentedExpression.IdentityOperation || node !in opportunitiesAsSet) {
-                return null
+        fun reverseResultToClone(result: ReverseResult?): AstNode? =
+            result?.let {
+                require(it is ReverseResult.ReversedNode) { "Only ReversedNode can be convert to clone replacement output" }
+                it.node
             }
-            return node.originalExpression.clone(::undoIdentityOperations)
-        }
-        return ShaderJob(
-            originalShaderJob.tu.clone(::undoIdentityOperations),
-            originalShaderJob.pipelineState,
-        )
-    }
-}
 
-private class ReplaceKnownValues : ReductionPass<AugmentedExpression.KnownValue>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedExpression.KnownValue> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.KnownValue>()
-
-    override fun removeOpportunities(
-        originalShaderJob: ShaderJob,
-        opportunities: List<AugmentedExpression.KnownValue>,
-    ): ShaderJob {
-        val opportunitiesAsSet = opportunities.toSet()
-
-        fun replaceKnownValue(node: AstNode): AstNode? {
-            if (node !is AugmentedExpression.KnownValue || node !in opportunitiesAsSet) {
-                return null
+        fun undoTransformations(node: AstNode): ReverseResult? =
+            if (node.metadata.filterIsInstance<AugmentedMetadata>().any { it.id in opportunitiesAsSet }) {
+                node.metadata
+                    .filterIsInstance<AugmentedMetadata>()
+                    .first { it.id in opportunitiesAsSet }
+                    .reverse(node)
+                    .map { node -> node.clone { reverseResultToClone(undoTransformations(it)) } }
+            } else if (node is Statement.Compound) {
+                ReverseResult.ReversedNode(
+                    Statement.Compound(
+                        statements =
+                            node.statements.mapNotNull { statement ->
+                                when (val result = undoTransformations(statement)) {
+                                    ReverseResult.DeletedNode -> null
+                                    is ReverseResult.ReversedNode -> result.node as Statement
+                                    null ->
+                                        statement.cloneWithoutReplacementOnFirstNode {
+                                            reverseResultToClone(undoTransformations(it))
+                                        }
+                                }
+                            },
+                        metadata = node.metadata,
+                    ),
+                )
+            } else {
+                null
             }
-            return node.knownValue.clone(::replaceKnownValue)
-        }
+
+        val opportunitiesRemovedTu = originalShaderJob.tu.clone { reverseResultToClone(undoTransformations(it)) }
+
+        val transformationsStillInTu =
+            nodesPreOrder(opportunitiesRemovedTu)
+                .flatMap { node ->
+                    node.metadata.mapNotNull { metadata -> (metadata as? AugmentedMetadata)?.id }
+                }.distinct()
+
+        check((transformationsStillInTu intersect opportunitiesAsSet).isEmpty())
+
         return ShaderJob(
-            originalShaderJob.tu.clone(::replaceKnownValue),
+            opportunitiesRemovedTu,
             originalShaderJob.pipelineState,
         )
     }
@@ -258,20 +214,26 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
         val idsOfOpportunities = opportunitiesAsSet.map { it.id }
 
         fun replaceControlFlowWrapped(node: AstNode): AstNode? {
+            if (node is AugmentedStatement.ControlFlowWrapHelperStatement && node.id in idsOfOpportunities) return null
+
             if (node is Statement.Compound) {
                 // This flattens compounds within compounds if they occur
-                val flattenedStatements =
-                    node.statements.clone(::replaceControlFlowWrapped).flatMap {
-                        if (it is Statement.Compound) {
-                            assert(it.metadata == null)
-                            it.statements
-                        } else {
-                            listOf(it)
+                val statements =
+                    node.statements
+                        .clone(::replaceControlFlowWrapped)
+                        .flatMap {
+                            if (it is Statement.Compound) {
+                                check(
+                                    it.metadata.isEmpty(),
+                                ) { "Metadata is not null for Compound within Compound and hence cannot be flattened" }
+                                it.statements
+                            } else {
+                                listOf(it)
+                            }
                         }
-                    }
 
                 val statementsWithControlFlowNodesRemoved =
-                    flattenedStatements.filter {
+                    statements.filter {
                         (it !is AugmentedStatement.ControlFlowWrapReturn && it !is AugmentedStatement.ControlFlowWrapHelperStatement) ||
                             it.id !in idsOfOpportunities
                     }
@@ -290,10 +252,9 @@ private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.Contro
                 nodesPreOrder(node.statement)
                     .asSequence()
                     .filterIsInstance<Statement.Compound>()
-                    .filter {
-                        (it.metadata as? AugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id
+                    .filter { compound ->
+                        compound.metadata.any { (it as? OldAugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id }
                     }.flatMap { it.statements }
-                    .filter { it !is AugmentedStatement.ControlFlowWrapHelperStatement || it.id == node.id }
                     .toList()
 
             return Statement.Compound(originalStatements.clone(::replaceControlFlowWrapped))
@@ -315,7 +276,7 @@ private fun removeUnnecessaryUserDefinedDonorShaderFunctions(tu: TranslationUnit
         nodesPreOrder(tu)
             .asSequence()
             .filterIsInstance<Statement.Compound>()
-            .filter { it.metadata is AugmentedMetadata.ControlFlowWrapperMetaData }
+            .filter { compound -> compound.metadata.any { it is OldAugmentedMetadata.ControlFlowWrapperMetaData } }
             .flatMap { arbitraryCompound ->
                 nodesPreOrder(arbitraryCompound)
                     .asSequence()
@@ -329,165 +290,10 @@ private fun removeUnnecessaryUserDefinedDonorShaderFunctions(tu: TranslationUnit
             tu.globalDecls
                 .filter {
                     it !is GlobalDecl.Function ||
-                        it.metadata != AugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader ||
+                        it.metadata != OldAugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader ||
                         it.name in userDefinedFunctionNames
                 },
     )
-}
-
-/**
- * ReduceArbitraryExpression cannot fully remove arbitrary expressions but it can make them smaller
- */
-private class ReduceArbitraryExpression :
-    ReductionPass<Pair<AugmentedExpression.ArbitraryExpression, ReduceArbitraryExpression.Metadata?>>() {
-    interface Metadata {
-        enum class Binary : Metadata { LHS, RHS }
-
-        data class FunctionCall(
-            val parameterIndex: Int,
-        ) : Metadata
-    }
-
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<Pair<AugmentedExpression.ArbitraryExpression, Metadata?>> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedExpression.ArbitraryExpression>().flatMap { arbitraryExpression ->
-            when (arbitraryExpression.expression) {
-                is Expression.Binary ->
-                    listOf(
-                        arbitraryExpression to Metadata.Binary.LHS,
-                        arbitraryExpression to Metadata.Binary.RHS,
-                    )
-                is Expression.FunctionCall ->
-                    (0..<arbitraryExpression.expression.args.size)
-                        .map { arbitraryExpression to Metadata.FunctionCall(it) }
-                else -> listOf(arbitraryExpression to null)
-            }
-        }
-
-    override fun removeOpportunities(
-        originalShaderJob: ShaderJob,
-        opportunities: List<Pair<AugmentedExpression.ArbitraryExpression, Metadata?>>,
-    ): ShaderJob {
-        val opportunitiesMap = opportunities.toMap()
-
-        fun removeArbitraryExpression(node: AstNode): AstNode? =
-            if (node !is AugmentedExpression.ArbitraryExpression || node !in opportunitiesMap) {
-                null
-            } else {
-                val underlyingExpression = node.expression
-                val underlyingExpressionType = originalShaderJob.environment.typeOf(underlyingExpression).asStoreTypeIfReference()
-
-                when (underlyingExpression) {
-                    is Expression.BoolLiteral,
-                    is Expression.FloatLiteral,
-                    is Expression.IntLiteral,
-                    is Expression.Identifier,
-                    is Expression.IndexLookup,
-                    is Expression.MemberLookup,
-                    is Expression.ArrayValueConstructor,
-                    is Expression.Mat2x2ValueConstructor,
-                    is Expression.Mat2x3ValueConstructor,
-                    is Expression.Mat2x4ValueConstructor,
-                    is Expression.Mat3x2ValueConstructor,
-                    is Expression.Mat3x3ValueConstructor,
-                    is Expression.Mat3x4ValueConstructor,
-                    is Expression.Mat4x2ValueConstructor,
-                    is Expression.Mat4x3ValueConstructor,
-                    is Expression.Mat4x4ValueConstructor,
-                    is Expression.BoolValueConstructor,
-                    is Expression.F16ValueConstructor,
-                    is Expression.F32ValueConstructor,
-                    is Expression.I32ValueConstructor,
-                    is Expression.U32ValueConstructor,
-                    is Expression.StructValueConstructor,
-                    is Expression.TypeAliasValueConstructor,
-                    is Expression.Vec2ValueConstructor,
-                    is Expression.Vec3ValueConstructor,
-                    is Expression.Vec4ValueConstructor,
-                    -> constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
-
-                    is Expression.Binary -> {
-                        when (opportunitiesMap[node]) {
-                            Metadata.Binary.LHS ->
-                                if (originalShaderJob.environment.typeOf(underlyingExpression.lhs) == underlyingExpressionType) {
-                                    underlyingExpression.lhs
-                                } else {
-                                    constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
-                                }
-
-                            Metadata.Binary.RHS ->
-                                if (originalShaderJob.environment.typeOf(underlyingExpression.rhs) == underlyingExpressionType) {
-                                    underlyingExpression.rhs
-                                } else {
-                                    constantWithSameValueEverywhere(value = 1, type = underlyingExpressionType)
-                                }
-
-                            else -> throw IllegalStateException("Removal of binary expression must have a correct Binary metadata")
-                        }
-                    }
-
-                    is Expression.Unary ->
-                        if (originalShaderJob.environment.typeOf(underlyingExpression.target) == underlyingExpressionType) {
-                            underlyingExpression.target
-                        } else {
-                            constantWithSameValueEverywhere(
-                                1,
-                                underlyingExpressionType,
-                            )
-                        }
-
-                    is Expression.FunctionCall ->
-                        underlyingExpression
-                            .args[(opportunitiesMap[node] as Metadata.FunctionCall).parameterIndex]
-                            .takeIf {
-                                originalShaderJob.environment.typeOf(it) == underlyingExpressionType
-                            } ?: constantWithSameValueEverywhere(1, underlyingExpressionType)
-
-                    is AugmentedExpression.ArbitraryExpression -> throw IllegalStateException(
-                        "An arbitrary expression should not wrap another arbitrary expression",
-                    )
-                    is Expression.Paren -> throw IllegalStateException(
-                        "An arbitrary expression does not wrap a parentheses",
-                    )
-
-                    is AugmentedExpression.AddZero -> TODO()
-                    is AugmentedExpression.DivOne -> TODO()
-                    is AugmentedExpression.MulOne -> TODO()
-                    is AugmentedExpression.SubZero -> TODO()
-                    is AugmentedExpression.KnownValue -> TODO()
-                }
-            }
-
-        return ShaderJob(
-            originalShaderJob.tu.clone(::removeArbitraryExpression),
-            originalShaderJob.pipelineState,
-        )
-    }
-}
-
-private class ReduceArbitraryCompound : ReductionPass<Statement.Compound>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<Statement.Compound> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<Statement.Compound>().filter {
-            it.metadata == AugmentedMetadata.ArbitraryCompoundMetaData
-        }
-
-    override fun removeOpportunities(
-        originalShaderJob: ShaderJob,
-        opportunities: List<Statement.Compound>,
-    ): ShaderJob {
-        val opportunitiesAsSet = opportunities.toSet()
-
-        fun removeOpportunitiesHelper(node: AstNode): AstNode? =
-            if (node !in opportunitiesAsSet) {
-                null
-            } else {
-                Statement.Compound(statements = listOf(Statement.Empty()))
-            }
-
-        return ShaderJob(
-            tu = originalShaderJob.tu.clone(::removeOpportunitiesHelper),
-            pipelineState = originalShaderJob.pipelineState,
-        )
-    }
 }
 
 private fun nodeSizeDelta(

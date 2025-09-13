@@ -16,8 +16,7 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
-import com.wgslfuzz.core.AugmentedExpression
-import com.wgslfuzz.core.AugmentedStatement
+import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.Statement
@@ -41,22 +40,21 @@ import com.wgslfuzz.core.Statement
  * with an optional empty else branch.
  */
 fun createIfFalseThenDeadStatement(
-    falseCondition: AugmentedExpression.KnownValue,
+    falseCondition: Expression,
     deadStatement: Statement.Compound,
     includeEmptyElseBranch: Boolean,
-): AugmentedStatement.DeadCodeFragment =
-    AugmentedStatement.DeadCodeFragment(
-        Statement.If(
-            condition = falseCondition,
-            thenBranch = deadStatement,
-            elseBranch =
-                if (includeEmptyElseBranch) {
-                    Statement.Compound(emptyList())
-                } else {
-                    null
-                },
-        ),
-    )
+    id: Int,
+) = Statement.If(
+    condition = falseCondition,
+    thenBranch = deadStatement,
+    elseBranch =
+        if (includeEmptyElseBranch) {
+            Statement.Compound(emptyList())
+        } else {
+            null
+        },
+    metadata = setOf(AugmentedMetadata.DeletableStatement(id, "dead code fragment:")),
+)
 
 /**
  * Makes a statement of the form:
@@ -68,16 +66,15 @@ fun createIfFalseThenDeadStatement(
  * }
  */
 fun createIfTrueElseDeadStatement(
-    trueCondition: AugmentedExpression.KnownValue,
+    trueCondition: Expression,
     deadStatement: Statement.Compound,
-): AugmentedStatement.DeadCodeFragment =
-    AugmentedStatement.DeadCodeFragment(
-        Statement.If(
-            condition = trueCondition,
-            thenBranch = Statement.Compound(emptyList()),
-            elseBranch = deadStatement,
-        ),
-    )
+    id: Int,
+) = Statement.If(
+    condition = trueCondition,
+    thenBranch = Statement.Compound(emptyList()),
+    elseBranch = deadStatement,
+    metadata = setOf(AugmentedMetadata.DeletableStatement(id, "dead code fragment:")),
+)
 
 /**
  * Makes a statement of the form:
@@ -87,15 +84,14 @@ fun createIfTrueElseDeadStatement(
  * }
  */
 fun createWhileFalseDeadStatement(
-    falseCondition: AugmentedExpression.KnownValue,
+    falseCondition: Expression,
     deadStatement: Statement.Compound,
-): AugmentedStatement.DeadCodeFragment =
-    AugmentedStatement.DeadCodeFragment(
-        Statement.While(
-            condition = falseCondition,
-            body = deadStatement,
-        ),
-    )
+    id: Int,
+) = Statement.While(
+    condition = falseCondition,
+    body = deadStatement,
+    metadata = setOf(AugmentedMetadata.DeletableStatement(id, "dead code fragment:")),
+)
 
 /**
  * Makes a statement of the form:
@@ -105,17 +101,16 @@ fun createWhileFalseDeadStatement(
  * }
  */
 fun createForWithFalseConditionDeadStatement(
-    falseCondition: AugmentedExpression.KnownValue,
+    falseCondition: Expression,
     deadStatement: Statement.Compound,
     unreachableUpdate: Statement.ForUpdate?,
-): AugmentedStatement.DeadCodeFragment =
-    AugmentedStatement.DeadCodeFragment(
-        Statement.For(
-            condition = falseCondition,
-            body = deadStatement,
-            update = unreachableUpdate,
-        ),
-    )
+    id: Int,
+) = Statement.For(
+    condition = falseCondition,
+    body = deadStatement,
+    update = unreachableUpdate,
+    metadata = setOf(AugmentedMetadata.DeletableStatement(id, "dead code fragment:")),
+)
 
 /**
  * Makes a statement of the form:
@@ -133,31 +128,30 @@ fun createForWithFalseConditionDeadStatement(
  * }
  */
 fun createLoopWithUnconditionalBreakDeadStatement(
-    trueCondition: AugmentedExpression.KnownValue,
+    trueCondition: Expression,
     deadStatement: Statement.Compound,
     includeContinuingStatement: Boolean,
     breakIfExpr: Expression?,
-): AugmentedStatement.DeadCodeFragment =
-    AugmentedStatement.DeadCodeFragment(
-        Statement.Loop(
-            body =
-                Statement.Compound(
-                    listOf(
-                        Statement.If(
-                            condition = trueCondition,
-                            thenBranch = Statement.Compound(listOf(Statement.Break())),
-                        ),
-                    ) + deadStatement.statements,
+    id: Int,
+) = Statement.Loop(
+    body =
+        Statement.Compound(
+            listOf(
+                Statement.If(
+                    condition = trueCondition,
+                    thenBranch = Statement.Compound(listOf(Statement.Break())),
                 ),
-            continuingStatement =
-                if (includeContinuingStatement) {
-                    ContinuingStatement(
-                        statements = Statement.Compound(emptyList()),
-                        breakIfExpr = breakIfExpr,
-                    )
-                } else {
-                    check(breakIfExpr == null)
-                    null
-                },
+            ) + deadStatement.statements,
         ),
-    )
+    continuingStatement =
+        if (includeContinuingStatement) {
+            ContinuingStatement(
+                statements = Statement.Compound(emptyList()),
+                breakIfExpr = breakIfExpr,
+            )
+        } else {
+            check(breakIfExpr == null)
+            null
+        },
+    metadata = setOf(AugmentedMetadata.DeletableStatement(id, "dead code fragment:")),
+)

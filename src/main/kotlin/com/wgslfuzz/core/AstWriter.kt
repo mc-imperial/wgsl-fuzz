@@ -145,6 +145,7 @@ class AstWriter(
     }
 
     private fun emitAttribute(attribute: Attribute) {
+        emitCommentary(attribute.metadata)
         emitIndent()
         when (attribute) {
             is Attribute.Align -> {
@@ -231,28 +232,31 @@ class AstWriter(
         out.print("\n")
     }
 
-    private fun emitSeverityControl(severityControl: SeverityControl) =
+    private fun emitSeverityControl(severityControl: SeverityControl) {
         when (severityControl) {
             SeverityControl.ERROR -> out.print("error")
             SeverityControl.WARNING -> out.print("warning")
             SeverityControl.INFO -> out.print("info")
             SeverityControl.OFF -> out.print("off")
         }
+    }
 
-    private fun emitDiagnosticRule(diagnosticRule: DiagnosticRule) =
+    private fun emitDiagnosticRule(diagnosticRule: DiagnosticRule) {
         when (diagnosticRule) {
             DiagnosticRule.DERIVATIVE_UNIFORMITY -> out.print("derivative_uniformity")
             DiagnosticRule.SUBGROUP_UNIFORMITY -> out.print("subgroup_uniformity")
         }
+    }
 
-    private fun emitInterpolateType(interpolateType: InterpolateType) =
+    private fun emitInterpolateType(interpolateType: InterpolateType) {
         when (interpolateType) {
             InterpolateType.PERSPECTIVE -> out.print("perspective")
             InterpolateType.LINEAR -> out.print("linear")
             InterpolateType.FLAT -> out.print("flat")
         }
+    }
 
-    private fun emitInterpolateSampling(interpolateSampling: InterpolateSampling) =
+    private fun emitInterpolateSampling(interpolateSampling: InterpolateSampling) {
         when (interpolateSampling) {
             InterpolateSampling.CENTER -> out.print("center")
             InterpolateSampling.CENTROID -> out.print("centroid")
@@ -260,8 +264,9 @@ class AstWriter(
             InterpolateSampling.FIRST -> out.print("first")
             InterpolateSampling.EITHER -> out.print("either")
         }
+    }
 
-    private fun emitBuiltinValue(builtinValue: BuiltinValue) =
+    private fun emitBuiltinValue(builtinValue: BuiltinValue) {
         when (builtinValue) {
             BuiltinValue.VERTEX_INDEX -> out.print("vertex_index")
             BuiltinValue.INSTANCE_INDEX -> out.print("instance_index")
@@ -280,6 +285,7 @@ class AstWriter(
             BuiltinValue.SUBGROUP_SIZE -> out.print("subgroup_size")
             BuiltinValue.PRIMITIVE_INDEX -> out.print("primitive_index")
         }
+    }
 
     private fun emitAssignmentOperator(assignmentOperator: AssignmentOperator) {
         when (assignmentOperator) {
@@ -331,6 +337,7 @@ class AstWriter(
     }
 
     private fun emitLhsExpression(lhsExpression: LhsExpression) {
+        emitCommentary(lhsExpression.metadata)
         when (lhsExpression) {
             is LhsExpression.AddressOf -> {
                 out.print("&")
@@ -362,6 +369,7 @@ class AstWriter(
     private fun emitExpression(expression: Expression) {
         when (expression) {
             is Expression.Binary -> {
+                emitCommentary(expression.metadata)
                 emitExpression(expression.lhs)
                 out.print(" ")
                 emitBinaryOperator(expression.operator)
@@ -369,6 +377,7 @@ class AstWriter(
                 emitExpression(expression.rhs)
             }
             is Expression.Unary -> {
+                emitCommentary(expression.metadata)
                 emitUnaryOperator(expression.operator)
                 emitExpression(expression.target)
             }
@@ -377,6 +386,7 @@ class AstWriter(
             is Expression.IntLiteral -> out.print(expression.text)
             is Expression.Identifier -> out.print(expression.name)
             is Expression.Paren -> {
+                emitCommentary(expression.metadata)
                 out.print("(")
                 emitExpression(expression.target)
                 out.print(")")
@@ -446,94 +456,11 @@ class AstWriter(
                 emitExpression(expression.receiver)
                 out.print(".${expression.memberName}")
             }
-            is AugmentedExpression.ArbitraryExpression -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* arbitrary expression: */ ")
-                }
-                emitExpression(expression.expression)
-                out.print(")")
-            }
-            is AugmentedExpression.AddZero -> {
-                if (expression.zeroOnLeft) {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* add zero on left */ ")
-                    }
-                    emitExpression(expression.zeroExpression)
-                    out.print(" + (")
-                    emitExpression(expression.originalExpression)
-                    out.print("))")
-                } else {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* add zero on right */ ")
-                    }
-                    out.print("(")
-                    emitExpression(expression.originalExpression)
-                    out.print(") + ")
-                    emitExpression(expression.zeroExpression)
-                    out.print(")")
-                }
-            }
-            is AugmentedExpression.DivOne -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* div by one */ ")
-                }
-                out.print("(")
-                emitExpression(expression.originalExpression)
-                out.print(") / ")
-                emitExpression(expression.oneExpression)
-                out.print(")")
-            }
-            is AugmentedExpression.MulOne -> {
-                if (expression.oneOnLeft) {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* mul by one on left */ ")
-                    }
-                    emitExpression(expression.oneExpression)
-                    out.print(" * (")
-                    emitExpression(expression.originalExpression)
-                    out.print("))")
-                } else {
-                    out.print("(")
-                    if (emitCommentary) {
-                        out.print("/* mul by one on right */ ")
-                    }
-                    out.print("(")
-                    emitExpression(expression.originalExpression)
-                    out.print(") * ")
-                    emitExpression(expression.oneExpression)
-                    out.print(")")
-                }
-            }
-            is AugmentedExpression.SubZero -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* sub zero */ ")
-                }
-                out.print("(")
-                emitExpression(expression.originalExpression)
-                out.print(") - ")
-                emitExpression(expression.zeroExpression)
-                out.print(")")
-            }
-            is AugmentedExpression.KnownValue -> {
-                out.print("(")
-                if (emitCommentary) {
-                    out.print("/* known value: ")
-                    emitExpression(expression.knownValue)
-                    out.print(" */ ")
-                }
-                emitExpression(expression.expression)
-                out.print(")")
-            }
         }
     }
 
     private fun emitTypeDecl(typeDecl: TypeDecl) {
+        emitCommentary(typeDecl.metadata)
         when (typeDecl) {
             is TypeDecl.ScalarTypeDecl -> out.print(typeDecl.name)
             is TypeDecl.MatrixTypeDecl -> {
@@ -657,6 +584,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(assignment) {
+            emitCommentary(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -680,21 +608,7 @@ class AstWriter(
             emitIndent()
             out.print("{\n")
             increaseIndent()
-            if (emitCommentary) {
-                when (compound.metadata) {
-                    is AugmentedMetadata.ControlFlowWrapperMetaData -> {
-                        emitIndent()
-                        out.print("/* wrapped original statements ${compound.metadata.id}: */\n")
-                    }
-
-                    is AugmentedMetadata.ArbitraryCompoundMetaData -> {
-                        emitIndent()
-                        out.print("/* arbitrary compound: */\n")
-                    }
-
-                    else -> {}
-                }
-            }
+            emitCommentary(metadata)
             statements.forEach(::emitStatement)
             decreaseIndent()
             emitIndent()
@@ -704,6 +618,7 @@ class AstWriter(
 
     private fun emitStatementConstAssert(constAssert: Statement.ConstAssert) {
         with(constAssert) {
+            emitCommentary(metadata)
             out.print("const_assert ")
             emitExpression(expression)
             out.print(";\n")
@@ -715,6 +630,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(increment) {
+            emitCommentary(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -731,6 +647,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(decrement) {
+            emitCommentary(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -744,6 +661,7 @@ class AstWriter(
 
     private fun emitStatementFor(statementFor: Statement.For) {
         with(statementFor) {
+            emitCommentary(metadata)
             emitAttributes(attributes)
             emitIndent()
             out.print("for (")
@@ -762,6 +680,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(functionCall) {
+            emitCommentary(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -780,6 +699,7 @@ class AstWriter(
 
     private fun emitStatementIf(statementIf: Statement.If) {
         with(statementIf) {
+            emitCommentary(metadata)
             emitAttributes(attributes)
             emitIndent()
             out.print("if ")
@@ -796,6 +716,7 @@ class AstWriter(
 
     private fun emitStatementLoop(loop: Statement.Loop) {
         with(loop) {
+            emitCommentary(metadata)
             emitAttributes(attributesAtStart)
             emitIndent()
             out.print("loop\n")
@@ -813,6 +734,7 @@ class AstWriter(
 
     private fun emitStatementReturn(statementReturn: Statement.Return) {
         with(statementReturn) {
+            emitCommentary(metadata)
             emitIndent()
             out.print("return")
             expression?.let {
@@ -825,6 +747,7 @@ class AstWriter(
 
     private fun emitStatementSwitch(switch: Statement.Switch) {
         with(switch) {
+            emitCommentary(metadata)
             emitAttributes(attributesAtStart)
             emitIndent()
             out.print("switch ")
@@ -846,6 +769,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(value) {
+            emitCommentary(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -874,6 +798,7 @@ class AstWriter(
         inForLoopHeader: Boolean,
     ) {
         with(variable) {
+            emitCommentary(metadata)
             if (!inForLoopHeader) {
                 emitIndent()
             }
@@ -886,6 +811,7 @@ class AstWriter(
 
     private fun emitStatementWhile(statementWhile: Statement.While) {
         with(statementWhile) {
+            emitCommentary(metadata)
             emitAttributes(attributes)
             emitIndent()
             out.print("while ")
@@ -893,14 +819,6 @@ class AstWriter(
             out.print("\n")
             emitStatement(body)
         }
-    }
-
-    private fun emitMetamorphicStatementDeadCodeFragment(deadCodeFragment: AugmentedStatement.DeadCodeFragment) {
-        if (emitCommentary) {
-            emitIndent()
-            out.print("/* dead code fragment: */\n")
-        }
-        emitStatement(deadCodeFragment.statement)
     }
 
     private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
@@ -927,22 +845,6 @@ class AstWriter(
         emitStatement(statement.statement)
     }
 
-    private fun emitMetamorphicArbitraryStatement(statement: AugmentedStatement.ArbitraryStatement) {
-        if (emitCommentary) {
-            emitIndent()
-            out.print("/* arbitrary statement */\n")
-        }
-        emitStatement(statement.statement)
-    }
-
-    private fun emitMetamorphicArbitraryElseBranch(statement: AugmentedStatement.ArbitraryElseBranch) {
-        if (emitCommentary) {
-            emitIndent()
-            out.print("/* arbitrary else branch: */\n")
-        }
-        emitStatement(statement.statement)
-    }
-
     private fun emitStatement(
         statement: Statement,
         inForLoopHeader: Boolean = false,
@@ -950,21 +852,25 @@ class AstWriter(
         when (statement) {
             is Statement.Assignment -> emitStatementAssignment(statement, inForLoopHeader)
             is Statement.Break -> {
+                emitCommentary(statement.metadata)
                 emitIndent()
                 out.print("break;\n")
             }
             is Statement.Compound -> emitStatementCompound(statement)
             is Statement.ConstAssert -> emitStatementConstAssert(statement)
             is Statement.Continue -> {
+                emitCommentary(statement.metadata)
                 emitIndent()
                 out.print("continue;\n")
             }
             is Statement.Decrement -> emitStatementDecrement(statement, inForLoopHeader)
             is Statement.Discard -> {
+                emitCommentary(statement.metadata)
                 emitIndent()
                 out.print("discard;\n")
             }
             is Statement.Empty -> {
+                emitCommentary(statement.metadata)
                 emitIndent()
                 out.print(";\n")
             }
@@ -978,17 +884,15 @@ class AstWriter(
             is Statement.Value -> emitStatementValue(statement, inForLoopHeader)
             is Statement.Variable -> emitStatementVariable(statement, inForLoopHeader)
             is Statement.While -> emitStatementWhile(statement)
-            is AugmentedStatement.DeadCodeFragment -> emitMetamorphicStatementDeadCodeFragment(statement)
             is AugmentedStatement.ControlFlowWrapper -> emitMetamorphicStatementControlFlowWrapped(statement)
             is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
-            is AugmentedStatement.ArbitraryElseBranch -> emitMetamorphicArbitraryElseBranch(statement)
-            is AugmentedStatement.ArbitraryStatement -> emitMetamorphicArbitraryStatement(statement)
             is AugmentedStatement.ControlFlowWrapHelperStatement -> emitMetamorphicControlFlowWrapHelperStatement(statement)
         }
     }
 
     private fun emitContinuingStatement(continuingStatement: ContinuingStatement) {
         with(continuingStatement) {
+            emitCommentary(metadata)
             emitIndent()
             out.print("continuing\n")
             emitAttributes(attributes)
@@ -1009,6 +913,7 @@ class AstWriter(
     }
 
     private fun emitSwitchClause(switchClause: SwitchClause) {
+        emitCommentary(switchClause.metadata)
         emitIndent()
         if (switchClause.caseSelectors == listOf(null)) {
             out.print("default")
@@ -1027,6 +932,7 @@ class AstWriter(
 
     private fun emitGlobalDeclStruct(struct: GlobalDecl.Struct) {
         with(struct) {
+            emitCommentary(metadata)
             out.print("struct $name {\n")
             increaseIndent()
             members.forEach(::emitStructMember)
@@ -1037,6 +943,7 @@ class AstWriter(
 
     private fun emitGlobalDeclConstant(constant: GlobalDecl.Constant) {
         with(constant) {
+            emitCommentary(metadata)
             out.print("const $name ")
             typeDecl?.let {
                 out.print(": ")
@@ -1050,6 +957,7 @@ class AstWriter(
 
     private fun emitGlobalDeclOverride(override: GlobalDecl.Override) {
         with(override) {
+            emitCommentary(metadata)
             emitAttributes(attributes)
             out.print("override $name ")
             typeDecl?.let {
@@ -1069,42 +977,16 @@ class AstWriter(
             if (emitUniformCommentary && addressSpace == AddressSpace.UNIFORM) {
                 emitUniformCommentary(variable)
             }
+            emitCommentary(metadata)
             emitAttributes(attributes)
             emitVariableDeclaration(addressSpace, accessMode, name, typeDecl, initializer)
             out.print(";\n")
         }
     }
 
-    private fun emitUniformCommentary(uniformVariable: GlobalDecl.Variable) {
-        // Cannot emit uniform commentary without shader job as information on uniform values are required
-        require(
-            shaderJob != null,
-        ) { "shaderJob is null and so cannot emit uniform commentary without necessary information from shader job" }
-        val group =
-            (
-                uniformVariable.attributes
-                    .filterIsInstance<Attribute.Group>()
-                    .first()
-                    .expression as Expression.IntLiteral
-            ).text.toInt()
-        val binding =
-            (
-                uniformVariable.attributes
-                    .filterIsInstance<Attribute.Binding>()
-                    .first()
-                    .expression as Expression.IntLiteral
-            ).text.toInt()
-        out.print("// Uniform value: ")
-        emit(shaderJob.pipelineState.getUniformValue(group, binding))
-        out.println()
-    }
-
     private fun emitGlobalDeclFunction(function: GlobalDecl.Function) {
         with(function) {
-            if (emitCommentary && metadata == AugmentedMetadata.ArbitraryCompoundMetaData) {
-                emitIndent()
-                out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
-            }
+            emitCommentary(metadata)
             emitAttributes(attributes)
             out.print("fn $name(")
             if (parameters.isNotEmpty()) {
@@ -1134,12 +1016,14 @@ class AstWriter(
     }
 
     private fun emitGlobalDeclTypeAlias(typeAlias: GlobalDecl.TypeAlias) {
+        emitCommentary(typeAlias.metadata)
         out.print("alias ${typeAlias.name} = ")
         emitTypeDecl(typeAlias.typeDecl)
         out.print(";\n")
     }
 
     private fun emitGlobalDeclConstAssert(constAssert: GlobalDecl.ConstAssert) {
+        emitCommentary(constAssert.metadata)
         out.print("const_assert ")
         emitExpression(constAssert.expression)
         out.print(";\n")
@@ -1155,20 +1039,25 @@ class AstWriter(
             is GlobalDecl.TypeAlias -> emitGlobalDeclTypeAlias(decl)
             is GlobalDecl.ConstAssert -> emitGlobalDeclConstAssert(decl)
             is GlobalDecl.Empty -> {
+                emitCommentary(decl.metadata)
                 out.print(";\n")
             }
         }
     }
 
     private fun emitParameterDecl(parameterDecl: ParameterDecl) {
-        emitAttributes(parameterDecl.attributes)
-        emitIndent()
-        out.print("${parameterDecl.name} : ")
-        emitTypeDecl(parameterDecl.typeDecl)
-        out.print(",\n")
+        with(parameterDecl) {
+            emitCommentary(metadata)
+            emitAttributes(attributes)
+            emitIndent()
+            out.print("$name : ")
+            emitTypeDecl(typeDecl)
+            out.print(",\n")
+        }
     }
 
     private fun emitDirective(directive: Directive) {
+        emitCommentary(directive.metadata)
         out.print("${directive.text}\n")
     }
 
@@ -1201,14 +1090,18 @@ class AstWriter(
     }
 
     private fun emitStructMember(member: StructMember) {
-        emitAttributes(member.attributes)
-        emitIndent()
-        out.print("${member.name} : ")
-        emitTypeDecl(member.typeDecl)
-        out.print(",\n")
+        with(member) {
+            emitCommentary(metadata)
+            emitAttributes(attributes)
+            emitIndent()
+            out.print("$name : ")
+            emitTypeDecl(typeDecl)
+            out.print(",\n")
+        }
     }
 
     private fun emitTranslationUnit(tu: TranslationUnit) {
+        emitCommentary(tu.metadata)
         tu.directives.forEach {
             emitDirective(it)
             out.print("\n")
@@ -1220,4 +1113,106 @@ class AstWriter(
             }
         }
     }
+
+    private fun emitCommentary(metadata: Set<Metadata>) {
+        if (emitCommentary) {
+            metadata.filterIsInstance<MetadataWithCommentary>().forEach { it.emitCommentary(out, ::emitIndent) }
+        }
+    }
+
+    private fun emitUniformCommentary(uniformVariable: GlobalDecl.Variable) {
+        // Cannot emit uniform commentary without shader job as information on uniform values are required
+        require(
+            shaderJob != null,
+        ) { "shaderJob is null and so cannot emit uniform commentary without necessary information from shader job" }
+        val group =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Group>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        val binding =
+            (
+                uniformVariable.attributes
+                    .filterIsInstance<Attribute.Binding>()
+                    .first()
+                    .expression as Expression.IntLiteral
+            ).text.toInt()
+        out.print("// Uniform value: ")
+        emit(shaderJob.pipelineState.getUniformValue(group, binding))
+        out.println()
+    }
+
+//    private fun emitNodeWithOldAugmentedMetadata(node: AstNode) {
+//        val metadata = node.metadata
+//        require(metadata is OldAugmentedMetadata)
+//        when (metadata) {
+//            is OldAugmentedMetadata.ControlFlowWrapperMetaData -> {
+//                with(node as Statement.Compound) {
+//                    emitIndent()
+//                    out.print("{\n")
+//                    increaseIndent()
+//                    if (emitCommentary) {
+//                        emitIndent()
+//                        out.print("/* wrapped original statements ${metadata.id}: */\n")
+//                    }
+//                    statements.forEach(::emitStatement)
+//                    decreaseIndent()
+//                    emitIndent()
+//                    out.print("}\n")
+//                }
+//            }
+//
+//            OldAugmentedMetadata.ArbitraryCompoundMetaData -> {
+//                with(node as Statement.Compound) {
+//                    emitIndent()
+//                    out.print("{\n")
+//                    increaseIndent()
+//                    if (emitCommentary) {
+//                        emitIndent()
+//                        out.print("/* arbitrary compound: */\n")
+//                    }
+//                    statements.forEach(::emitStatement)
+//                    decreaseIndent()
+//                    emitIndent()
+//                    out.print("}\n")
+//                }
+//            }
+//
+//            OldAugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader -> {
+//                if (emitCommentary) {
+//                    emitIndent()
+//                    out.print("/* User defined function from the donor shader used in arbitrary compounds */\n")
+//                }
+//                with(node as GlobalDecl.Function) {
+//                    emitAttributes(attributes)
+//                    out.print("fn $name(")
+//                    if (parameters.isNotEmpty()) {
+//                        out.print("\n")
+//                        increaseIndent()
+//                        parameters.forEach(::emitParameterDecl)
+//                        decreaseIndent()
+//                    }
+//                    out.print(")")
+//                    returnType?.let {
+//                        out.print(" ->")
+//                        if (attributes.isNotEmpty()) {
+//                            increaseIndent()
+//                            out.print("\n")
+//                            emitIndent()
+//                            emitAttributes(returnAttributes)
+//                            emitIndent()
+//                            decreaseIndent()
+//                        } else {
+//                            out.print(" ")
+//                        }
+//                        emitTypeDecl(returnType)
+//                    }
+//                    out.print("\n")
+//                    emitStatementCompound(body)
+//                }
+//            }
+//        }
+//    }
 }
