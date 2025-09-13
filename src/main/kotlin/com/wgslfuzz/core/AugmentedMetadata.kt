@@ -158,6 +158,15 @@ sealed interface ReverseResult {
     object DeletedNode : ReverseResult
 }
 
+fun ReverseResult.map(transform: (AstNode) -> AstNode) =
+    when (this) {
+        is ReverseResult.ReversedNode ->
+            ReverseResult.ReversedNode(
+                transform(this.node),
+            )
+        ReverseResult.DeletedNode -> ReverseResult.DeletedNode
+    }
+
 @Serializable
 sealed interface OldAugmentedMetadata : Metadata {
     @Serializable

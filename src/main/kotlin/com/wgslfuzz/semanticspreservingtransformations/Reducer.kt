@@ -28,6 +28,7 @@ import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.cloneWithoutReplacementOnFirstNode
+import com.wgslfuzz.core.map
 import com.wgslfuzz.core.nodesPreOrder
 import kotlin.math.abs
 import kotlin.math.max
@@ -162,6 +163,7 @@ private class UndoTransformations : ReductionPass<Int>() {
                     .filterIsInstance<AugmentedMetadata>()
                     .first { it.id in opportunitiesAsSet }
                     .reverse(node)
+                    .map { node -> node.clone { reverseResultToClone(undoTransformations(it)) } }
             } else if (node is Statement.Compound) {
                 ReverseResult.ReversedNode(
                     Statement.Compound(
@@ -183,8 +185,18 @@ private class UndoTransformations : ReductionPass<Int>() {
                 null
             }
 
+        val opportunitiesRemovedTu = originalShaderJob.tu.clone { reverseResultToClone(undoTransformations(it)) }
+
+        val transformationsStillInTu =
+            nodesPreOrder(opportunitiesRemovedTu)
+                .flatMap { node ->
+                    node.metadata.mapNotNull { metadata -> (metadata as? AugmentedMetadata)?.id }
+                }.distinct()
+
+        check((transformationsStillInTu intersect opportunitiesAsSet).isEmpty())
+
         return ShaderJob(
-            originalShaderJob.tu.clone { reverseResultToClone(undoTransformations(it)) },
+            opportunitiesRemovedTu,
             originalShaderJob.pipelineState,
         )
     }
