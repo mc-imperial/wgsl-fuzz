@@ -27,6 +27,7 @@ import com.wgslfuzz.core.UnaryOperator
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.getUniformDeclaration
 import com.wgslfuzz.core.toType
+import kotlin.collections.setOf
 import kotlin.math.max
 import kotlin.math.truncate
 
@@ -113,26 +114,29 @@ fun generateKnownNumericValueExpression(
                     } else {
                         Expression.FloatLiteral(differenceText)
                     }
-                binaryExpressionRandomOperandOrder(
-                    fuzzerSettings,
-                    BinaryOperator.PLUS,
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = randomValueKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        shaderJob = shaderJob,
-                        scope = scope,
+                Expression.Paren(
+                    binaryExpressionRandomOperandOrder(
+                        fuzzerSettings,
+                        BinaryOperator.PLUS,
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = randomValueKnownExpression,
+                            type = type,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = differenceKnownExpression,
+                            type = type,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
                     ),
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = differenceKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        shaderJob = shaderJob,
-                        scope = scope,
-                    ),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             fuzzerSettings.knownValueWeights.differenceOfKnownValues(depth) to {
@@ -154,25 +158,28 @@ fun generateKnownNumericValueExpression(
                     } else {
                         Expression.FloatLiteral(sumText)
                     }
-                Expression.Binary(
-                    BinaryOperator.MINUS,
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = sumKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        shaderJob = shaderJob,
-                        scope = scope,
+                Expression.Paren(
+                    Expression.Binary(
+                        BinaryOperator.MINUS,
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = sumKnownExpression,
+                            type = type,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                        generateKnownValueExpression(
+                            depth = depth + 1,
+                            knownValue = randomValueKnownExpression,
+                            type = type,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = scope,
+                        ),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
                     ),
-                    generateKnownValueExpression(
-                        depth = depth + 1,
-                        knownValue = randomValueKnownExpression,
-                        type = type,
-                        fuzzerSettings = fuzzerSettings,
-                        shaderJob = shaderJob,
-                        scope = scope,
-                    ),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             fuzzerSettings.knownValueWeights.productOfKnownValues(depth) to {
@@ -204,43 +211,49 @@ fun generateKnownNumericValueExpression(
                     }
 
                 var resultExpression =
-                    binaryExpressionRandomOperandOrder(
-                        fuzzerSettings,
-                        BinaryOperator.TIMES,
-                        generateKnownValueExpression(
-                            depth = depth + 1,
-                            knownValue = randomValueKnownExpression,
-                            type = type,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                        generateKnownValueExpression(
-                            depth = depth + 1,
-                            knownValue = quotientKnownExpression,
-                            type = type,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                        metadata = setOfNotNull(if (remainder == 0) AugmentedMetadata.KnownValue(id, knownValue.clone()) else null),
-                    )
-                // If multiplication of the random number and the quotient does not result in the knownValue add the remainder to the expression to make resultExpression equal to knownValue
-                if (remainder != 0 || fuzzerSettings.randomBool()) {
-                    resultExpression =
+                    Expression.Paren(
                         binaryExpressionRandomOperandOrder(
                             fuzzerSettings,
-                            BinaryOperator.PLUS,
-                            resultExpression,
+                            BinaryOperator.TIMES,
                             generateKnownValueExpression(
                                 depth = depth + 1,
-                                knownValue = remainderKnownExpression,
+                                knownValue = randomValueKnownExpression,
                                 type = type,
                                 fuzzerSettings = fuzzerSettings,
                                 shaderJob = shaderJob,
                                 scope = scope,
                             ),
-                            metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
+                            generateKnownValueExpression(
+                                depth = depth + 1,
+                                knownValue = quotientKnownExpression,
+                                type = type,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                            metadata = setOfNotNull(if (remainder == 0) AugmentedMetadata.KnownValue(id, knownValue.clone()) else null),
+                        ),
+                        metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
+                    )
+                // If multiplication of the random number and the quotient does not result in the knownValue add the remainder to the expression to make resultExpression equal to knownValue
+                if (remainder != 0 || fuzzerSettings.randomBool()) {
+                    resultExpression =
+                        Expression.Paren(
+                            binaryExpressionRandomOperandOrder(
+                                fuzzerSettings,
+                                BinaryOperator.PLUS,
+                                resultExpression,
+                                generateKnownValueExpression(
+                                    depth = depth + 1,
+                                    knownValue = remainderKnownExpression,
+                                    type = type,
+                                    fuzzerSettings = fuzzerSettings,
+                                    shaderJob = shaderJob,
+                                    scope = scope,
+                                ),
+                                metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
+                            ),
+                            metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                         )
                 }
                 resultExpression
@@ -280,18 +293,21 @@ fun generateKnownNumericValueExpression(
                                 } else {
                                     Expression.FloatLiteral(differenceText)
                                 }
-                            Expression.Binary(
-                                BinaryOperator.MINUS,
-                                uniformScalarAdjusted,
-                                generateKnownValueExpression(
-                                    depth = depth + 1,
-                                    knownValue = differenceKnownExpression,
-                                    fuzzerSettings = fuzzerSettings,
-                                    shaderJob = shaderJob,
-                                    type = type,
-                                    scope = scope,
+                            Expression.Paren(
+                                Expression.Binary(
+                                    BinaryOperator.MINUS,
+                                    uniformScalarAdjusted,
+                                    generateKnownValueExpression(
+                                        depth = depth + 1,
+                                        knownValue = differenceKnownExpression,
+                                        fuzzerSettings = fuzzerSettings,
+                                        shaderJob = shaderJob,
+                                        type = type,
+                                        scope = scope,
+                                    ),
+                                    metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
                                 ),
-                                metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
+                                metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                             )
                         }
                         // valueOfUniformAdjusted < knownValueAsInt
@@ -304,19 +320,22 @@ fun generateKnownNumericValueExpression(
                                 } else {
                                     Expression.FloatLiteral(differenceText)
                                 }
-                            binaryExpressionRandomOperandOrder(
-                                fuzzerSettings,
-                                BinaryOperator.PLUS,
-                                uniformScalarAdjusted,
-                                generateKnownValueExpression(
-                                    depth = depth + 1,
-                                    knownValue = differenceKnownExpression,
-                                    fuzzerSettings = fuzzerSettings,
-                                    shaderJob = shaderJob,
-                                    type = type,
-                                    scope = scope,
+                            Expression.Paren(
+                                binaryExpressionRandomOperandOrder(
+                                    fuzzerSettings,
+                                    BinaryOperator.PLUS,
+                                    uniformScalarAdjusted,
+                                    generateKnownValueExpression(
+                                        depth = depth + 1,
+                                        knownValue = differenceKnownExpression,
+                                        fuzzerSettings = fuzzerSettings,
+                                        shaderJob = shaderJob,
+                                        type = type,
+                                        scope = scope,
+                                    ),
+                                    metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
                                 ),
-                                metadata = setOf(AugmentedMetadata.KnownValue(id, knownValue.clone())),
+                                metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                             )
                         }
 
@@ -374,54 +393,66 @@ private fun generateFalseByConstructionExpression(
             },
             // A false expression && an arbitrary expression
             fuzzerSettings.falseByConstructionWeights.falseAndArbitrary(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                    lhs = generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
-                    rhs =
-                        generateArbitraryExpression(
-                            depth = depth + 1,
-                            type = Type.Bool,
-                            sideEffectsAllowed = true,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.SHORT_CIRCUIT_AND,
+                        lhs = generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
+                        rhs =
+                            generateArbitraryExpression(
+                                depth = depth + 1,
+                                type = Type.Bool,
+                                sideEffectsAllowed = true,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             // An arbitrary expression && a false expression
             fuzzerSettings.falseByConstructionWeights.arbitraryAndFalse(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.SHORT_CIRCUIT_AND,
-                    lhs =
-                        generateArbitraryExpression(
-                            depth = depth + 1,
-                            type = Type.Bool,
-                            sideEffectsAllowed = false, // No side effects as this will be executable
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                    rhs = generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.SHORT_CIRCUIT_AND,
+                        lhs =
+                            generateArbitraryExpression(
+                                depth = depth + 1,
+                                type = Type.Bool,
+                                sideEffectsAllowed = false, // No side effects as this will be executable
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                        rhs = generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             // ! true expression
             fuzzerSettings.falseByConstructionWeights.notTrue(depth) to {
-                Expression.Unary(
-                    operator = UnaryOperator.LOGICAL_NOT,
-                    target = generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                Expression.Paren(
+                    Expression.Unary(
+                        operator = UnaryOperator.LOGICAL_NOT,
+                        target = generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             fuzzerSettings.falseByConstructionWeights.opaqueFalseFromUniformValues(depth) to {
-                compareUniformWithKnownValue(
-                    depth = depth,
-                    fuzzerSettings = fuzzerSettings,
-                    shaderJob = shaderJob,
-                    scope = scope,
-                    comparisonOperators = listOf(BinaryOperator.NOT_EQUAL, BinaryOperator.LESS_THAN, BinaryOperator.GREATER_THAN),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                Expression.Paren(
+                    compareUniformWithKnownValue(
+                        depth = depth,
+                        fuzzerSettings = fuzzerSettings,
+                        shaderJob = shaderJob,
+                        scope = scope,
+                        comparisonOperators = listOf(BinaryOperator.NOT_EQUAL, BinaryOperator.LESS_THAN, BinaryOperator.GREATER_THAN),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("false"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
         )
@@ -451,59 +482,71 @@ private fun generateTrueByConstructionExpression(
             },
             // A true expression || an arbitrary expression
             fuzzerSettings.trueByConstructionWeights.trueOrArbitrary(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                    lhs = generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
-                    rhs =
-                        generateArbitraryExpression(
-                            depth = depth + 1,
-                            type = Type.Bool,
-                            sideEffectsAllowed = true,
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.SHORT_CIRCUIT_OR,
+                        lhs = generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
+                        rhs =
+                            generateArbitraryExpression(
+                                depth = depth + 1,
+                                type = Type.Bool,
+                                sideEffectsAllowed = true,
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             // An arbitrary expression || a true expression
             fuzzerSettings.trueByConstructionWeights.arbitraryOrTrue(depth) to {
-                Expression.Binary(
-                    operator = BinaryOperator.SHORT_CIRCUIT_OR,
-                    lhs =
-                        generateArbitraryExpression(
-                            depth = depth + 1,
-                            type = Type.Bool,
-                            sideEffectsAllowed = false, // No side effects as this will be executable
-                            fuzzerSettings = fuzzerSettings,
-                            shaderJob = shaderJob,
-                            scope = scope,
-                        ),
-                    rhs = generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                Expression.Paren(
+                    Expression.Binary(
+                        operator = BinaryOperator.SHORT_CIRCUIT_OR,
+                        lhs =
+                            generateArbitraryExpression(
+                                depth = depth + 1,
+                                type = Type.Bool,
+                                sideEffectsAllowed = false, // No side effects as this will be executable
+                                fuzzerSettings = fuzzerSettings,
+                                shaderJob = shaderJob,
+                                scope = scope,
+                            ),
+                        rhs = generateTrueByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             // ! false expression
             fuzzerSettings.trueByConstructionWeights.notFalse(depth) to {
-                Expression.Unary(
-                    operator = UnaryOperator.LOGICAL_NOT,
-                    target = generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                Expression.Paren(
+                    Expression.Unary(
+                        operator = UnaryOperator.LOGICAL_NOT,
+                        target = generateFalseByConstructionExpression(depth + 1, fuzzerSettings, shaderJob, scope),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
             fuzzerSettings.trueByConstructionWeights.opaqueTrueFromUniformValues(depth) to {
-                compareUniformWithKnownValue(
-                    depth = depth,
-                    fuzzerSettings = fuzzerSettings,
-                    shaderJob = shaderJob,
-                    scope = scope,
-                    comparisonOperators =
-                        listOf(
-                            BinaryOperator.EQUAL_EQUAL,
-                            BinaryOperator.LESS_THAN_EQUAL,
-                            BinaryOperator.GREATER_THAN_EQUAL,
-                        ),
-                    metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                Expression.Paren(
+                    compareUniformWithKnownValue(
+                        depth = depth,
+                        fuzzerSettings = fuzzerSettings,
+                        shaderJob = shaderJob,
+                        scope = scope,
+                        comparisonOperators =
+                            listOf(
+                                BinaryOperator.EQUAL_EQUAL,
+                                BinaryOperator.LESS_THAN_EQUAL,
+                                BinaryOperator.GREATER_THAN_EQUAL,
+                            ),
+                        metadata = setOf(AugmentedMetadata.KnownValue(id, Expression.BoolLiteral("true"))),
+                    ),
+                    metadata = setOf(AugmentedMetadata.AdditionalParen(id)),
                 )
             },
         )
