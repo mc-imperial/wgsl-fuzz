@@ -16,15 +16,17 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AddedIdentifier
 import com.wgslfuzz.core.AstNode
 import com.wgslfuzz.core.AugmentedMetadata
-import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
-import com.wgslfuzz.core.OldAugmentedMetadata
+import com.wgslfuzz.core.LhsExpression
+import com.wgslfuzz.core.ParameterDecl
 import com.wgslfuzz.core.ReverseResult
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
+import com.wgslfuzz.core.StructMember
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.cloneWithoutReplacementOnFirstNode
@@ -110,7 +112,7 @@ fun ShaderJob.reduce(interestingnessTest: InterestingnessTest): Pair<ShaderJob, 
     val passes: List<ReductionPass<*>> =
         listOf(
             UndoTransformations(),
-            ReduceControlFlowWrapped(),
+            RemoveAddedIdentifiers(),
         )
     var reducedShaderJob = this
     var simplerButNotInterestingShaderJob: ShaderJob? = null
@@ -168,14 +170,23 @@ private class UndoTransformations : ReductionPass<Int>() {
                 ReverseResult.ReversedNode(
                     Statement.Compound(
                         statements =
-                            node.statements.mapNotNull { statement ->
-                                when (val result = undoTransformations(statement)) {
-                                    ReverseResult.DeletedNode -> null
-                                    is ReverseResult.ReversedNode -> result.node as Statement
-                                    null ->
-                                        statement.cloneWithoutReplacementOnFirstNode {
-                                            reverseResultToClone(undoTransformations(it))
-                                        }
+                            node.statements.flatMap { statement ->
+                                val clonedNode =
+                                    when (val result = undoTransformations(statement)) {
+                                        ReverseResult.DeletedNode -> null
+                                        is ReverseResult.ReversedNode -> result.node as Statement
+                                        null ->
+                                            statement.cloneWithoutReplacementOnFirstNode {
+                                                reverseResultToClone(undoTransformations(it))
+                                            }
+                                    }
+
+                                if (clonedNode is Statement.Compound) {
+                                    clonedNode.statements
+                                } else if (clonedNode != null) {
+                                    listOf(clonedNode)
+                                } else {
+                                    emptyList()
                                 }
                             },
                         metadata = node.metadata,
@@ -202,98 +213,74 @@ private class UndoTransformations : ReductionPass<Int>() {
     }
 }
 
-private class ReduceControlFlowWrapped : ReductionPass<AugmentedStatement.ControlFlowWrapper>() {
-    override fun findOpportunities(originalShaderJob: ShaderJob): List<AugmentedStatement.ControlFlowWrapper> =
-        nodesPreOrder(originalShaderJob.tu).filterIsInstance<AugmentedStatement.ControlFlowWrapper>()
+private class RemoveAddedIdentifiers : ReductionPass<String>() {
+    override fun findOpportunities(originalShaderJob: ShaderJob): List<String> =
+        getAllIdentifiersCreated(originalShaderJob.tu) { node ->
+            node.metadata.any {
+                it is AddedIdentifier
+            }
+        }.minus(getAllIdentifiersUsed(originalShaderJob.tu).toSet())
 
     override fun removeOpportunities(
         originalShaderJob: ShaderJob,
-        opportunities: List<AugmentedStatement.ControlFlowWrapper>,
+        opportunities: List<String>,
     ): ShaderJob {
         val opportunitiesAsSet = opportunities.toSet()
-        val idsOfOpportunities = opportunitiesAsSet.map { it.id }
 
-        fun replaceControlFlowWrapped(node: AstNode): AstNode? {
-            if (node is AugmentedStatement.ControlFlowWrapHelperStatement && node.id in idsOfOpportunities) return null
+        // TODO(Not implemented for anything other GlobalDecl.Function removal)
 
-            if (node is Statement.Compound) {
-                // This flattens compounds within compounds if they occur
-                val statements =
-                    node.statements
-                        .clone(::replaceControlFlowWrapped)
-                        .flatMap {
-                            if (it is Statement.Compound) {
-                                check(
-                                    it.metadata.isEmpty(),
-                                ) { "Metadata is not null for Compound within Compound and hence cannot be flattened" }
-                                it.statements
-                            } else {
-                                listOf(it)
-                            }
-                        }
-
-                val statementsWithControlFlowNodesRemoved =
-                    statements.filter {
-                        (it !is AugmentedStatement.ControlFlowWrapReturn && it !is AugmentedStatement.ControlFlowWrapHelperStatement) ||
-                            it.id !in idsOfOpportunities
-                    }
-
-                return Statement.Compound(
-                    statements = statementsWithControlFlowNodesRemoved,
-                    metadata = node.metadata,
-                )
+        val newGlobalDecls =
+            originalShaderJob.tu.globalDecls.filter {
+                !(it is GlobalDecl.Function && it.name in opportunitiesAsSet)
             }
-
-            if (node !is AugmentedStatement.ControlFlowWrapper || node !in opportunitiesAsSet) {
-                return null
-            }
-
-            val originalStatements =
-                nodesPreOrder(node.statement)
-                    .asSequence()
-                    .filterIsInstance<Statement.Compound>()
-                    .filter { compound ->
-                        compound.metadata.any { (it as? OldAugmentedMetadata.ControlFlowWrapperMetaData)?.id == node.id }
-                    }.flatMap { it.statements }
-                    .toList()
-
-            return Statement.Compound(originalStatements.clone(::replaceControlFlowWrapped))
-        }
-
-        val removedControlFlowWrapped = originalShaderJob.tu.clone(::replaceControlFlowWrapped)
-
-        val removedUnnecessaryUserDefinedFunctions = removeUnnecessaryUserDefinedDonorShaderFunctions(removedControlFlowWrapped)
 
         return ShaderJob(
-            tu = removedUnnecessaryUserDefinedFunctions,
+            tu =
+                TranslationUnit(
+                    directives = originalShaderJob.tu.directives,
+                    globalDecls = newGlobalDecls,
+                    metadata = originalShaderJob.tu.metadata,
+                ),
             pipelineState = originalShaderJob.pipelineState,
         )
     }
-}
 
-private fun removeUnnecessaryUserDefinedDonorShaderFunctions(tu: TranslationUnit): TranslationUnit {
-    val userDefinedFunctionNames =
+    private fun getAllIdentifiersCreated(
+        tu: AstNode,
+        predicate: (AstNode) -> Boolean = { true },
+    ): List<String> =
         nodesPreOrder(tu)
-            .asSequence()
-            .filterIsInstance<Statement.Compound>()
-            .filter { compound -> compound.metadata.any { it is OldAugmentedMetadata.ControlFlowWrapperMetaData } }
-            .flatMap { arbitraryCompound ->
-                nodesPreOrder(arbitraryCompound)
-                    .asSequence()
-                    .filterIsInstance<Expression.FunctionCall>()
-                    .map { it.callee }
-            }.toSet()
+            .filter(predicate)
+            .mapNotNull {
+                when (it) {
+                    is GlobalDecl.Constant -> it.name
+                    is GlobalDecl.Function -> it.name
+                    is GlobalDecl.Override -> it.name
+                    is GlobalDecl.Struct -> it.name
+                    is GlobalDecl.TypeAlias -> it.name
+                    is GlobalDecl.Variable -> it.name
+                    is ParameterDecl -> it.name
+                    is Statement.Value -> it.name
+                    is Statement.Variable -> it.name
+                    is StructMember -> it.name
+                    else -> null
+                }
+            }.distinct()
 
-    return TranslationUnit(
-        directives = tu.directives,
-        globalDecls =
-            tu.globalDecls
-                .filter {
-                    it !is GlobalDecl.Function ||
-                        it.metadata != OldAugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader ||
-                        it.name in userDefinedFunctionNames
-                },
-    )
+    private fun getAllIdentifiersUsed(
+        tu: AstNode,
+        predicate: (AstNode) -> Boolean = { true },
+    ): List<String> =
+        nodesPreOrder(tu)
+            .filter(predicate)
+            .mapNotNull {
+                when (it) {
+                    is Expression.FunctionCall -> it.callee
+                    is Expression.Identifier -> it.name
+                    is LhsExpression.Identifier -> it.name
+                    else -> null
+                }
+            }.distinct()
 }
 
 private fun nodeSizeDelta(

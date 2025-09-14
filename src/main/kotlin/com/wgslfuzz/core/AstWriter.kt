@@ -821,30 +821,6 @@ class AstWriter(
         }
     }
 
-    private fun emitMetamorphicStatementControlFlowWrapped(statement: AugmentedStatement.ControlFlowWrapper) {
-        if (emitCommentary) {
-            emitIndent()
-            out.print("/* control flow wrapped ${statement.id}: */\n")
-        }
-        emitStatement(statement.statement)
-    }
-
-    private fun emitMetamorphicControlFlowWrapHelperStatement(statement: AugmentedStatement.ControlFlowWrapHelperStatement) {
-        if (emitCommentary) {
-            emitIndent()
-            out.print("/* control flow wrap helper statement ${statement.id}: */\n")
-        }
-        emitStatement(statement.statement)
-    }
-
-    private fun emitMetamorphicStatementControlFlowWrapReturn(statement: AugmentedStatement.ControlFlowWrapReturn) {
-        if (emitCommentary) {
-            emitIndent()
-            out.print("/* control flow wrap return ${statement.id}: */\n")
-        }
-        emitStatement(statement.statement)
-    }
-
     private fun emitStatement(
         statement: Statement,
         inForLoopHeader: Boolean = false,
@@ -884,9 +860,6 @@ class AstWriter(
             is Statement.Value -> emitStatementValue(statement, inForLoopHeader)
             is Statement.Variable -> emitStatementVariable(statement, inForLoopHeader)
             is Statement.While -> emitStatementWhile(statement)
-            is AugmentedStatement.ControlFlowWrapper -> emitMetamorphicStatementControlFlowWrapped(statement)
-            is AugmentedStatement.ControlFlowWrapReturn -> emitMetamorphicStatementControlFlowWrapReturn(statement)
-            is AugmentedStatement.ControlFlowWrapHelperStatement -> emitMetamorphicControlFlowWrapHelperStatement(statement)
         }
     }
 

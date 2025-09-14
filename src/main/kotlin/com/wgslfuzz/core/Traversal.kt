@@ -214,15 +214,6 @@ fun <T> traverse(
             actionWithState(node.condition)
             actionWithState(node.body)
         }
-        is AugmentedStatement.ControlFlowWrapper -> {
-            actionWithState(node.statement)
-        }
-        is AugmentedStatement.ControlFlowWrapHelperStatement -> {
-            actionWithState(node.statement)
-        }
-        is AugmentedStatement.ControlFlowWrapReturn -> {
-            actionWithState(node.statement)
-        }
         is StructMember -> {
             node.attributes.forEach(actionWithState)
             actionWithState(node.typeDecl)

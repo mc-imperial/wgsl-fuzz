@@ -338,23 +338,5 @@ private fun deepCloneHelper(
         is TypeDecl.Vec2 -> TypeDecl.Vec2(elementType.clone(replacements), metadata)
         is TypeDecl.Vec3 -> TypeDecl.Vec3(elementType.clone(replacements), metadata)
         is TypeDecl.Vec4 -> TypeDecl.Vec4(elementType.clone(replacements), metadata)
-        is AugmentedStatement.ControlFlowWrapper ->
-            AugmentedStatement.ControlFlowWrapper(
-                statement.clone(replacements),
-                id,
-                metadata,
-            )
-        is AugmentedStatement.ControlFlowWrapHelperStatement ->
-            AugmentedStatement.ControlFlowWrapHelperStatement(
-                statement.clone(replacements),
-                id,
-                metadata,
-            )
-        is AugmentedStatement.ControlFlowWrapReturn ->
-            AugmentedStatement.ControlFlowWrapReturn(
-                statement.clone(replacements),
-                id,
-                metadata,
-            )
     }
 }

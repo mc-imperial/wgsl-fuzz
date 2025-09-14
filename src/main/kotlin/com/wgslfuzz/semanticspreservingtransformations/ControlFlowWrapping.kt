@@ -16,15 +16,15 @@
 
 package com.wgslfuzz.semanticspreservingtransformations
 
+import com.wgslfuzz.core.AddedIdentifier
 import com.wgslfuzz.core.AssignmentOperator
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedStatement
+import com.wgslfuzz.core.AugmentedMetadata
 import com.wgslfuzz.core.BinaryOperator
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
-import com.wgslfuzz.core.OldAugmentedMetadata
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
@@ -189,19 +189,16 @@ private class ControlFlowWrapping(
         returnTypeDecl: TypeDecl?,
         uniqueId: Int,
         depth: Int = 0,
-    ): AugmentedStatement.ControlFlowWrapper {
+    ): Statement {
         val scope = shaderJob.environment.scopeAvailableBefore(originalStatements[0])
-        return AugmentedStatement.ControlFlowWrapper(
-            statement = wrapInControlFlowHelper(originalStatements, injections, returnTypeDecl, uniqueId, depth, scope),
-            id = uniqueId,
-        )
+        return wrapInControlFlowHelper(originalStatements, injections, returnTypeDecl, uniqueId, depth, scope)
     }
 
     private fun wrapInControlFlowHelper(
         originalStatements: List<Statement>,
         injections: ControlFlowWrappingsInjections = mutableMapOf(),
         returnTypeDecl: TypeDecl?,
-        uniqueId: Int,
+        id: Int,
         depth: Int = 0,
         scope: Scope,
     ): Statement {
@@ -216,7 +213,6 @@ private class ControlFlowWrapping(
                 originalStatements.clone {
                     injectControlFlowWrapper(it, injections, returnTypeDecl)
                 },
-                metadata = setOf(OldAugmentedMetadata.ControlFlowWrapperMetaData(uniqueId)),
             )
 
         val choices =
@@ -235,17 +231,12 @@ private class ControlFlowWrapping(
 
                     functionCallsInArbitraryCompounds.addAll(functionCalls)
 
-                    val wrappedStatement =
-                        Statement.If(
-                            attributes = emptyList(),
-                            condition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                            thenBranch = originalStatementCompound,
-                            elseBranch = arbitraryElseBranch,
-                        )
-
-                    AugmentedStatement.ControlFlowWrapper(
-                        statement = wrappedStatement,
-                        id = uniqueId,
+                    Statement.If(
+                        attributes = emptyList(),
+                        condition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                        thenBranch = originalStatementCompound,
+                        elseBranch = arbitraryElseBranch,
+                        metadata = setOf(AugmentedMetadata.IfControlFlowWrap(id, originalStatementsInThenBranch = true)),
                     )
                 },
                 fuzzerSettings.controlFlowWrappingWeights.ifFalseWrapping(depth) to {
@@ -262,16 +253,12 @@ private class ControlFlowWrapping(
 
                     functionCallsInArbitraryCompounds.addAll(functionCalls)
 
-                    val wrappedStatement =
-                        Statement.If(
-                            attributes = emptyList(),
-                            condition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                            thenBranch = arbitraryThenBranch,
-                            elseBranch = originalStatementCompound,
-                        )
-                    AugmentedStatement.ControlFlowWrapper(
-                        statement = wrappedStatement,
-                        id = uniqueId,
+                    Statement.If(
+                        attributes = emptyList(),
+                        condition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
+                        thenBranch = arbitraryThenBranch,
+                        elseBranch = originalStatementCompound,
+                        metadata = setOf(AugmentedMetadata.IfControlFlowWrap(id, originalStatementsInThenBranch = false)),
                     )
                 },
                 if (containsBreakOrContinue) {
@@ -368,48 +355,7 @@ private class ControlFlowWrapping(
                             condition = condition,
                             update = update,
                             body = originalStatementCompound,
-                        )
-                    }
-                },
-                if (containsBreakOrContinue) {
-                    // Cannot wrap statements in a loop when the statements contain a `break` or `continue`
-                    null
-                } else {
-                    // Wraps <original statements> using the following:
-                    // loop {
-                    //    <part of original statements>
-                    //    continuing {
-                    //        <rest of original statements>
-                    //        break-if true_by_construction
-                    //    }
-                    // }
-                    fuzzerSettings.controlFlowWrappingWeights.singleIterLoop(depth) to {
-                        val statements = originalStatementCompound.statements
-
-                        val indexOfLastReturn =
-                            statements
-                                .indexOfLast { node ->
-                                    nodesPreOrder(node).any { it is Statement.Return }
-                                }
-
-                        // splitIndex is in the range of [indexOfLastReturn + 1, statements.size)
-                        val splitIndex = fuzzerSettings.randomInt(statements.size - indexOfLastReturn) + indexOfLastReturn + 1
-                        val partOfStmts = Statement.Compound(statements.subList(0, splitIndex), originalStatementCompound.metadata)
-                        val restOfStmts =
-                            Statement.Compound(
-                                statements.subList(splitIndex, statements.size),
-                                originalStatementCompound.metadata,
-                            )
-
-                        val continuingStatement =
-                            ContinuingStatement(
-                                statements = restOfStmts,
-                                breakIfExpr = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
-                            )
-
-                        Statement.Loop(
-                            body = partOfStmts,
-                            continuingStatement = continuingStatement,
+                            metadata = setOf(AugmentedMetadata.ForLoopControlFlowWrap(id)),
                         )
                     }
                 },
@@ -425,16 +371,15 @@ private class ControlFlowWrapping(
                     // }
                     fuzzerSettings.controlFlowWrappingWeights.singleIterWhileLoop(depth) to {
                         val wrappedBreak =
-                            AugmentedStatement.ControlFlowWrapHelperStatement(
-                                statement =
-                                    wrapInControlFlowHelper(
-                                        originalStatements = listOf(Statement.Break()),
-                                        returnTypeDecl = returnTypeDecl,
-                                        uniqueId = 0,
-                                        depth = depth + 1,
-                                        scope = scope,
+                            wrapInControlFlowHelper(
+                                originalStatements =
+                                    listOf(
+                                        Statement.Break(metadata = setOf(AugmentedMetadata.DeletableStatement(id, ""))),
                                     ),
-                                id = uniqueId,
+                                returnTypeDecl = returnTypeDecl,
+                                id = id,
+                                depth = depth + 1,
+                                scope = scope,
                             )
 
                         val whileBody =
@@ -448,6 +393,7 @@ private class ControlFlowWrapping(
                         Statement.While(
                             condition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                             body = whileBody,
+                            metadata = setOf(AugmentedMetadata.WhileLoopControlFlowWrap(id)),
                         )
                     }
                 },
@@ -500,6 +446,9 @@ private class ControlFlowWrapping(
                                 } + null
 
                         val clauses = mutableListOf<SwitchClause>()
+
+                        var originalStatementsClauseIndex = -1
+
                         var i = 0
                         while (i < caseExpressions.size) {
                             val numberInCase =
@@ -534,11 +483,18 @@ private class ControlFlowWrapping(
                                 ),
                             )
                             i = nextIndex
+
+                            if (knownValue in cases) {
+                                originalStatementsClauseIndex = clauses.size - 1
+                            }
                         }
+
+                        check(originalStatementsClauseIndex != -1)
 
                         Statement.Switch(
                             expression = knownValueExpression,
                             clauses = clauses,
+                            metadata = setOf(AugmentedMetadata.SwitchControlFlowWrap(id, originalStatementsClauseIndex)),
                         )
                     }
                 },
@@ -696,7 +652,7 @@ private class ControlFlowWrapping(
 
                 val uniqueId = fuzzerSettings.getUniqueId()
                 val originalStatements = node.statements.subList(x, y)
-                if (originalStatements.any { it is Statement.Return || it is AugmentedStatement.ControlFlowWrapReturn }) {
+                if (originalStatements.any { it is Statement.Return }) {
                     check(wrappedReturnUniqueId == null) { "There should not be repeated returns in a compound" }
                     wrappedReturnUniqueId = uniqueId
                 }
@@ -711,18 +667,19 @@ private class ControlFlowWrapping(
 
             if (wrappedReturnUniqueId != null && returnTypeDecl != null) {
                 newBody.add(
-                    AugmentedStatement.ControlFlowWrapReturn(
-                        Statement.Return(
-                            generateArbitraryExpression(
-                                depth = 0,
-                                type = returnTypeDecl.toType(shaderJob.environment.globalScope, shaderJob.environment),
-                                sideEffectsAllowed = true,
-                                fuzzerSettings = fuzzerSettings,
-                                shaderJob = shaderJob,
-                                scope = shaderJob.environment.globalScope,
-                            ),
+                    Statement.Return(
+                        generateArbitraryExpression(
+                            depth = 0,
+                            type = returnTypeDecl.toType(shaderJob.environment.globalScope, shaderJob.environment),
+                            sideEffectsAllowed = true,
+                            fuzzerSettings = fuzzerSettings,
+                            shaderJob = shaderJob,
+                            scope = shaderJob.environment.globalScope,
                         ),
-                        wrappedReturnUniqueId,
+                        metadata =
+                            setOf(
+                                AugmentedMetadata.DeletableStatement(wrappedReturnUniqueId, "helper return for control flow wrap"),
+                            ),
                     ),
                 )
             }
@@ -762,7 +719,7 @@ private class ControlFlowWrapping(
                     returnAttributes = functionDecl.returnAttributes,
                     returnType = functionDecl.returnType,
                     body = functionDecl.body,
-                    metadata = setOf(OldAugmentedMetadata.FunctionForArbitraryCompoundsFromDonorShader),
+                    metadata = setOf(AddedIdentifier(functionDecl.name)),
                 )
             }
 

@@ -88,8 +88,10 @@ sealed interface AugmentedMetadata : MetadataWithCommentary {
             out: PrintStream,
             emitIndent: () -> Unit,
         ) {
-            emitIndent()
-            out.print("/* $commentary */\n")
+            if (commentary != "") {
+                emitIndent()
+                out.print("/* $commentary */\n")
+            }
         }
     }
 
@@ -148,6 +150,88 @@ sealed interface AugmentedMetadata : MetadataWithCommentary {
             out.print(" */ ")
         }
     }
+
+    @Serializable
+    class IfControlFlowWrap(
+        override val id: Int,
+        private val originalStatementsInThenBranch: Boolean,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult {
+            val ifStatement =
+                node as? Statement.If
+                    ?: throw IllegalArgumentException("IfControlFlowWrap metadata attached to node which is not a if statement")
+
+            val originalStatements =
+                if (originalStatementsInThenBranch) ifStatement.thenBranch else (ifStatement.elseBranch as Statement.Compound)
+
+            return ReverseResult.ReversedNode(originalStatements)
+        }
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            emitIndent()
+            out.print("/* control flow wrap: */\n")
+        }
+    }
+
+    @Serializable
+    class ForLoopControlFlowWrap(
+        override val id: Int,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult =
+            (node as? Statement.For)
+                ?.let { ReverseResult.ReversedNode(it.body) }
+                ?: throw IllegalArgumentException("ForLoopControlFlowWrap metadata attached to node which is not a for statement")
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            emitIndent()
+            out.print("/* control flow wrap: */\n")
+        }
+    }
+
+    @Serializable
+    class WhileLoopControlFlowWrap(
+        override val id: Int,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult =
+            (node as? Statement.While)
+                ?.let { ReverseResult.ReversedNode(it.body) }
+                ?: throw IllegalArgumentException("WhileLoopControlFlowWrap metadata attached to node which is not a while statement")
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            emitIndent()
+            out.print("/* control flow wrap: */\n")
+        }
+    }
+
+    @Serializable
+    class SwitchControlFlowWrap(
+        override val id: Int,
+        private val originalStatementsCaseIndex: Int,
+    ) : AugmentedMetadata {
+        override fun reverse(node: AstNode): ReverseResult =
+            (node as? Statement.Switch)
+                ?.clauses[originalStatementsCaseIndex]
+                ?.compoundStatement
+                ?.let { ReverseResult.ReversedNode(it) }
+                ?: throw IllegalArgumentException("SwitchControlFlowWrap metadata attached to node which is not a switch statement")
+
+        override fun emitCommentary(
+            out: PrintStream,
+            emitIndent: () -> Unit,
+        ) {
+            emitIndent()
+            out.print("/* control flow wrap: */\n")
+        }
+    }
 }
 
 sealed interface ReverseResult {
@@ -168,14 +252,14 @@ fun ReverseResult.map(transform: (AstNode) -> AstNode) =
     }
 
 @Serializable
-sealed interface OldAugmentedMetadata : Metadata {
-    @Serializable
-    data class ControlFlowWrapperMetaData(
-        // id uniquely corresponds to a parent ControlFlowWrapper node.
-        // For more information look at the comments of ControlFlowWrapper.
-        val id: Int,
-    ) : OldAugmentedMetadata
-
-    @Serializable
-    object FunctionForArbitraryCompoundsFromDonorShader : OldAugmentedMetadata
+class AddedIdentifier(
+    val name: String,
+) : MetadataWithCommentary {
+    override fun emitCommentary(
+        out: PrintStream,
+        emitIndent: () -> Unit,
+    ) {
+        emitIndent()
+        out.print("/* Added identifier */\n")
+    }
 }
