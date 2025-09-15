@@ -1205,6 +1205,7 @@ class StructMember(
 @Serializable
 sealed interface Metadata
 
+@Serializable
 sealed interface MetadataWithCommentary : Metadata {
     fun emitCommentary(
         out: PrintStream,
