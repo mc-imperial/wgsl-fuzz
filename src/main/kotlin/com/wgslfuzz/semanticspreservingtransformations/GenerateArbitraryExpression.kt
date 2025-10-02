@@ -57,11 +57,13 @@ private fun generateArbitraryBool(
     val nonRecursiveChoices: List<Pair<Int, () -> Expression>> =
         listOfNotNull(
             fuzzerSettings.arbitraryBooleanExpressionWeights.literal(depth) to {
+                // Boolean literal
                 Expression.BoolLiteral(
                     text = fuzzerSettings.randomElement(listOf("true", "false")),
                 )
             },
             randomVariableFromScope(scope, Type.Bool, fuzzerSettings)?.let {
+                // Random bool from scope
                 fuzzerSettings.arbitraryBooleanExpressionWeights.variableFromScope(depth) to { it }
             },
         )
@@ -96,6 +98,7 @@ private fun generateArbitraryBool(
     val recursiveChoices: List<Pair<Int, () -> Expression>> =
         listOf(
             fuzzerSettings.arbitraryBooleanExpressionWeights.not(depth) to {
+                // !( <expression> )
                 Expression.Paren(
                     Expression.Unary(
                         operator = UnaryOperator.LOGICAL_NOT,
@@ -111,6 +114,7 @@ private fun generateArbitraryBool(
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.or(depth) to {
+                // ( <expression 1> || <expression 2> )
                 Expression.Paren(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_OR,
@@ -134,6 +138,7 @@ private fun generateArbitraryBool(
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.and(depth) to {
+                // ( <expression 1> && <expression 2> )
                 Expression.Paren(
                     Expression.Binary(
                         operator = BinaryOperator.SHORT_CIRCUIT_AND,
@@ -157,21 +162,27 @@ private fun generateArbitraryBool(
                 )
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.lessThan(depth) to {
+                // ( <expression 1> < <expression 2> )
                 arbitraryIntComparison(BinaryOperator.LESS_THAN)
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.greaterThan(depth) to {
+                // ( <expression 1> > <expression 2> )
                 arbitraryIntComparison(BinaryOperator.GREATER_THAN)
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.lessThanOrEqual(depth) to {
+                // ( <expression 1> <= <expression 2> )
                 arbitraryIntComparison(BinaryOperator.LESS_THAN_EQUAL)
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.greaterThanOrEqual(depth) to {
+                // ( <expression 1> >= <expression 2> )
                 arbitraryIntComparison(BinaryOperator.GREATER_THAN_EQUAL)
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.equal(depth) to {
+                // ( <expression 1> == <expression 2> )
                 arbitraryIntComparison(BinaryOperator.EQUAL_EQUAL)
             },
             fuzzerSettings.arbitraryBooleanExpressionWeights.notEqual(depth) to {
+                // ( <expression 1> != <expression 2> )
                 arbitraryIntComparison(BinaryOperator.NOT_EQUAL)
             },
         )
@@ -210,6 +221,7 @@ private fun generateArbitraryInt(
     val nonRecursiveChoices: List<Pair<Int, () -> Expression>> =
         listOfNotNull(
             fuzzerSettings.arbitraryIntExpressionWeights.literal(depth) to {
+                // Random int literal
                 Expression.IntLiteral(
                     fuzzerSettings
                         .randomElementFromRange(outputTypeNumRange)
@@ -217,6 +229,7 @@ private fun generateArbitraryInt(
                 )
             },
             randomVariableFromScope(scope, outputType, fuzzerSettings)?.let {
+                // Random int variable from scope
                 fuzzerSettings.arbitraryIntExpressionWeights.variableFromScope(depth) to { it }
             },
         )
@@ -252,15 +265,19 @@ private fun generateArbitraryInt(
                 }
             },
             fuzzerSettings.arbitraryIntExpressionWeights.binaryOr(depth) to {
+                // ( <expression 1> | <expression 2> )
                 arbitraryBinaryOperation(BinaryOperator.BINARY_OR)
             },
             fuzzerSettings.arbitraryIntExpressionWeights.binaryAnd(depth) to {
+                // ( <expression 1> & <expression 2> )
                 arbitraryBinaryOperation(BinaryOperator.BINARY_AND)
             },
             fuzzerSettings.arbitraryIntExpressionWeights.binaryXor(depth) to {
+                // ( <expression 1> ^ <expression 2> )
                 arbitraryBinaryOperation(BinaryOperator.BINARY_XOR)
             },
             if (outputType is Type.I32) {
+                // ( - <expression> )
                 fuzzerSettings.arbitraryIntExpressionWeights.negate(depth) to {
                     Expression.Paren(
                         Expression.Unary(
@@ -273,15 +290,19 @@ private fun generateArbitraryInt(
                 null
             },
             fuzzerSettings.arbitraryIntExpressionWeights.addition(depth) to {
+                // ( <expression 1> + <expression 2> )
                 arbitraryBinaryOperation(BinaryOperator.PLUS)
             },
             fuzzerSettings.arbitraryIntExpressionWeights.subtraction(depth) to {
+                // ( <expression 1> - <expression 2> )
                 arbitraryBinaryOperation(BinaryOperator.MINUS)
             },
             fuzzerSettings.arbitraryIntExpressionWeights.multiplication(depth) to {
+                // ( <expression 1> * <expression 2> )
                 arbitraryBinaryOperation(BinaryOperator.TIMES)
             },
             fuzzerSettings.arbitraryIntExpressionWeights.division(depth) to {
+                // ( <arbitrary expression> / <known value expression greater than 0> )
                 Expression.Paren(
                     Expression.Binary(
                         operator = BinaryOperator.DIVIDE,
@@ -304,6 +325,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.modulo(depth) to {
+                // ( <arbitrary expression> % <known value expression greater than 0> )
                 Expression.Paren(
                     Expression.Binary(
                         operator = BinaryOperator.MODULO,
@@ -326,6 +348,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.abs(depth) to {
+                // abs( <expression> )
                 Expression.FunctionCall(
                     callee = "abs",
                     templateParameter = null,
@@ -333,6 +356,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.clamp(depth) to {
+                // clamp( <arbitrary expression>, <min expression>, <max expression> )
                 val maxValue = fuzzerSettings.randomElementFromRange(0..LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE)
                 val max =
                     generateKnownValueExpression(
@@ -365,6 +389,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.countLeadingZeros(depth) to {
+                // countLeadingZeros( <expression> )
                 Expression.FunctionCall(
                     callee = "countLeadingZeros",
                     templateParameter = null,
@@ -372,6 +397,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.countOneBits(depth) to {
+                // countOneBits( <expression> )
                 Expression.FunctionCall(
                     callee = "countOneBits",
                     templateParameter = null,
@@ -379,6 +405,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.countTrailingZeros(depth) to {
+                // countTrailingZeros( <expression> )
                 Expression.FunctionCall(
                     callee = "countTrailingZeros",
                     templateParameter = null,
@@ -387,6 +414,7 @@ private fun generateArbitraryInt(
             },
             if (outputType is Type.U32) {
                 fuzzerSettings.arbitraryIntExpressionWeights.dot4U8Packed(depth) to {
+                    // dot4U8Packed( <expression 1>, <expression 2> )
                     Expression.FunctionCall(
                         callee = "dot4U8Packed",
                         templateParameter = null,
@@ -398,6 +426,7 @@ private fun generateArbitraryInt(
             },
             if (outputType is Type.I32) {
                 fuzzerSettings.arbitraryIntExpressionWeights.dot4I8Packed(depth) to {
+                    // dot4I8Packed( <expression 1>, <expression 2> )
                     Expression.FunctionCall(
                         callee = "dot4I8Packed",
                         templateParameter = null,
@@ -408,6 +437,7 @@ private fun generateArbitraryInt(
                 null
             },
             fuzzerSettings.arbitraryIntExpressionWeights.extractBits(depth) to {
+                // extractBits( <arbitrary expression>, <offset expression>, <count expression> )
                 // sign extends if i32 and does not sign extend for u32
                 val bitWidth = 32
                 val countValue = fuzzerSettings.randomElementFromRange(1..bitWidth)
@@ -449,6 +479,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.firstLeadingBit(depth) to {
+                // firstLeadingBit( <expression> )
                 Expression.FunctionCall(
                     callee = "firstLeadingBit",
                     templateParameter = null,
@@ -456,6 +487,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.firstTrailingBit(depth) to {
+                // firstTrailingBit( <expression> )
                 Expression.FunctionCall(
                     callee = "firstTrailingBit",
                     templateParameter = null,
@@ -463,6 +495,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.insertBits(depth) to {
+                // insertBits( <arbitrary expression>, <offset expression>, <count expression> )
                 val bitWidth = 32
                 val countValue = fuzzerSettings.randomElementFromRange(1..bitWidth)
                 val count =
@@ -504,6 +537,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.max(depth) to {
+                // max( <expression 1>, <expression 2> )
                 Expression.FunctionCall(
                     callee = "max",
                     templateParameter = null,
@@ -515,6 +549,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.min(depth) to {
+                // min( <expression 1>, <expression 2> )
                 Expression.FunctionCall(
                     callee = "min",
                     templateParameter = null,
@@ -526,6 +561,7 @@ private fun generateArbitraryInt(
                 )
             },
             fuzzerSettings.arbitraryIntExpressionWeights.reverseBits(depth) to {
+                // reverseBits( <expression> )
                 Expression.FunctionCall(
                     callee = "reverseBits",
                     templateParameter = null,
@@ -534,6 +570,7 @@ private fun generateArbitraryInt(
             },
             if (outputType is Type.I32) {
                 fuzzerSettings.arbitraryIntExpressionWeights.sign(depth) to {
+                    // sign( <expression> )
                     Expression.FunctionCall(
                         callee = "sign",
                         templateParameter = null,
@@ -652,7 +689,6 @@ private fun getRandomVariableExpressionOfType(
         }
         is Type.Matrix -> {
             val columnIndex = Expression.IntLiteral(fuzzerSettings.randomInt(expressionType.numCols).toString())
-            val rowIndex = Expression.IntLiteral(fuzzerSettings.randomInt(expressionType.numRows).toString())
 
             getRandomVariableExpressionOfType(
                 expression =

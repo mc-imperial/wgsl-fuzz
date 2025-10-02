@@ -73,6 +73,7 @@ private class AddIdentityOperations(
             val choices =
                 listOf(
                     fuzzerSettings.scalarIdentityOperationWeights.addZeroLeft to {
+                        // (( <zero expression> ) + ( <original expression> ))
                         Expression.Paren(
                             target =
                                 Expression.Binary(
@@ -99,6 +100,7 @@ private class AddIdentityOperations(
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.addZeroRight to {
+                        // (( <original expression> ) + ( <zero expression> ))
                         Expression.Paren(
                             target =
                                 Expression.Binary(
@@ -125,6 +127,7 @@ private class AddIdentityOperations(
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.subZero to {
+                        // (( <original expression> ) - ( <zero expression> ))
                         Expression.Paren(
                             target =
                                 Expression.Binary(
@@ -151,6 +154,7 @@ private class AddIdentityOperations(
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.mulOneLeft to {
+                        // (( <one expression> ) * ( <original expression> ))
                         Expression.Paren(
                             target =
                                 Expression.Binary(
@@ -177,6 +181,7 @@ private class AddIdentityOperations(
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.mulOneRight to {
+                        // (( <original expression> ) * ( <one expression> ))
                         Expression.Paren(
                             target =
                                 Expression.Binary(
@@ -203,6 +208,7 @@ private class AddIdentityOperations(
                         )
                     },
                     fuzzerSettings.scalarIdentityOperationWeights.divOne to {
+                        // (( <original expression> ) / ( <one expression> ))
                         Expression.Paren(
                             target =
                                 Expression.Binary(

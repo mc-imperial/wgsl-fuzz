@@ -35,20 +35,6 @@ import com.wgslfuzz.core.clone
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
 
-fun Scope.containsVariableOfType(type: Type): Boolean =
-    this
-        .getAllEntries()
-        .any {
-            it is ScopeEntry.TypedDecl &&
-                it !is ScopeEntry.TypeAlias &&
-                it.type.asStoreTypeIfReference() == type
-        }
-
-fun ScopeEntry.TypedDecl.toExpression(): Expression =
-    Expression.Identifier(
-        name = declName,
-    )
-
 fun constantWithSameValueEverywhere(
     value: Int,
     type: Type,
