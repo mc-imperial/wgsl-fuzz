@@ -173,6 +173,7 @@ private class UndoTransformations : ReductionPass<Int>() {
                             node.statements.flatMap { statement ->
                                 val clonedNode =
                                     when (val result = undoTransformations(statement)) {
+                                        // Any transformations undone in a compound will return a compound
                                         ReverseResult.DeletedNode -> null
                                         is ReverseResult.ReversedNode -> result.node as Statement
                                         null ->
