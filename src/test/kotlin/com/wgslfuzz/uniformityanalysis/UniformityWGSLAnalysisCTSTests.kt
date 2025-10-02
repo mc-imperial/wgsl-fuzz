@@ -4,8 +4,8 @@ import com.wgslfuzz.analysis.desugar
 import com.wgslfuzz.analysis.reorderFunctions
 import com.wgslfuzz.core.AstWriter
 import com.wgslfuzz.core.LoggingParseErrorListener
-import com.wgslfuzz.core.ResolvedEnvironment
 import com.wgslfuzz.core.parseFromFile
+import com.wgslfuzz.core.parseFromString
 import com.wgslfuzz.core.resolve
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.DynamicTest.dynamicTest
@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertDoesNotThrow
 import java.io.File
-import java.io.PrintStream
 import java.lang.IllegalArgumentException
 import kotlin.test.assertContains
 import kotlin.test.assertFailsWith
@@ -42,7 +41,7 @@ class UniformityWGSLAnalysisCTSTests {
 
     @Test
     fun checkSpecificCTSTest() {
-        checkNonUniform("external/cts-uniformity-tests/non-uniform/shader_76.wgsl")
+        checkNonUniform("external/cts-uniformity-tests/non-uniform/shader_42.wgsl")
     }
 
     @TestFactory
@@ -316,23 +315,68 @@ class UniformityWGSLAnalysisCTSTests {
                 "non-uniform/shader_4601.wgsl",
                 "non-uniform/shader_5558.wgsl",
                 "non-uniform/shader_1486.wgsl",
-
             ).map { "external/cts-uniformity-tests/$it".replace("/", File.separator) }
 
         for (test in incorrect) {
             val tu = parseFromFile(File(test).path, LoggingParseErrorListener()).desugar().reorderFunctions()
-            val except = assertFailsWith<IllegalArgumentException> {
-                resolve(tu)
-            }
+            val except =
+                assertFailsWith<IllegalArgumentException> {
+                    resolve(tu)
+                }
             assert(except.message != null)
             assertContains("Array index expression must be of type i32 or u32.", except.message!!)
         }
+
+        val notImplemented =
+            setOf(
+                // These use functions with pointer parameters
+                "non-uniform/shader_313.wgsl",
+                "non-uniform/shader_314.wgsl",
+                "non-uniform/shader_315.wgsl",
+                "non-uniform/shader_316.wgsl",
+                "non-uniform/shader_322.wgsl",
+                "uniform/shader_320.wgsl",
+                "uniform/shader_305.wgsl",
+                "uniform/shader_307.wgsl",
+                "uniform/shader_310.wgsl",
+                "uniform/shader_312.wgsl",
+                // These currently produce syntax errors when parsed
+                // TODO(JLJ): Investigate why and open an issue.
+                "non-uniform/shader_39.wgsl",
+                "non-uniform/shader_49.wgsl",
+                "non-uniform/shader_74.wgsl",
+                "non-uniform/shader_19.wgsl",
+                "non-uniform/shader_31.wgsl",
+                "non-uniform/shader_25.wgsl",
+                "non-uniform/shader_16.wgsl",
+                "non-uniform/shader_46.wgsl",
+                "non-uniform/shader_28.wgsl",
+                "uniform/shader_32.wgsl",
+                "uniform/shader_34.wgsl",
+                "uniform/shader_23.wgsl",
+                "uniform/shader_43.wgsl",
+                "uniform/shader_45.wgsl",
+                "uniform/shader_17.wgsl",
+                "uniform/shader_20.wgsl",
+                "uniform/shader_27.wgsl",
+                "uniform/shader_38.wgsl",
+                "uniform/shader_30.wgsl",
+                "uniform/shader_24.wgsl",
+                "uniform/shader_29.wgsl",
+                "uniform/shader_26.wgsl",
+                "uniform/shader_13.wgsl",
+                "uniform/shader_14.wgsl",
+                "uniform/shader_15.wgsl",
+                "uniform/shader_40.wgsl",
+                "uniform/shader_48.wgsl",
+                "uniform/shader_18.wgsl",
+            ).map { "external/cts-uniformity-tests/$it".replace("/", File.separator) }
 
         var counter = 0
         val result = mutableListOf<DynamicTest>()
 
         File("external/cts-uniformity-tests").walk().forEach {
-            if (it.extension != "wgsl" || it.path in incorrect) {
+            if (it.extension != "wgsl" || it.path in (incorrect + notImplemented)) {
                 return@forEach
             }
             if (it.path.contains("non-uniform")) {

@@ -918,7 +918,7 @@ private fun analyseLhsExpression(
                 is ScopeEntry.LocalVariable -> {
                     val result = createUniformityNode("Result_lhs_ident")
                     // Get the node representing this variable produced by statement behaviour analysis.
-                    val statementBehaviourAnalysisNode = functionInfo.variableNodes.get(lhsExpression.name)!!
+                    val statementBehaviourAnalysisNode = functionInfo.variableNodes.get(resolvedScope.declName)!!
 
                     result.addEdges(cf, statementBehaviourAnalysisNode)
                     ExpressionAnalysisResult(cf, result)
@@ -929,7 +929,8 @@ private fun analyseLhsExpression(
                 }
 
                 else -> {
-                    val variableNode = functionInfo.variableNodes.get(lhsExpression.name)
+                    val variableNode = functionInfo.variableNodes.get(resolvedScope!!.declName)
+                    println(resolvedScope.declName)
                     val valueNode = variableNode ?: cf
                     // TODO: This is not in the spec, but for module scope variables, we don't have a node representing its value so it seem that
                     // returning cf as the value is correct.
@@ -1308,6 +1309,7 @@ private fun isNonUniformBuiltinValue(builtinValue: BuiltinValue): Boolean {
             BuiltinValue.LOCAL_INVOCATION_INDEX,
             BuiltinValue.GLOBAL_INVOCATION_ID,
             BuiltinValue.SUBGROUP_INVOCATION_ID,
+            BuiltinValue.SUBGROUP_SIZE,
         )
     // TODO(JLJ): Subgroup size should be treated differently depending on shader stage
     return nonUniformBuiltins.contains(builtinValue)
