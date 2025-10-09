@@ -34,6 +34,12 @@ fun checkProgramIsFeatherweight(translationUnit: TranslationUnit) {
         node: AstNode,
         noState: Unit,
     ) {
+        if (node is Statement.Assignment && node.lhsExpression is LhsExpression.Identifier && node.rhs is Expression.FunctionCall) {
+            // A function call expression is not allowed to be nested, but it is allowed at the top level.
+            traverse(::featherweightCheck, node.rhs, noState)
+            return
+        }
+
         traverse(::featherweightCheck, node, noState)
         when (node) {
             is ContinuingStatement -> {}
@@ -63,22 +69,23 @@ fun checkProgramIsFeatherweight(translationUnit: TranslationUnit) {
             is Statement.FunctionCall -> {}
             is Statement.Loop -> {}
             is Statement.Return -> {}
-            else -> check(false, { "Unsupported kind of AST node." })
+            else -> check(false, { "Unsupported kind of AST node: " + node.javaClass.simpleName })
         }
     }
 
     check(translationUnit.directives.isEmpty())
+    var foundComputeEntryPoint = false
     for (functionDecl in translationUnit.globalDecls) {
         check(functionDecl is GlobalDecl.Function)
         check(functionDecl.returnAttributes.isEmpty())
-        if (functionDecl.name == "main") {
-            check(functionDecl.attributes.size == 2) { "Incorrect number of attributes on 'main'" }
-            check(functionDecl.attributes[0] is Attribute.Compute) { "First 'main' attribute must be @compute" }
-            check(functionDecl.attributes[1] is Attribute.WorkgroupSize) { "Second 'main' attribute must be workgroup size" }
+        if (functionDecl.attributes.isNotEmpty() && functionDecl.attributes[0] is Attribute.Compute) {
+            check(!foundComputeEntryPoint) { "There can only be one compute entry point" }
+            foundComputeEntryPoint = true
+            check(functionDecl.attributes.size == 2) { "Incorrect number of attributes on compute entry point" }
+            check(functionDecl.attributes[1] is Attribute.WorkgroupSize) { "Second compute entry point attribute must be workgroup size" }
             check(functionDecl.returnType == null)
             check(functionDecl.parameters.size == 1)
             val parameterDecl = functionDecl.parameters[0]
-            check(parameterDecl.name == "lid")
             check(parameterDecl.attributes.size == 1)
             val builtinAttribute = parameterDecl.attributes[0]
             check(builtinAttribute is Attribute.Builtin)
@@ -87,7 +94,7 @@ fun checkProgramIsFeatherweight(translationUnit: TranslationUnit) {
         } else {
             check(functionDecl.attributes.isEmpty())
             check(functionDecl.returnAttributes.isEmpty())
-            check(functionDecl.returnType is TypeDecl.ScalarTypeDecl, { "Function return type must be scalar." })
+            check(functionDecl.returnType is TypeDecl.ScalarTypeDecl?, { "Function return type must be scalar." })
             for (parameter in functionDecl.parameters) {
                 check(parameter.attributes.isEmpty())
                 check(parameter.typeDecl is TypeDecl.ScalarTypeDecl)
