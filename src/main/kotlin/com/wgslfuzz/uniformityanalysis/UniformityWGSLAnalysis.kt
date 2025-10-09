@@ -47,6 +47,10 @@ private class UniformityNode private constructor(
         visited = false
     }
 
+    fun clearEdges() {
+        edges.removeAll { true }
+    }
+
     fun addEdges(vararg nodes: UniformityNode) = addEdges(nodes.toList())
 
     fun addEdges(nodes: List<UniformityNode>) =
@@ -747,6 +751,17 @@ private fun analyseStatement(
                     functionInfo.variableNodes.set(variable, newNode)
                 }
                 val result = functionInfo.returnHeader!!
+
+                // If the body of the loop always returns, then the loop header will only be executed once and
+                // so there is no need to add back edges.
+                if (behaviourMap[statement.body] == setOf(StatementBehaviour.RETURN) ||
+                    behaviourMap[statement.continuingStatement.statements] ==
+                    setOf(StatementBehaviour.RETURN)
+                ) {
+                    functionInfo.returnHeader!!.clearEdges()
+                    functionInfo.breakHeader!!.clearEdges()
+                }
+
                 functionInfo.returnHeader = returnHeaderBackup
                 functionInfo.breakHeader = breakHeaderBackup
 
@@ -838,14 +853,15 @@ private fun analyseStatement(
             ) {
                 cf
             } else {
-                val (newCfNode, valueNode) = analyseExpression(
-                    cf,
-                    statement.expression,
-                    functionInfo,
-                    functionInfoMap,
-                    environment.scopeAvailableBefore(statement),
-                    environment,
-                )
+                val (newCfNode, valueNode) =
+                    analyseExpression(
+                        cf,
+                        statement.expression,
+                        functionInfo,
+                        functionInfoMap,
+                        environment.scopeAvailableBefore(statement),
+                        environment,
+                    )
 
                 functionInfo.valueReturn!!.addEdges(valueNode)
 
