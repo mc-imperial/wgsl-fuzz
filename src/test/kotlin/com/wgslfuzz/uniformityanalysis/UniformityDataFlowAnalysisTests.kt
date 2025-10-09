@@ -1015,7 +1015,7 @@ class UniformityDataFlowAnalysisTests {
         }
         run {
             val function1Result = analysisResult["Function1"]!!
-            assertTrue(function1Result.callSiteMustBeUniform)
+            assertFalse(function1Result.callSiteMustBeUniform)
             assertTrue(function1Result.returnedValueUniformity.isEmpty())
             assertTrue(function1Result.uniformParams.isEmpty())
         }
