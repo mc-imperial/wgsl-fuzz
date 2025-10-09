@@ -514,4 +514,28 @@ class UniformityWGSLAnalysisTests {
             """.trimIndent()
         checkUniform(input)
     }
+
+    @Test
+    fun nonUniformContinuing() {
+        val input =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid : u32) {
+              var count: u32 = 0;
+              loop {
+                if (count > 100) {
+                  break;
+                }
+                count = count + 1;
+                if (lid > 5) {
+                  continue;
+                }
+                continuing {
+                  workgroupBarrier();
+                }
+              }
+            }
+            """.trimIndent()
+        checkNonUniform(input)
+    }
 }

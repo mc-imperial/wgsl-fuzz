@@ -710,7 +710,7 @@ private fun analyseStatement(
                 // The continuing statement is guaranteed to be non-null because we are operating on the desugared AST.
                 val cf2 =
                     analyseStatement(
-                        functionInfo.breakHeader!!,
+                        cf1,
                         statement.continuingStatement!!.statements,
                         functionInfo,
                         functionInfoMap,
