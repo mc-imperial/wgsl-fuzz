@@ -29,6 +29,7 @@ import kotlin.String
 import kotlin.collections.List
 import kotlin.collections.Map
 import kotlin.collections.Set
+import kotlin.collections.contains
 
 data class PresentInfo(
     val ifControls: List<Set<Int>>,
@@ -291,129 +292,22 @@ private fun analyseStatement(
     val continueControls: Set<Int> = inStmt.continueInfo?.controls ?: emptySet()
     val returnControls: Set<Int> = inStmt.returnControls ?: emptySet()
     return when (statement) {
-        is Statement.Empty -> functionAnalysisState.updateOutForStatement(statement, inStmt)
-        is Statement.Assignment -> {
-            val lhsName = (statement.lhsExpression as LhsExpression.Identifier).name
-            assert(lhsName in functionAnalysisContext.variables)
-            when (val rhs = statement.rhs) {
-                is Expression.FunctionCall -> {
-                    val calleeSummary = functionAnalysisContext.previouslyAnalysedFunctions[rhs.callee]!!
-
-                    val parametersAffectingReturnedValueUniformity: Set<Int> =
-                        determineParametersAffectingReturnValueUniformityForCall(
-                            calleeSummary = calleeSummary,
-                            callerArguments = rhs.args,
-                            functionAnalysisContext = functionAnalysisContext,
-                            variableUniformityInfo = inStmt.presentInfo.variableUniformityInfo,
-                        )
-
-                    val newUniformityRecord =
-                        inStmt.updateVariableUniformityInfo(
-                            lhsName,
-                            presentControls union breakControls union continueControls union returnControls union
-                                parametersAffectingReturnedValueUniformity,
-                        )
-
-                    val parametersThatMustBeUniformDueToThisCall: Set<Int> =
-                        determineParametersRequiredToBeUniformFromCall(
-                            calleeSummary = calleeSummary,
-                            callerArguments = rhs.args,
-                            functionAnalysisContext = functionAnalysisContext,
-                            variableUniformityInfo = inStmt.presentInfo.variableUniformityInfo,
-                        )
-
-                    if (calleeSummary.callSiteMustBeUniform) {
-                        functionAnalysisState
-                            .copy(
-                                callSiteMustBeUniform = true,
-                                uniformParams =
-                                    functionAnalysisState.uniformParams union
-                                        parametersThatMustBeUniformDueToThisCall union
-                                        presentControls union
-                                        breakControls union
-                                        continueControls union
-                                        returnControls,
-                            ).updateOutForStatement(statement, newUniformityRecord)
-                    } else {
-                        functionAnalysisState
-                            .copy(
-                                uniformParams = functionAnalysisState.uniformParams union parametersThatMustBeUniformDueToThisCall,
-                            ).updateOutForStatement(statement, newUniformityRecord)
-                    }
-                }
-                is Expression.IntLiteral -> {
-                    // The statement has the form "v = C"
-                    functionAnalysisState.updateOutForStatement(
-                        statement,
-                        inStmt.updateVariableUniformityInfo(
-                            lhsName,
-                            presentControls union breakControls union continueControls union returnControls,
-                        ),
-                    )
-                }
-                is Expression.Identifier -> {
-                    // The statement either has the form "v = x" where x is a parameter,
-                    // or "v = w" where w is a variable.
-                    val newUniformityRecord =
-                        if (rhs.name in functionAnalysisContext.parameters) {
-                            inStmt.updateVariableUniformityInfo(
-                                lhsName,
-                                presentControls union breakControls union continueControls union returnControls union
-                                    setOf(functionAnalysisContext.parameters[rhs.name]!!),
-                            )
-                        } else {
-                            assert(rhs.name in functionAnalysisContext.variables)
-                            inStmt.updateVariableUniformityInfo(
-                                lhsName,
-                                presentControls union breakControls union continueControls union returnControls union
-                                    presentVariables[rhs.name]!!,
-                            )
-                        }
-                    functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
-                }
-                is Expression.Binary -> {
-                    val maybeBinaryLhsName =
-                        if (rhs.lhs is Expression.Identifier) {
-                            rhs.lhs.name
-                        } else {
-                            assert(rhs.lhs is Expression.IntLiteral)
-                            null
-                        }
-                    val maybeBinaryRhsName =
-                        if (rhs.rhs is Expression.Identifier) {
-                            rhs.rhs.name
-                        } else {
-                            assert(rhs.rhs is Expression.IntLiteral)
-                            null
-                        }
-                    maybeBinaryLhsName?.let {
-                        assert(it in functionAnalysisContext.variables)
-                    }
-                    maybeBinaryRhsName?.let {
-                        assert(it in functionAnalysisContext.variables)
-                    }
-                    val presentVariablesBinaryLhs =
-                        maybeBinaryLhsName?.let {
-                            presentVariables[it]!!
-                        } ?: emptySet()
-
-                    val presentVariablesBinaryRhs =
-                        maybeBinaryRhsName?.let {
-                            presentVariables[it]!!
-                        } ?: emptySet()
-
-                    val newUniformityRecord =
-                        inStmt.updateVariableUniformityInfo(
-                            lhsName,
-                            presentControls union breakControls union continueControls union returnControls union
-                                presentVariablesBinaryLhs union
-                                presentVariablesBinaryRhs,
-                        )
-                    functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
-                }
-                else -> TODO()
-            }
-        }
+        is Statement.Empty -> analyseEmptyStatement(
+            statement = statement,
+            functionAnalysisState = functionAnalysisState,
+            inStmt = inStmt,
+            )
+        is Statement.Assignment -> analyseAssignmentStatement(
+            statement = statement,
+            functionAnalysisContext = functionAnalysisContext,
+            functionAnalysisState = functionAnalysisState,
+            inStmt = inStmt,
+            presentVariables = presentVariables,
+            presentControls = presentControls,
+            breakControls = breakControls,
+            continueControls = continueControls,
+            returnControls = returnControls,
+        )
         is Statement.FunctionCall -> {
             if (statement.callee == "workgroupBarrier") {
                 assert(statement.callee !in functionAnalysisContext.previouslyAnalysedFunctions)
@@ -722,6 +616,145 @@ private fun analyseStatement(
                             ),
                     ),
             )
+        }
+        else -> TODO()
+    }
+}
+
+private fun analyseEmptyStatement(
+    statement: Statement.Empty,
+    functionAnalysisState: FunctionAnalysisState,
+    inStmt: StatementUniformityRecord,
+): FunctionAnalysisState = functionAnalysisState.updateOutForStatement(statement, inStmt)
+
+private fun analyseAssignmentStatement(
+    statement: Statement.Assignment,
+    functionAnalysisState: FunctionAnalysisState,
+    functionAnalysisContext: FunctionAnalysisContext,
+    inStmt: StatementUniformityRecord,
+    presentVariables: Map<String, Set<Int>>,
+    presentControls: Set<Int>,
+    breakControls: Set<Int>,
+    continueControls: Set<Int>,
+    returnControls: Set<Int>,
+): FunctionAnalysisState {
+    val lhsName = (statement.lhsExpression as LhsExpression.Identifier).name
+    assert(lhsName in functionAnalysisContext.variables)
+    return when (val rhs = statement.rhs) {
+        is Expression.FunctionCall -> {
+            val calleeSummary = functionAnalysisContext.previouslyAnalysedFunctions[rhs.callee]!!
+
+            val parametersAffectingReturnedValueUniformity: Set<Int> =
+                determineParametersAffectingReturnValueUniformityForCall(
+                    calleeSummary = calleeSummary,
+                    callerArguments = rhs.args,
+                    functionAnalysisContext = functionAnalysisContext,
+                    variableUniformityInfo = presentVariables,
+                )
+
+            val newUniformityRecord =
+                inStmt.updateVariableUniformityInfo(
+                    lhsName,
+                    presentControls union breakControls union continueControls union returnControls union
+                            parametersAffectingReturnedValueUniformity,
+                )
+
+            val parametersThatMustBeUniformDueToThisCall: Set<Int> =
+                determineParametersRequiredToBeUniformFromCall(
+                    calleeSummary = calleeSummary,
+                    callerArguments = rhs.args,
+                    functionAnalysisContext = functionAnalysisContext,
+                    variableUniformityInfo = presentVariables,
+                )
+
+            if (calleeSummary.callSiteMustBeUniform) {
+                functionAnalysisState
+                    .copy(
+                        callSiteMustBeUniform = true,
+                        uniformParams =
+                            functionAnalysisState.uniformParams union
+                                    parametersThatMustBeUniformDueToThisCall union
+                                    presentControls union
+                                    breakControls union
+                                    continueControls union
+                                    returnControls,
+                    ).updateOutForStatement(statement, newUniformityRecord)
+            } else {
+                functionAnalysisState
+                    .copy(
+                        uniformParams = functionAnalysisState.uniformParams union parametersThatMustBeUniformDueToThisCall,
+                    ).updateOutForStatement(statement, newUniformityRecord)
+            }
+        }
+        is Expression.IntLiteral -> {
+            // The statement has the form "v = C"
+            functionAnalysisState.updateOutForStatement(
+                statement,
+                inStmt.updateVariableUniformityInfo(
+                    lhsName,
+                    presentControls union breakControls union continueControls union returnControls,
+                ),
+            )
+        }
+        is Expression.Identifier -> {
+            // The statement either has the form "v = x" where x is a parameter,
+            // or "v = w" where w is a variable.
+            val newUniformityRecord =
+                if (rhs.name in functionAnalysisContext.parameters) {
+                    inStmt.updateVariableUniformityInfo(
+                        lhsName,
+                        presentControls union breakControls union continueControls union returnControls union
+                                setOf(functionAnalysisContext.parameters[rhs.name]!!),
+                    )
+                } else {
+                    assert(rhs.name in functionAnalysisContext.variables)
+                    inStmt.updateVariableUniformityInfo(
+                        lhsName,
+                        presentControls union breakControls union continueControls union returnControls union
+                                presentVariables[rhs.name]!!,
+                    )
+                }
+            functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
+        }
+        is Expression.Binary -> {
+            val maybeBinaryLhsName =
+                if (rhs.lhs is Expression.Identifier) {
+                    rhs.lhs.name
+                } else {
+                    assert(rhs.lhs is Expression.IntLiteral)
+                    null
+                }
+            val maybeBinaryRhsName =
+                if (rhs.rhs is Expression.Identifier) {
+                    rhs.rhs.name
+                } else {
+                    assert(rhs.rhs is Expression.IntLiteral)
+                    null
+                }
+            maybeBinaryLhsName?.let {
+                assert(it in functionAnalysisContext.variables)
+            }
+            maybeBinaryRhsName?.let {
+                assert(it in functionAnalysisContext.variables)
+            }
+            val presentVariablesBinaryLhs =
+                maybeBinaryLhsName?.let {
+                    presentVariables[it]!!
+                } ?: emptySet()
+
+            val presentVariablesBinaryRhs =
+                maybeBinaryRhsName?.let {
+                    presentVariables[it]!!
+                } ?: emptySet()
+
+            val newUniformityRecord =
+                inStmt.updateVariableUniformityInfo(
+                    lhsName,
+                    presentControls union breakControls union continueControls union returnControls union
+                            presentVariablesBinaryLhs union
+                            presentVariablesBinaryRhs,
+                )
+            functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
         }
         else -> TODO()
     }
