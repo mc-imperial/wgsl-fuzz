@@ -497,77 +497,21 @@ private fun analyseAssignmentStatement(
                     ).updateOutForStatement(statement, newUniformityRecord)
             }
         }
-        is Expression.IntLiteral -> {
-            // The statement has the form "v = C"
-            functionAnalysisState.updateOutForStatement(
-                statement,
-                inStmt.updateVariableUniformityInfo(
-                    lhsName,
-                    presentControls union inStmt.breakControls union inStmt.continueControls union inStmt.returnControls,
-                ),
-            )
-        }
-        is Expression.Identifier -> {
-            // The statement either has the form "v = x" where x is a parameter,
-            // or "v = w" where w is a variable.
-            val newUniformityRecord =
-                if (rhs.name in functionAnalysisContext.parameters) {
-                    inStmt.updateVariableUniformityInfo(
-                        lhsName,
-                        presentControls union inStmt.breakControls union inStmt.continueControls union inStmt.returnControls union
-                            setOf(functionAnalysisContext.parameters[rhs.name]!!),
-                    )
-                } else {
-                    assert(rhs.name in functionAnalysisContext.variables)
-                    inStmt.updateVariableUniformityInfo(
-                        lhsName,
-                        presentControls union inStmt.breakControls union inStmt.continueControls union inStmt.returnControls union
-                            presentVariables[rhs.name]!!,
-                    )
-                }
-            functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
-        }
-        is Expression.Binary -> {
-            val maybeBinaryLhsName =
-                if (rhs.lhs is Expression.Identifier) {
-                    rhs.lhs.name
-                } else {
-                    assert(rhs.lhs is Expression.IntLiteral)
-                    null
-                }
-            val maybeBinaryRhsName =
-                if (rhs.rhs is Expression.Identifier) {
-                    rhs.rhs.name
-                } else {
-                    assert(rhs.rhs is Expression.IntLiteral)
-                    null
-                }
-            maybeBinaryLhsName?.let {
-                assert(it in functionAnalysisContext.variables)
-            }
-            maybeBinaryRhsName?.let {
-                assert(it in functionAnalysisContext.variables)
-            }
-            val presentVariablesBinaryLhs =
-                maybeBinaryLhsName?.let {
-                    presentVariables[it]!!
-                } ?: emptySet()
-
-            val presentVariablesBinaryRhs =
-                maybeBinaryRhsName?.let {
-                    presentVariables[it]!!
-                } ?: emptySet()
-
+        else -> {
+            val parametersAffectingRhs =
+                determineParametersAffectingUniformityOfExpressionResult(
+                    expression = rhs,
+                    functionAnalysisContext = functionAnalysisContext,
+                    presentVariables,
+                )
             val newUniformityRecord =
                 inStmt.updateVariableUniformityInfo(
                     lhsName,
                     presentControls union inStmt.breakControls union inStmt.continueControls union inStmt.returnControls union
-                        presentVariablesBinaryLhs union
-                        presentVariablesBinaryRhs,
+                        parametersAffectingRhs,
                 )
             functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
         }
-        else -> throw UnsupportedOperationException("Unsupported RHS expression: $rhs")
     }
 }
 
@@ -1086,6 +1030,11 @@ private fun collectNamesInExpression(expr: Expression): Set<String> {
         traverse(::action, node, names)
         if (node is Expression.Identifier) {
             names.add(node.name)
+        }
+        if (node is Expression.FunctionCall) {
+            throw UnsupportedOperationException(
+                "Function call expression should only occur at the top level and should not occur in conditions.",
+            )
         }
     }
     val result = mutableSetOf<String>()

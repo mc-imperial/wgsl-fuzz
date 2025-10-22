@@ -24,6 +24,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
+// Uncomment these if using processDirectoryOfShaders
+// import com.wgslfuzz.core.parseFromFile
+// import java.io.File
+
 class UniformityDataFlowAnalysisTests {
     // // Helper to crunch through a large number of shaders to check that the analysis does not fall over.
     //    @Test
@@ -40,6 +44,7 @@ class UniformityDataFlowAnalysisTests {
     //            .filter { it.isFile && it.extension == "wgsl" }
     //            .forEach { file ->
     //                println("Found WGSL file: ${file.absolutePath}")
+    //                // parseFromFile needs to be imported
     //                val tu = parseFromFile(file.absolutePath, LoggingParseErrorListener())
     //                runAnalysis(tu, maximalReconvergence = false)
     //                runAnalysis(tu, maximalReconvergence = true)
