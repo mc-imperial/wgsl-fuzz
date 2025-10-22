@@ -1053,6 +1053,38 @@ class UniformityDataFlowAnalysisTests {
         }
     }
 
+//    @Test
+//    fun continuingConstruct() {
+//        val program =
+//            """
+//            fn g(p0: u32, p1: u32) {
+//              var temp: u32;
+//              loop {
+//                  if (temp) {
+//                    workgroupBarrier();
+//                  }
+//                  if (temp > 100) {
+//                    break;
+//                  }
+//                  continuing {
+//                    if (p1) {
+//                      temp = 12;
+//                    } else {
+//                      temp = temp + 1;
+//                    }
+//                  }
+//              }
+//            }
+//            """.trimIndent()
+//        val analysisResult = runAnalysisHelper(program)
+//        run {
+//            val gResult = analysisResult["g"]!!
+//            assertTrue(gResult.callSiteMustBeUniform)
+//            assertTrue(gResult.returnedValueUniformity.isEmpty())
+//            assertEquals(setOf(0, 1), gResult.uniformParams)
+//        }
+//    }
+
     private fun runSingleFunctionAnalysisHelper(program: String): FunctionAnalysisState {
         val tu = parseFromString(program, LoggingParseErrorListener())
         check(tu.globalDecls.size == 1) { "This helper is for single-function programs." }

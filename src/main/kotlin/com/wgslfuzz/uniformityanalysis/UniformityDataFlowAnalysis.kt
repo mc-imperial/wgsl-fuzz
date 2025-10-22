@@ -17,12 +17,18 @@
 package com.wgslfuzz.uniformityanalysis
 
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
+import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
+import kotlin.String
+import kotlin.collections.List
+import kotlin.collections.Map
+import kotlin.collections.Set
 
 data class PresentInfo(
     val ifControls: List<Set<Int>>,
@@ -93,6 +99,14 @@ data class StatementUniformityRecord(
     }
 }
 
+private class FunctionAnalysisContext(
+    val previouslyAnalysedFunctions: Map<String, FunctionAnalysisState>,
+    val parameters: Map<String, Int>,
+    val variables: Set<String>,
+    val breakToLoop: Map<Statement.Break, Statement.Loop>,
+    val continueToLoop: Map<Statement.Continue, Statement.Loop>,
+)
+
 data class FunctionAnalysisState(
     val callSiteMustBeUniform: Boolean,
     val uniformParams: Set<Int>,
@@ -108,32 +122,86 @@ data class FunctionAnalysisState(
     )
 }
 
-fun runAnalysis(tu: TranslationUnit): Map<String, FunctionAnalysisState> {
+fun runAnalysis(originalTu: TranslationUnit): Map<String, FunctionAnalysisState> {
+    val adaptedTu = addContinuesToEndsOfLoops(addContinuingStatements(originalTu)) as TranslationUnit
     val result = mutableMapOf<String, FunctionAnalysisState>()
-    for (decl in tu.globalDecls) {
+    for (decl in adaptedTu.globalDecls) {
         assert(decl is GlobalDecl.Function)
         val functionDecl = decl as GlobalDecl.Function
-        result[functionDecl.name] = analyseFunction(functionDecl, result)
+        result[functionDecl.name] = analyseFunction(
+            functionDecl,
+            FunctionAnalysisContext(
+                result,
+                parameters = extractParameters(functionDecl),
+                variables = extractVariables(functionDecl),
+                breakToLoop = extractBreakToLoopMapping(functionDecl),
+                continueToLoop = extractContinueToLoopMapping(functionDecl),
+            ),
+        )
     }
     return result
 }
 
+private fun extractBreakToLoopMapping(function: GlobalDecl.Function): Map<Statement.Break, Statement.Loop> {
+    fun action(node: AstNode, state: Pair<MutableList<Statement.Loop>, MutableMap<Statement.Break, Statement.Loop>>) {
+        when (node) {
+            is Statement.Loop -> state.first.add(node)
+            else -> {}
+        }
+        traverse(::action, node, state)
+        when (node) {
+            is Statement.Loop -> state.first.removeLast()
+            else -> {}
+        }
+        when (node) {
+            is Statement.Break -> state.second[node] = state.first.last()
+            else -> {}
+        }
+    }
+    val result = mutableMapOf<Statement.Break, Statement.Loop>()
+    traverse(::action, function, Pair(mutableListOf(), result))
+    return result
+}
+
+private fun extractContinueToLoopMapping(function: GlobalDecl.Function): Map<Statement.Continue, Statement.Loop> {
+    fun action(node: AstNode, state: Pair<MutableList<Statement.Loop>, MutableMap<Statement.Continue, Statement.Loop>>) {
+        when (node) {
+            is Statement.Loop -> state.first.add(node)
+            else -> {}
+        }
+        traverse(::action, node, state)
+        when (node) {
+            is Statement.Loop -> state.first.removeLast()
+            else -> {}
+        }
+        when (node) {
+            is Statement.Continue -> state.second[node] = state.first.last()
+            else -> {}
+        }
+    }
+    val result = mutableMapOf<Statement.Continue, Statement.Loop>()
+    traverse(::action, function, Pair(mutableListOf(), result))
+    return result
+}
+
+private fun extractParameters(function: GlobalDecl.Function): Map<String, Int> =
+    function.parameters
+        .mapIndexed { index, decl ->
+            decl.name to index
+        }.toMap()
+
+private fun extractVariables(function: GlobalDecl.Function): Set<String> =
+    function.body.statements
+        .filterIsInstance<Statement.Variable>()
+        .map(
+            Statement.Variable::name,
+        ).toSet()
+
 private fun analyseFunction(
     function: GlobalDecl.Function,
-    previouslyAnalysedFunctions: Map<String, FunctionAnalysisState>,
+    functionAnalysisContext: FunctionAnalysisContext,
 ): FunctionAnalysisState {
-    val parameters: Map<String, Int> =
-        function.parameters
-            .mapIndexed { index, decl ->
-                decl.name to index
-            }.toMap()
-    val variables: Set<String> =
-        function.body.statements
-            .filterIsInstance<Statement.Variable>()
-            .map(
-                Statement.Variable::name,
-            ).toSet()
-    assert((parameters.keys intersect variables).isEmpty())
+    assert((functionAnalysisContext.parameters.keys intersect functionAnalysisContext.variables).isEmpty())
 
     val statements =
         function.body.statements.filter {
@@ -155,7 +223,7 @@ private fun analyseFunction(
                                 presentInfo =
                                     PresentInfo(
                                         ifControls = listOf(emptySet()),
-                                        variableUniformityInfo = variables.associateWith { emptySet() },
+                                        variableUniformityInfo = functionAnalysisContext.variables.associateWith { emptySet() },
                                     ),
                                 breakInfo = null,
                                 continueInfo = null,
@@ -167,7 +235,10 @@ private fun analyseFunction(
         )
 
     while (true) {
-        val newAnalaysisState = analyseStatements(functionAnalysisState, statements, parameters, variables, previouslyAnalysedFunctions)
+        val newAnalaysisState = analyseStatements(
+            functionAnalysisState,
+            statements,
+            functionAnalysisContext)
         if (functionAnalysisState == newAnalaysisState) {
             break
         }
@@ -176,16 +247,18 @@ private fun analyseFunction(
     return functionAnalysisState
 }
 
-fun analyseStatements(
+private fun analyseStatements(
     initialFunctionAnalysisState: FunctionAnalysisState,
     statements: List<Statement>,
-    parameters: Map<String, Int>,
-    variables: Set<String>,
-    previouslyAnalysedFunctions: Map<String, FunctionAnalysisState>,
+    functionAnalysisContext: FunctionAnalysisContext,
 ): FunctionAnalysisState {
     var result = initialFunctionAnalysisState
     statements.forEachIndexed { index, currentStatement ->
-        result = analyseStatement(result, currentStatement, parameters, variables, previouslyAnalysedFunctions)
+        result = analyseStatement(
+            functionAnalysisState = result,
+            statement = currentStatement,
+            functionAnalysisContext = functionAnalysisContext,
+            )
         if (index < statements.size - 1) {
             val nextStatement = statements[index + 1]
             val newStmtIn: Map<Statement, StatementUniformityRecord> = result.stmtIn + (nextStatement to result.stmtOut[currentStatement]!!)
@@ -198,12 +271,10 @@ fun analyseStatements(
     return result
 }
 
-fun analyseStatement(
+private fun analyseStatement(
     functionAnalysisState: FunctionAnalysisState,
     statement: Statement,
-    parameters: Map<String, Int>,
-    variables: Set<String>,
-    previouslyAnalysedFunctions: Map<String, FunctionAnalysisState>,
+    functionAnalysisContext: FunctionAnalysisContext,
 ): FunctionAnalysisState {
     val inStmt = functionAnalysisState.stmtIn[statement]!!
     if (inStmt.presentInfo == null) {
@@ -223,17 +294,16 @@ fun analyseStatement(
         is Statement.Empty -> functionAnalysisState.updateOutForStatement(statement, inStmt)
         is Statement.Assignment -> {
             val lhsName = (statement.lhsExpression as LhsExpression.Identifier).name
-            assert(lhsName in variables)
+            assert(lhsName in functionAnalysisContext.variables)
             when (val rhs = statement.rhs) {
                 is Expression.FunctionCall -> {
-                    val calleeSummary = previouslyAnalysedFunctions[rhs.callee]!!
+                    val calleeSummary = functionAnalysisContext.previouslyAnalysedFunctions[rhs.callee]!!
 
                     val parametersAffectingReturnedValueUniformity: Set<Int> =
                         determineParametersAffectingReturnValueUniformityForCall(
                             calleeSummary = calleeSummary,
                             callerArguments = rhs.args,
-                            variables = variables,
-                            parameters = parameters,
+                            functionAnalysisContext = functionAnalysisContext,
                             variableUniformityInfo = inStmt.presentInfo.variableUniformityInfo,
                         )
 
@@ -248,8 +318,7 @@ fun analyseStatement(
                         determineParametersRequiredToBeUniformFromCall(
                             calleeSummary = calleeSummary,
                             callerArguments = rhs.args,
-                            variables = variables,
-                            parameters = parameters,
+                            functionAnalysisContext = functionAnalysisContext,
                             variableUniformityInfo = inStmt.presentInfo.variableUniformityInfo,
                         )
 
@@ -286,14 +355,14 @@ fun analyseStatement(
                     // The statement either has the form "v = x" where x is a parameter,
                     // or "v = w" where w is a variable.
                     val newUniformityRecord =
-                        if (rhs.name in parameters) {
+                        if (rhs.name in functionAnalysisContext.parameters) {
                             inStmt.updateVariableUniformityInfo(
                                 lhsName,
                                 presentControls union breakControls union continueControls union returnControls union
-                                    setOf(parameters[rhs.name]!!),
+                                    setOf(functionAnalysisContext.parameters[rhs.name]!!),
                             )
                         } else {
-                            assert(rhs.name in variables)
+                            assert(rhs.name in functionAnalysisContext.variables)
                             inStmt.updateVariableUniformityInfo(
                                 lhsName,
                                 presentControls union breakControls union continueControls union returnControls union
@@ -318,10 +387,10 @@ fun analyseStatement(
                             null
                         }
                     maybeBinaryLhsName?.let {
-                        assert(it in variables)
+                        assert(it in functionAnalysisContext.variables)
                     }
                     maybeBinaryRhsName?.let {
-                        assert(it in variables)
+                        assert(it in functionAnalysisContext.variables)
                     }
                     val presentVariablesBinaryLhs =
                         maybeBinaryLhsName?.let {
@@ -347,7 +416,7 @@ fun analyseStatement(
         }
         is Statement.FunctionCall -> {
             if (statement.callee == "workgroupBarrier") {
-                assert(statement.callee !in previouslyAnalysedFunctions)
+                assert(statement.callee !in functionAnalysisContext.previouslyAnalysedFunctions)
                 functionAnalysisState
                     .copy(
                         callSiteMustBeUniform = true,
@@ -356,7 +425,7 @@ fun analyseStatement(
                                 returnControls,
                     ).updateOutForStatement(statement, inStmt)
             } else {
-                val calleeSummary = previouslyAnalysedFunctions[statement.callee]!!
+                val calleeSummary = functionAnalysisContext.previouslyAnalysedFunctions[statement.callee]!!
                 // This function is being called via a statement with no return value captured, thus it must have void
                 // return type.
                 assert(calleeSummary.returnedValueUniformity.isEmpty())
@@ -365,8 +434,7 @@ fun analyseStatement(
                     determineParametersRequiredToBeUniformFromCall(
                         calleeSummary = calleeSummary,
                         callerArguments = statement.args,
-                        variables = variables,
-                        parameters = parameters,
+                        functionAnalysisContext = functionAnalysisContext,
                         variableUniformityInfo = inStmt.presentInfo.variableUniformityInfo,
                     )
 
@@ -394,10 +462,10 @@ fun analyseStatement(
             val identifiersOccurringInCondition = collectNamesInExpression(statement.condition)
             val parametersAffectingCondition = mutableSetOf<Int>()
             identifiersOccurringInCondition.forEach {
-                if (it in parameters) {
-                    parametersAffectingCondition.add(parameters[it]!!)
+                if (it in functionAnalysisContext.parameters) {
+                    parametersAffectingCondition.add(functionAnalysisContext.parameters[it]!!)
                 } else {
-                    assert(it in variables)
+                    assert(it in functionAnalysisContext.variables)
                     parametersAffectingCondition.addAll(presentVariables[it]!!)
                 }
             }
@@ -420,9 +488,7 @@ fun analyseStatement(
                                 ),
                     ),
                     thenStatements,
-                    parameters,
-                    variables,
-                    previouslyAnalysedFunctions,
+                    functionAnalysisContext,
                 )
 
             val afterAnalysingElseSide: FunctionAnalysisState =
@@ -438,9 +504,7 @@ fun analyseStatement(
                                     ),
                         ),
                         elseStatements,
-                        parameters,
-                        variables,
-                        previouslyAnalysedFunctions,
+                        functionAnalysisContext,
                     )
                 }
             val endOfThenSideRecord: StatementUniformityRecord = afterAnalysingElseSide.stmtOut[thenStatements.last()]!!
@@ -475,9 +539,12 @@ fun analyseStatement(
             )
         }
         is Statement.Loop -> {
-            // Not currently handled: continuing statements
-            assert(statement.continuingStatement == null)
+            // Continuing statements have been added if not present
+            assert(statement.continuingStatement != null)
+            assert(statement.continuingStatement!!.statements.statements.isNotEmpty())
             val loopBody = statement.body
+            // Continues should have been added to all loops
+            assert(loopBody.statements.last() is Statement.Continue)
             val loopBodyStart = loopBody.statements[0]
             val loopBodyEnd = loopBody.statements.last()
 
@@ -532,9 +599,7 @@ fun analyseStatement(
                     analyseStatements(
                         statements = loopBody.statements,
                         initialFunctionAnalysisState = loopAnalysisState,
-                        variables = variables,
-                        parameters = parameters,
-                        previouslyAnalysedFunctions = previouslyAnalysedFunctions,
+                        functionAnalysisContext = functionAnalysisContext,
                     )
 
                 // Transfer back to loop header
@@ -610,11 +675,11 @@ fun analyseStatement(
                         returnControls
                 ).toMutableSet()
             for (identifier in returnedIdentifiers) {
-                if (identifier in variables) {
+                if (identifier in functionAnalysisContext.variables) {
                     parametersInfluencingReturnedValueUniformity.addAll(presentVariables[identifier]!!)
                 } else {
-                    check(identifier in parameters)
-                    parametersInfluencingReturnedValueUniformity.add(parameters[identifier]!!)
+                    check(identifier in functionAnalysisContext.parameters)
+                    parametersInfluencingReturnedValueUniformity.add(functionAnalysisContext.parameters[identifier]!!)
                 }
             }
             functionAnalysisState
@@ -699,8 +764,7 @@ private fun collectNamesInExpression(expr: Expression): Set<String> {
 private fun determineParametersAffectingReturnValueUniformityForCall(
     calleeSummary: FunctionAnalysisState,
     callerArguments: List<Expression>,
-    variables: Set<String>,
-    parameters: Map<String, Int>,
+    functionAnalysisContext: FunctionAnalysisContext,
     variableUniformityInfo: Map<String, Set<Int>>,
 ): Set<Int> =
     callerArguments
@@ -710,10 +774,10 @@ private fun determineParametersAffectingReturnValueUniformityForCall(
             } else {
                 collectNamesInExpression(arg)
                     .map { name ->
-                        if (name in variables) {
+                        if (name in functionAnalysisContext.variables) {
                             variableUniformityInfo[name]!!
                         } else {
-                            setOf(parameters[name]!!)
+                            setOf(functionAnalysisContext.parameters[name]!!)
                         }
                     }.fold(emptySet()) { acc, set -> acc union set }
             }
@@ -722,8 +786,7 @@ private fun determineParametersAffectingReturnValueUniformityForCall(
 private fun determineParametersRequiredToBeUniformFromCall(
     calleeSummary: FunctionAnalysisState,
     callerArguments: List<Expression>,
-    variables: Set<String>,
-    parameters: Map<String, Int>,
+    functionAnalysisContext: FunctionAnalysisContext,
     variableUniformityInfo: Map<String, Set<Int>>,
 ): Set<Int> =
     callerArguments
@@ -733,11 +796,70 @@ private fun determineParametersRequiredToBeUniformFromCall(
             } else {
                 collectNamesInExpression(arg)
                     .map { name ->
-                        if (name in variables) {
+                        if (name in functionAnalysisContext.variables) {
                             variableUniformityInfo[name]!!
                         } else {
-                            setOf(parameters[name]!!)
+                            setOf(functionAnalysisContext.parameters[name]!!)
                         }
                     }.fold(emptySet()) { acc, set -> acc union set }
             }
         }.fold(emptySet<Int>()) { acc, set -> acc union set }
+
+private fun addContinuingStatements(node: AstNode): AstNode =
+    node.clone {
+        if (it is Statement.Loop && it.continuingStatement == null) {
+            // Adds a continuing statement as this was absent.
+            Statement.Loop(
+                attributesAtStart = it.attributesAtStart,
+                attributesBeforeBody = it.attributesBeforeBody,
+                body = addContinuingStatements(it.body) as Statement.Compound,
+                continuingStatement = ContinuingStatement(
+                    statements = Statement.Compound(
+                        listOf(Statement.Empty()),
+                    ),
+                ),
+            )
+        } else if (it is Statement.Loop && it.continuingStatement!!.statements.statements.isEmpty()) {
+            // Makes the existing continuing statement non-empty.
+            Statement.Loop(
+                attributesAtStart = it.attributesAtStart,
+                attributesBeforeBody = it.attributesBeforeBody,
+                body = addContinuingStatements(it.body) as Statement.Compound,
+                continuingStatement = ContinuingStatement(
+                    attributes = it.continuingStatement.attributes,
+                    statements = Statement.Compound(
+                        listOf(Statement.Empty()),
+                    ),
+                    breakIfExpr = it.continuingStatement.breakIfExpr,
+                ),
+            )
+        } else {
+            null
+        }
+    }
+
+private fun addContinuesToEndsOfLoops(node: AstNode): AstNode =
+    node.clone {
+        if (it is Statement.Loop && it.body.statements.last() !is Statement.Continue) {
+            // Adds a continue to the end of the loop body.
+            val newBodyStatements = mutableListOf<Statement>()
+            for (statement in it.body.statements) {
+                newBodyStatements.add(addContinuesToEndsOfLoops(statement) as Statement)
+            }
+            newBodyStatements.add(Statement.Continue())
+            Statement.Loop(
+                attributesAtStart = it.attributesAtStart,
+                attributesBeforeBody = it.attributesBeforeBody,
+                body = Statement.Compound(
+                    statements = newBodyStatements,
+                ),
+                continuingStatement = it.continuingStatement?.let { continuingStatement ->
+                    addContinuesToEndsOfLoops(
+                        continuingStatement,
+                    ) as ContinuingStatement
+                },
+            )
+        } else {
+            null
+        }
+    }
