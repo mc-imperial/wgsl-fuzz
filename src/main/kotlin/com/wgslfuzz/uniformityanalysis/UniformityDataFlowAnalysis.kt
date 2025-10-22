@@ -87,6 +87,7 @@ private class FunctionAnalysisContext(
     val variables: Set<String>,
     val breakToLoop: Map<Statement.Break, Statement.Loop>,
     val continueToLoop: Map<Statement.Continue, Statement.Loop>,
+    val maximalReconvergence: Boolean,
 )
 
 data class FunctionAnalysisState(
@@ -111,7 +112,10 @@ data class FunctionAnalysisState(
     )
 }
 
-fun runAnalysis(originalTu: TranslationUnit): Map<String, FunctionAnalysisState> {
+fun runAnalysis(
+    originalTu: TranslationUnit,
+    maximalReconvergence: Boolean = false,
+    ): Map<String, FunctionAnalysisState> {
     val adaptedTu = addContinuesToEndsOfLoops(addContinuingStatements(originalTu)) as TranslationUnit
     val result = mutableMapOf<String, FunctionAnalysisState>()
     for (decl in adaptedTu.globalDecls) {
@@ -126,6 +130,7 @@ fun runAnalysis(originalTu: TranslationUnit): Map<String, FunctionAnalysisState>
                     variables = extractVariables(functionDecl),
                     breakToLoop = extractBreakToLoopMapping(functionDecl),
                     continueToLoop = extractContinueToLoopMapping(functionDecl),
+                    maximalReconvergence = maximalReconvergence,
                 ),
             )
     }
@@ -375,7 +380,7 @@ private fun analyseStatement(
                 continueControls = continueControls,
                 returnControls = returnControls,
             )
-        else -> TODO()
+        else -> throw UnsupportedOperationException("Unknown kind of statement: " + statement)
     }
 }
 
@@ -514,7 +519,7 @@ private fun analyseAssignmentStatement(
                 )
             functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
         }
-        else -> TODO()
+        else -> throw UnsupportedOperationException("Unsupported RHS expression: " + rhs)
     }
 }
 
@@ -748,6 +753,9 @@ private fun analyseLoopStatement(
             loopAnalysisState = analysisStateAfterAnalysingBody
             break
         }
+        if (functionAnalysisContext.maximalReconvergence) {
+            assert (existingContinueStatementStartRecord.continueControls == null)
+        }
 
         // Analyse continuing statement
         val analysisStateAfterAnalysingContinuingStatement =
@@ -764,6 +772,15 @@ private fun analyseLoopStatement(
                 .last()
         val finalContinuingStatementRecord = analysisStateAfterAnalysingContinuingStatement.stmtOut[continueStatementEnd]!!
         // TODO - deal with non-null break-if
+
+        val updatedContinueControls: Set<Int>? = if (functionAnalysisContext.maximalReconvergence) {
+            assert(finalContinuingStatementRecord.continueControls == null)
+            assert(existingLoopEntryRecord.continueControls == null)
+            null
+        } else {
+            mergeControls(existingLoopEntryRecord.continueControls, finalContinuingStatementRecord.continueControls)
+        }
+
         assert(statement.continuingStatement.breakIfExpr == null)
         val loopEntryRecordUpdatedWithBackEdge =
             StatementUniformityRecord(
@@ -775,9 +792,8 @@ private fun analyseLoopStatement(
                                 finalContinuingStatementRecord.presentInfo?.variableUniformityInfo,
                             ),
                     ),
-                // TODO - reconsider setting break and continue info to null above (with test case)
                 breakControls = finalContinuingStatementRecord.breakControls, // No need to merge here as this is guaranteed to be larger
-                continueControls = existingLoopEntryRecord.continueControls, // TODO - revisit in light of ho WGSL really works
+                continueControls = updatedContinueControls,
                 returnControls = mergeControls(existingLoopEntryRecord.returnControls, finalContinuingStatementRecord.returnControls),
             )
         val updatedAnalysisState =
@@ -903,6 +919,8 @@ private fun analyseContinueStatement(
     val existingInUniformityRecordForContinuingStatement: StatementUniformityRecord? =
         functionAnalysisState.stmtIn[startOfContinuingStatement]
 
+    val strengthenedContinueControls = continueControls union inStmt.presentInfo!!.ifControls.last()
+
     val newInUniformityRecordForContinuingStatement: StatementUniformityRecord =
         if (existingInUniformityRecordForContinuingStatement ==
             null
@@ -914,7 +932,7 @@ private fun analyseContinueStatement(
                         variableUniformityInfo = presentVariables,
                     ),
                 breakControls = breakControls,
-                continueControls = null, // TODO: revisit based on accurate WGSL rules
+                continueControls = if (functionAnalysisContext.maximalReconvergence) { null } else { strengthenedContinueControls },
                 returnControls = mergeControls(existingInUniformityRecordForLoop.returnControls, returnControls),
             )
         } else {
@@ -933,6 +951,12 @@ private fun analyseContinueStatement(
                         existingInUniformityRecordForContinuingStatement.breakControls,
                         breakControls,
                     ),
+                continueControls = if (functionAnalysisContext.maximalReconvergence) { null } else {
+                    mergeControls(
+                        existingInUniformityRecordForContinuingStatement.continueControls,
+                        strengthenedContinueControls,
+                    )
+                },
                 returnControls = mergeControls(existingInUniformityRecordForContinuingStatement.returnControls, returnControls),
             )
         }
@@ -942,7 +966,7 @@ private fun analyseContinueStatement(
             uniformityRecord =
                 inStmt.copy(
                     presentInfo = null,
-                    continueControls = continueControls union inStmt.presentInfo!!.ifControls.last(),
+                    continueControls = strengthenedContinueControls,
                 ),
         ).updateInForStatement(
             statement = startOfContinuingStatement,
