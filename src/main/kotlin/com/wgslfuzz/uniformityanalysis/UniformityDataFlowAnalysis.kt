@@ -25,7 +25,6 @@ import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.clone
 import com.wgslfuzz.core.traverse
-import com.wgslfuzz.uniformityanalysis.PresentInfo
 import kotlin.String
 import kotlin.collections.List
 import kotlin.collections.Map
@@ -39,26 +38,7 @@ data class PresentInfo(
     val variableUniformityInfo: Map<String, Set<Int>>,
 )
 
-data class BreakContinueInfo(
-    val controls: Set<Int>,
-)
-
-private fun mergeBreakContinueInfo(
-    first: BreakContinueInfo?,
-    second: BreakContinueInfo?,
-): BreakContinueInfo? {
-    if (first == null) {
-        return second
-    }
-    if (second == null) {
-        return first
-    }
-    return BreakContinueInfo(
-        controls = first.controls union second.controls,
-    )
-}
-
-fun mergeReturnInfo(
+fun mergeControls(
     first: Set<Int>?,
     second: Set<Int>?,
 ): Set<Int>? {
@@ -73,8 +53,8 @@ fun mergeReturnInfo(
 
 data class StatementUniformityRecord(
     val presentInfo: PresentInfo?,
-    val breakInfo: BreakContinueInfo?,
-    val continueInfo: BreakContinueInfo?,
+    val breakControls: Set<Int>?,
+    val continueControls: Set<Int>?,
     val returnControls: Set<Int>?,
 ) {
     fun updateVariableUniformityInfo(
@@ -241,8 +221,8 @@ private fun analyseFunction(
                                         ifControls = listOf(emptySet()),
                                         variableUniformityInfo = functionAnalysisContext.variables.associateWith { emptySet() },
                                     ),
-                                breakInfo = null,
-                                continueInfo = null,
+                                breakControls = null,
+                                continueControls = null,
                                 returnControls = null,
                             ),
                     )
@@ -311,8 +291,8 @@ private fun analyseStatement(
         inStmt.presentInfo.ifControls.reduce { first, second ->
             first union second
         }
-    val breakControls: Set<Int> = inStmt.breakInfo?.controls ?: emptySet()
-    val continueControls: Set<Int> = inStmt.continueInfo?.controls ?: emptySet()
+    val breakControls: Set<Int> = inStmt.breakControls ?: emptySet()
+    val continueControls: Set<Int> = inStmt.continueControls ?: emptySet()
     val returnControls: Set<Int> = inStmt.returnControls ?: emptySet()
     return when (statement) {
         is Statement.Empty ->
@@ -671,9 +651,9 @@ private fun analyseIfStatement(
     val mergedRecord =
         StatementUniformityRecord(
             presentInfo = mergedPresent,
-            breakInfo = mergeBreakContinueInfo(endOfThenSideRecord?.breakInfo, endOfElseSideRecord?.breakInfo),
-            continueInfo = mergeBreakContinueInfo(endOfThenSideRecord?.continueInfo, endOfElseSideRecord?.continueInfo),
-            returnControls = mergeReturnInfo(endOfThenSideRecord?.returnControls, endOfElseSideRecord?.returnControls),
+            breakControls = mergeControls(endOfThenSideRecord?.breakControls, endOfElseSideRecord?.breakControls),
+            continueControls = mergeControls(endOfThenSideRecord?.continueControls, endOfElseSideRecord?.continueControls),
+            returnControls = mergeControls(endOfThenSideRecord?.returnControls, endOfElseSideRecord?.returnControls),
         )
 
     return afterAnalysingElseSide.copy(
@@ -713,12 +693,12 @@ private fun analyseLoopStatement(
                             inStmt.presentInfo!!.copy(
                                 ifControls = inStmt.presentInfo.ifControls + listOf(emptySet()),
                             ),
-                        breakInfo = null, // This is a fresh loop
-                        continueInfo = null, // This is a fresh loop
+                        breakControls = null, // This is a fresh loop
+                        continueControls = null, // This is a fresh loop
                         returnControls = inStmt.returnControls,
                     )
                 } else {
-                    assert(existingLoopEntryRecord.continueInfo == null)
+                    assert(existingLoopEntryRecord.continueControls == null)
                     assert(
                         existingLoopEntryRecord.presentInfo!!.ifControls == inStmt.presentInfo!!.ifControls +
                             listOf(
@@ -736,7 +716,7 @@ private fun analyseLoopStatement(
                             ),
                         // Break information: retain whatever has been propagated via back edges, since on entry this information is empty
                         // Continue information: absent by construction as asserted above
-                        returnControls = mergeReturnInfo(existingLoopEntryRecord.returnControls, returnControls),
+                        returnControls = mergeControls(existingLoopEntryRecord.returnControls, returnControls),
                     )
                 }
 
@@ -796,9 +776,9 @@ private fun analyseLoopStatement(
                             ),
                     ),
                 // TODO - reconsider setting break and continue info to null above (with test case)
-                breakInfo = finalContinuingStatementRecord.breakInfo, // No need to merge here as this is guaranteed to be larger
-                continueInfo = existingLoopEntryRecord.continueInfo, // TODO - revisit in light of ho WGSL really works
-                returnControls = mergeReturnInfo(existingLoopEntryRecord.returnControls, finalContinuingStatementRecord.returnControls),
+                breakControls = finalContinuingStatementRecord.breakControls, // No need to merge here as this is guaranteed to be larger
+                continueControls = existingLoopEntryRecord.continueControls, // TODO - revisit in light of ho WGSL really works
+                returnControls = mergeControls(existingLoopEntryRecord.returnControls, finalContinuingStatementRecord.returnControls),
             )
         val updatedAnalysisState =
             analysisStateAfterAnalysingContinuingStatement.copy(
@@ -848,7 +828,7 @@ private fun analyseReturnStatement(
             uniformityRecord =
                 inStmt.copy(
                     presentInfo = null,
-                    returnControls = mergeReturnInfo(inStmt.returnControls, presentControls),
+                    returnControls = mergeControls(inStmt.returnControls, presentControls),
                 ),
         )
 }
@@ -873,9 +853,9 @@ private fun analyseBreakStatement(
                         ifControls = existingInUniformityRecordForLoop.presentInfo!!.ifControls,
                         variableUniformityInfo = presentVariables,
                     ),
-                breakInfo = existingInUniformityRecordForLoop.breakInfo,
-                continueInfo = existingInUniformityRecordForLoop.continueInfo,
-                returnControls = mergeReturnInfo(existingInUniformityRecordForLoop.returnControls, returnControls),
+                breakControls = existingInUniformityRecordForLoop.breakControls,
+                continueControls = existingInUniformityRecordForLoop.continueControls,
+                returnControls = mergeControls(existingInUniformityRecordForLoop.returnControls, returnControls),
             )
         } else {
             assert(existingOutUniformityRecordForLoop.presentInfo != null)
@@ -888,7 +868,7 @@ private fun analyseBreakStatement(
                                 presentVariables,
                             ),
                     ),
-                returnControls = mergeReturnInfo(existingOutUniformityRecordForLoop.returnControls, returnControls),
+                returnControls = mergeControls(existingOutUniformityRecordForLoop.returnControls, returnControls),
             )
         }
 
@@ -898,10 +878,7 @@ private fun analyseBreakStatement(
             uniformityRecord =
                 inStmt.copy(
                     presentInfo = null,
-                    breakInfo =
-                        BreakContinueInfo(
-                            controls = breakControls union inStmt.presentInfo!!.ifControls.last(),
-                        ),
+                    breakControls = breakControls union inStmt.presentInfo!!.ifControls.last(),
                 ),
         ).updateOutForStatement(
             statement = associatedLoop,
@@ -936,9 +913,9 @@ private fun analyseContinueStatement(
                         ifControls = existingInUniformityRecordForLoop.presentInfo!!.ifControls,
                         variableUniformityInfo = presentVariables,
                     ),
-                breakInfo = BreakContinueInfo(breakControls),
-                continueInfo = null, // TODO: revisit based on accurate WGSL rules
-                returnControls = mergeReturnInfo(existingInUniformityRecordForLoop.returnControls, returnControls),
+                breakControls = breakControls,
+                continueControls = null, // TODO: revisit based on accurate WGSL rules
+                returnControls = mergeControls(existingInUniformityRecordForLoop.returnControls, returnControls),
             )
         } else {
             assert(existingInUniformityRecordForContinuingStatement.presentInfo != null)
@@ -951,12 +928,12 @@ private fun analyseContinueStatement(
                                 presentVariables,
                             ),
                     ),
-                breakInfo =
-                    mergeBreakContinueInfo(
-                        existingInUniformityRecordForContinuingStatement.breakInfo,
-                        BreakContinueInfo(breakControls),
+                breakControls =
+                    mergeControls(
+                        existingInUniformityRecordForContinuingStatement.breakControls,
+                        breakControls,
                     ),
-                returnControls = mergeReturnInfo(existingInUniformityRecordForContinuingStatement.returnControls, returnControls),
+                returnControls = mergeControls(existingInUniformityRecordForContinuingStatement.returnControls, returnControls),
             )
         }
     return functionAnalysisState
@@ -965,10 +942,7 @@ private fun analyseContinueStatement(
             uniformityRecord =
                 inStmt.copy(
                     presentInfo = null,
-                    continueInfo =
-                        BreakContinueInfo(
-                            controls = continueControls union inStmt.presentInfo!!.ifControls.last(),
-                        ),
+                    continueControls = continueControls union inStmt.presentInfo!!.ifControls.last(),
                 ),
         ).updateInForStatement(
             statement = startOfContinuingStatement,
