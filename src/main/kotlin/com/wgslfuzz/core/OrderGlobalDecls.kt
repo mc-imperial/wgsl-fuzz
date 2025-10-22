@@ -1,4 +1,3 @@
 package com.wgslfuzz.core
 
-class OrderGlobalDecls {
-}
+class OrderGlobalDecls

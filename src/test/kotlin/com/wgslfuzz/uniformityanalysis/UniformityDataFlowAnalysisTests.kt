@@ -1244,37 +1244,85 @@ class UniformityDataFlowAnalysisTests {
         }
     }
 
-//    @Test
-//    fun continuingConstruct() {
-//        val program =
-//            """
-//            fn g(p0: u32, p1: u32) {
-//              var temp: u32;
-//              loop {
-//                  if (temp) {
-//                    workgroupBarrier();
-//                  }
-//                  if (temp > 100) {
-//                    break;
-//                  }
-//                  continuing {
-//                    if (p1) {
-//                      temp = 12;
-//                    } else {
-//                      temp = temp + 1;
-//                    }
-//                  }
-//              }
-//            }
-//            """.trimIndent()
-//        val analysisResult = runAnalysisHelper(program)
-//        run {
-//            val gResult = analysisResult["g"]!!
-//            assertTrue(gResult.callSiteMustBeUniform)
-//            assertTrue(gResult.returnedValueUniformity.isEmpty())
-//            assertEquals(setOf(0, 1), gResult.uniformParams)
-//        }
-//    }
+    @Test
+    fun continuingConstruct() {
+        val program =
+            """
+            fn g(p0: u32, p1: u32) {
+              var temp: u32;
+              loop {
+                  if (temp) {
+                    workgroupBarrier();
+                  }
+                  if (temp > 100) {
+                    break;
+                  }
+                  continuing {
+                    if (p1) {
+                      temp = 12;
+                    } else {
+                      temp = temp + 1;
+                    }
+                  }
+              }
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        run {
+            val gResult = analysisResult["g"]!!
+            assertTrue(gResult.callSiteMustBeUniform)
+            assertTrue(gResult.returnedValueUniformity.isEmpty())
+            assertEquals(setOf(1), gResult.uniformParams)
+        }
+    }
+
+    @Test
+    fun breakIf() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn Function0(@builtin(local_invocation_index) Parameter0: u32, ) {
+                workgroupBarrier();
+                loop {
+                    workgroupBarrier();
+                    continuing {
+                        break if (Parameter0 == 0);
+                    }
+                }
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        run {
+            val gResult = analysisResult["Function0"]!!
+            assertTrue(gResult.callSiteMustBeUniform)
+            assertTrue(gResult.returnedValueUniformity.isEmpty())
+            assertEquals(setOf(0), gResult.uniformParams)
+        }
+    }
+
+    @Test
+    fun breakIf2() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn Function0(@builtin(local_invocation_index) Parameter0: u32, ) {
+                workgroupBarrier();
+                loop {
+                    continuing {
+                        break if (Parameter0 == 0);
+                    }
+                }
+                workgroupBarrier();
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        run {
+            val result = analysisResult["Function0"]!!
+            assertTrue(result.callSiteMustBeUniform)
+            assertTrue(result.returnedValueUniformity.isEmpty())
+            assertTrue(result.uniformParams.isEmpty())
+        }
+    }
 
     private fun runSingleFunctionAnalysisHelper(
         program: String,

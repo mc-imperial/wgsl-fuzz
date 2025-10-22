@@ -122,8 +122,14 @@ fun runAnalysis(
     return result
 }
 
-private fun findUserDefinedCallees(function: GlobalDecl.Function, userDefinedFunctions: Set<String>): Set<String> {
-    fun action(node: AstNode, callees: MutableSet<String>) {
+private fun findUserDefinedCallees(
+    function: GlobalDecl.Function,
+    userDefinedFunctions: Set<String>,
+): Set<String> {
+    fun action(
+        node: AstNode,
+        callees: MutableSet<String>,
+    ) {
         traverse(::action, node, callees)
         when (node) {
             is Statement.FunctionCall -> {
@@ -146,12 +152,18 @@ private fun findUserDefinedCallees(function: GlobalDecl.Function, userDefinedFun
 }
 
 fun functionsOrderedByCallGraph(tu: TranslationUnit): List<GlobalDecl.Function> {
-    fun topologicalSortLeavesFirst(callGraphRoots: Set<String>, callGraphEdges: Map<String, Set<String>>): List<String> {
+    fun topologicalSortLeavesFirst(
+        callGraphRoots: Set<String>,
+        callGraphEdges: Map<String, Set<String>>,
+    ): List<String> {
         val visited = mutableSetOf<String>()
         val stack = mutableSetOf<String>() // current recursion stack
         val result = mutableListOf<String>()
 
-        fun dfs(node: String, path: MutableList<String>) {
+        fun dfs(
+            node: String,
+            path: MutableList<String>,
+        ) {
             if (node in stack) {
                 throw UnsupportedOperationException("Recursion detected in call graph.")
             }
@@ -180,16 +192,17 @@ fun functionsOrderedByCallGraph(tu: TranslationUnit): List<GlobalDecl.Function> 
     }
     val functionNameToDecl = declaredFunctions.associateBy { it.name }
     val declaredFunctionNames: Set<String> = declaredFunctions.map { it.name }.toSet()
-    val callGraphEdges: Map<String, Set<String>> = declaredFunctions.associate {
-        it.name to findUserDefinedCallees(it, declaredFunctionNames)
-    }
+    val callGraphEdges: Map<String, Set<String>> =
+        declaredFunctions.associate {
+            it.name to findUserDefinedCallees(it, declaredFunctionNames)
+        }
     val calledBySomeFunction = callGraphEdges.values.flatMap { it }.toSet()
     val callGraphRoots = declaredFunctionNames - calledBySomeFunction
     if (callGraphRoots.isEmpty()) {
         throw UnsupportedOperationException("There are no call graph roots - the call graph must be cyclic!")
     }
-    return topologicalSortLeavesFirst(callGraphRoots, callGraphEdges).map {
-        it -> functionNameToDecl[it]!!
+    return topologicalSortLeavesFirst(callGraphRoots, callGraphEdges).map { it ->
+        functionNameToDecl[it]!!
     }
 }
 
@@ -616,16 +629,12 @@ private fun analyseIfStatement(
     inStmt: StatementUniformityRecord,
     presentVariables: Map<String, Set<Int>>,
 ): FunctionAnalysisState {
-    val identifiersOccurringInCondition = collectNamesInExpression(statement.condition)
-    val parametersAffectingCondition = mutableSetOf<Int>()
-    identifiersOccurringInCondition.forEach {
-        if (it in functionAnalysisContext.parameters) {
-            parametersAffectingCondition.add(functionAnalysisContext.parameters[it]!!)
-        } else {
-            assert(it in functionAnalysisContext.variables)
-            parametersAffectingCondition.addAll(presentVariables[it]!!)
-        }
-    }
+    val parametersAffectingCondition =
+        determineParametersAffectingUniformityOfExpressionResult(
+            expression = statement.condition,
+            functionAnalysisContext = functionAnalysisContext,
+            presentVariables = presentVariables,
+        )
     val thenStatements = statement.thenBranch.statements
     val elseStatements =
         statement.elseBranch?.let {
@@ -805,7 +814,6 @@ private fun analyseLoopStatement(
             statement.continuingStatement.statements.statements
                 .last()
         val finalContinuingStatementRecord = analysisStateAfterAnalysingContinuingStatement.stmtOut[continueStatementEnd]!!
-        // TODO - deal with non-null break-if
 
         val updatedContinueControls: Set<Int> =
             if (functionAnalysisContext.maximalReconvergence) {
@@ -816,7 +824,55 @@ private fun analyseLoopStatement(
                 existingLoopEntryRecord.continueControls union finalContinuingStatementRecord.continueControls
             }
 
-        assert(statement.continuingStatement.breakIfExpr == null)
+        var updatedBreakControls: Set<Int>
+        val analysisStateAfterAnalysingBreakIf =
+            if (statement.continuingStatement.breakIfExpr != null) {
+                val parametersAffectingBreakIfCondition =
+                    determineParametersAffectingUniformityOfExpressionResult(
+                        expression = statement.continuingStatement.breakIfExpr,
+                        functionAnalysisContext = functionAnalysisContext,
+                        presentVariables = finalContinuingStatementRecord.presentInfo!!.variableUniformityInfo,
+                    )
+                updatedBreakControls = parametersAffectingBreakIfCondition union finalContinuingStatementRecord.breakControls
+
+                val existingOutUniformityRecordForLoop: StatementUniformityRecord? =
+                    analysisStateAfterAnalysingContinuingStatement.stmtOut[statement]
+                val newOutUniformityRecordForLoop: StatementUniformityRecord =
+                    if (existingOutUniformityRecordForLoop == null) {
+                        StatementUniformityRecord(
+                            presentInfo =
+                                PresentInfo(
+                                    ifControls = inStmt.presentInfo!!.ifControls,
+                                    variableUniformityInfo = finalContinuingStatementRecord.presentInfo.variableUniformityInfo,
+                                ),
+                            breakControls = inStmt.breakControls,
+                            continueControls = inStmt.continueControls,
+                            returnControls = inStmt.returnControls union finalContinuingStatementRecord.returnControls,
+                        )
+                    } else {
+                        assert(existingOutUniformityRecordForLoop.presentInfo != null)
+                        existingOutUniformityRecordForLoop.copy(
+                            presentInfo =
+                                existingOutUniformityRecordForLoop.presentInfo!!.copy(
+                                    variableUniformityInfo =
+                                        mergeMaps(
+                                            existingOutUniformityRecordForLoop.presentInfo.variableUniformityInfo,
+                                            finalContinuingStatementRecord.presentInfo.variableUniformityInfo,
+                                        ),
+                                ),
+                            returnControls =
+                                existingOutUniformityRecordForLoop.returnControls union finalContinuingStatementRecord.returnControls,
+                        )
+                    }
+                analysisStateAfterAnalysingContinuingStatement.updateOutForStatement(
+                    statement = statement,
+                    uniformityRecord = newOutUniformityRecordForLoop,
+                )
+            } else {
+                updatedBreakControls = finalContinuingStatementRecord.breakControls
+                analysisStateAfterAnalysingContinuingStatement
+            }
+
         val loopEntryRecordUpdatedWithBackEdge =
             StatementUniformityRecord(
                 presentInfo =
@@ -827,12 +883,12 @@ private fun analyseLoopStatement(
                                 finalContinuingStatementRecord.presentInfo?.variableUniformityInfo,
                             ),
                     ),
-                breakControls = finalContinuingStatementRecord.breakControls, // No need to merge here as this is guaranteed to be larger
+                breakControls = updatedBreakControls,
                 continueControls = updatedContinueControls,
                 returnControls = existingLoopEntryRecord.returnControls union finalContinuingStatementRecord.returnControls,
             )
         val updatedAnalysisState =
-            analysisStateAfterAnalysingContinuingStatement.copy(
+            analysisStateAfterAnalysingBreakIf.copy(
                 stmtIn = analysisStateAfterAnalysingContinuingStatement.stmtIn + (loopBodyStart to loopEntryRecordUpdatedWithBackEdge),
             )
         if (loopAnalysisState == updatedAnalysisState) {
@@ -1124,7 +1180,7 @@ private fun addContinuingStatements(node: AstNode): AstNode =
 
 private fun addContinuesToEndsOfLoops(node: AstNode): AstNode =
     node.clone {
-        if (it is Statement.Loop && it.body.statements.last() !is Statement.Continue) {
+        if (it is Statement.Loop && (it.body.statements.isEmpty() || it.body.statements.last() !is Statement.Continue)) {
             // Adds a continue to the end of the loop body.
             val newBodyStatements = mutableListOf<Statement>()
             for (statement in it.body.statements) {
@@ -1149,3 +1205,21 @@ private fun addContinuesToEndsOfLoops(node: AstNode): AstNode =
             null
         }
     }
+
+private fun determineParametersAffectingUniformityOfExpressionResult(
+    expression: Expression,
+    functionAnalysisContext: FunctionAnalysisContext,
+    presentVariables: Map<String, Set<Int>>,
+): Set<Int> {
+    val result = mutableSetOf<Int>()
+    val identifiersOccurringInExpression = collectNamesInExpression(expression)
+    identifiersOccurringInExpression.forEach {
+        if (it in functionAnalysisContext.parameters) {
+            result.add(functionAnalysisContext.parameters[it]!!)
+        } else {
+            assert(it in functionAnalysisContext.variables)
+            result.addAll(presentVariables[it]!!)
+        }
+    }
+    return result
+}
