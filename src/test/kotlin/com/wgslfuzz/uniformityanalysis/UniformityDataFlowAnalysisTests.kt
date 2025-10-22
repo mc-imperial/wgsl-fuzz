@@ -661,6 +661,32 @@ class UniformityDataFlowAnalysisTests {
     }
 
     @Test
+    fun loop3MaximalReconvergence() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var myLid: u32;
+              var x: u32;
+              var tt: u32;
+              myLid = lid;
+              loop {
+                if myLid { continue; }
+                x = 1;
+                if tt { break; }
+              }
+              if x {
+                workgroupBarrier();
+              }
+            }
+            """.trimIndent()
+        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf(0), state.uniformParams)
+    }
+
+    @Test
     fun loop4() {
         val program =
             """
@@ -793,6 +819,31 @@ class UniformityDataFlowAnalysisTests {
     }
 
     @Test
+    fun loop8MaximalReconvergence() {
+        val program =
+            """
+            @compute @workgroup_size(16, 1, 1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var x: u32;
+              var myLid: u32;
+              myLid = lid;
+              loop {
+                if myLid { continue; }
+                // This introduces non-uniformity from the analysis' perspective
+                x = x;
+                break;
+              }
+            
+              if x { workgroupBarrier(); }
+            }
+            """.trimIndent()
+        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf(0), state.uniformParams)
+    }
+
+    @Test
     fun nestedLoop1() {
         val program =
             """
@@ -909,7 +960,77 @@ class UniformityDataFlowAnalysisTests {
     }
 
     @Test
+    fun nestedLoop4MaximalReconvergence() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid: u32) {
+              var myLid: u32;
+              var x: u32;
+              var ff: u32;
+              myLid = lid;
+              loop {
+                if x {
+                  workgroupBarrier();
+                }
+            
+                loop {
+                  if myLid {
+                    continue;
+                  } 
+            
+                  x = 1;
+                  break;
+                }
+            
+                if ff {
+                  break;
+                }
+              }
+            }
+            """.trimIndent()
+        val state =
+            runSingleFunctionAnalysisHelper(
+                program,
+                maximalReconvergence = true,
+            )
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf(0), state.uniformParams)
+    }
+
+    @Test
     fun stealthyContinue() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid : u32) {
+              var count: u32;
+              var myLid: u32;
+              myLid = lid;
+              loop {
+                // As we do not have maximal reconvergence, the non-uniform continue below means that this barrier
+                // is reachable under non-uniform control flow.
+                workgroupBarrier();
+                if count {
+                   break;
+                }
+                // Nonuniform from analysis's perspective; with full-fledged implementation would be count++
+                count = count;
+                if myLid {
+                  continue;
+                }
+              }
+            }
+            """.trimIndent()
+        val state = runSingleFunctionAnalysisHelper(program)
+        assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertEquals(setOf(0), state.uniformParams)
+    }
+
+    @Test
+    fun stealthyContinueMaximalReconvergence() {
         val program =
             """
             @compute @workgroup_size(16,1,1)
@@ -930,8 +1051,46 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
         assertTrue(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.uniformParams.isEmpty())
+    }
+
+    @Test
+    fun simpleContinue() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid : u32) {
+              loop {
+                if (lid) {
+                  continue;
+                }
+              }
+            }
+            """.trimIndent()
+        val state = runSingleFunctionAnalysisHelper(program)
+        assertFalse(state.callSiteMustBeUniform)
+        assertTrue(state.returnedValueUniformity.isEmpty())
+        assertTrue(state.uniformParams.isEmpty())
+    }
+
+    @Test
+    fun simpleContinueMaximalReconvergence() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn main(@builtin(local_invocation_index) lid : u32) {
+              loop {
+                if (lid) {
+                  continue;
+                }
+              }
+            }
+            """.trimIndent()
+        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
     }
@@ -1085,12 +1244,15 @@ class UniformityDataFlowAnalysisTests {
 //        }
 //    }
 
-    private fun runSingleFunctionAnalysisHelper(program: String): FunctionAnalysisState {
+    private fun runSingleFunctionAnalysisHelper(
+        program: String,
+        maximalReconvergence: Boolean = false,
+    ): FunctionAnalysisState {
         val tu = parseFromString(program, LoggingParseErrorListener())
         check(tu.globalDecls.size == 1) { "This helper is for single-function programs." }
         checkProgramIsFeatherweight(tu)
         val singleFunction = tu.globalDecls[0] as GlobalDecl.Function
-        return runAnalysis(tu)[singleFunction.name]!!
+        return runAnalysis(originalTu = tu, maximalReconvergence = maximalReconvergence)[singleFunction.name]!!
     }
 
     private fun runAnalysisHelper(program: String): Map<String, FunctionAnalysisState> {
