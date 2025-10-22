@@ -17,10 +17,13 @@
 package com.wgslfuzz.uniformityanalysis
 
 import com.wgslfuzz.core.AstNode
+import com.wgslfuzz.core.Attribute
+import com.wgslfuzz.core.BuiltinValue
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
+import com.wgslfuzz.core.ParameterDecl
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
 import com.wgslfuzz.core.clone
@@ -99,18 +102,23 @@ data class FunctionAnalysisState(
     )
 }
 
+data class UniformityAnalysisResult(
+    val resultsPerFunction: Map<String, FunctionAnalysisState>,
+    val uniformityErrors: Set<Pair<String, Int>>,
+)
+
 fun runAnalysis(
     originalTu: TranslationUnit,
     maximalReconvergence: Boolean = false,
-): Map<String, FunctionAnalysisState> {
+): UniformityAnalysisResult {
     val adaptedTu = addContinuesToEndsOfLoops(addContinuingStatements(originalTu)) as TranslationUnit
-    val result = mutableMapOf<String, FunctionAnalysisState>()
+    val resultsPerFunction = mutableMapOf<String, FunctionAnalysisState>()
     for (functionDecl in functionsOrderedByCallGraph(adaptedTu)) {
-        result[functionDecl.name] =
+        resultsPerFunction[functionDecl.name] =
             analyseFunction(
                 functionDecl,
                 FunctionAnalysisContext(
-                    result,
+                    resultsPerFunction,
                     parameters = extractParameters(functionDecl),
                     variables = extractVariables(functionDecl),
                     breakToLoop = extractBreakToLoopMapping(functionDecl),
@@ -119,7 +127,34 @@ fun runAnalysis(
                 ),
             )
     }
-    return result
+    val functionNameToFunctionDecl =
+        originalTu.globalDecls.filterIsInstance<GlobalDecl.Function>().associate {
+            it.name to it
+        }
+    val uniformityErrors = mutableSetOf<Pair<String, Int>>()
+    for ((functionName, analysisResult) in resultsPerFunction) {
+        val functionDecl = functionNameToFunctionDecl[functionName]!!
+        for (requiredToBeUniformParam in analysisResult.uniformParams.sorted()) {
+            val param: ParameterDecl = functionDecl.parameters[requiredToBeUniformParam]
+            for (builtin in param.attributes.filterIsInstance<Attribute.Builtin>()) {
+                if (builtin.name in
+                    setOf(
+                        BuiltinValue.LOCAL_INVOCATION_ID,
+                        BuiltinValue.LOCAL_INVOCATION_INDEX,
+                        BuiltinValue.GLOBAL_INVOCATION_ID,
+                        BuiltinValue.SUBGROUP_INVOCATION_ID,
+                    )
+                ) {
+                    uniformityErrors.add(Pair(functionName, requiredToBeUniformParam))
+                    break
+                }
+            }
+        }
+    }
+    return UniformityAnalysisResult(
+        resultsPerFunction = resultsPerFunction,
+        uniformityErrors = uniformityErrors,
+    )
 }
 
 private fun findUserDefinedCallees(

@@ -59,7 +59,8 @@ class UniformityDataFlowAnalysisTests {
                 return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -73,7 +74,8 @@ class UniformityDataFlowAnalysisTests {
                 workgroupBarrier();
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -94,7 +96,8 @@ class UniformityDataFlowAnalysisTests {
                 return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -115,7 +118,8 @@ class UniformityDataFlowAnalysisTests {
                 workgroupBarrier();
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertEquals(setOf(0, 1), state.returnedValueUniformity)
         assertEquals(setOf(0), state.uniformParams)
@@ -142,7 +146,8 @@ class UniformityDataFlowAnalysisTests {
                 }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf(0, 1), state.returnedValueUniformity)
         assertTrue(state.uniformParams.isEmpty())
@@ -170,7 +175,8 @@ class UniformityDataFlowAnalysisTests {
                 return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -203,7 +209,8 @@ class UniformityDataFlowAnalysisTests {
                 return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0, 1), state.uniformParams)
@@ -237,7 +244,8 @@ class UniformityDataFlowAnalysisTests {
                 workgroupBarrier();
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertEquals(setOf(0, 1), state.returnedValueUniformity)
         assertEquals(setOf(0, 1), state.uniformParams)
@@ -266,7 +274,8 @@ class UniformityDataFlowAnalysisTests {
                 workgroupBarrier();
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf(0, 1), state.returnedValueUniformity)
         assertTrue(state.uniformParams.isEmpty())
@@ -285,7 +294,8 @@ class UniformityDataFlowAnalysisTests {
                 workgroupBarrier();
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -303,7 +313,8 @@ class UniformityDataFlowAnalysisTests {
                 return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -327,7 +338,8 @@ class UniformityDataFlowAnalysisTests {
                 return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -344,7 +356,8 @@ class UniformityDataFlowAnalysisTests {
                 }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -367,7 +380,8 @@ class UniformityDataFlowAnalysisTests {
                 }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -390,7 +404,8 @@ class UniformityDataFlowAnalysisTests {
                 }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -411,7 +426,8 @@ class UniformityDataFlowAnalysisTests {
                 return x;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf(0), state.returnedValueUniformity)
         assertTrue(state.uniformParams.isEmpty())
@@ -435,7 +451,8 @@ class UniformityDataFlowAnalysisTests {
               return x;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf(0), state.returnedValueUniformity)
         assertTrue(state.uniformParams.isEmpty())
@@ -461,7 +478,8 @@ class UniformityDataFlowAnalysisTests {
               return x;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf(1), state.returnedValueUniformity)
         assertTrue(state.uniformParams.isEmpty())
@@ -480,7 +498,8 @@ class UniformityDataFlowAnalysisTests {
               return x;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -499,7 +518,8 @@ class UniformityDataFlowAnalysisTests {
               return x;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -529,7 +549,8 @@ class UniformityDataFlowAnalysisTests {
               return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -575,7 +596,8 @@ class UniformityDataFlowAnalysisTests {
               return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -603,7 +625,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -627,7 +650,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -654,7 +678,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -680,7 +705,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -706,7 +732,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -739,7 +766,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -760,7 +788,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -786,7 +815,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -813,7 +843,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -838,7 +869,8 @@ class UniformityDataFlowAnalysisTests {
               if x { workgroupBarrier(); }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -863,7 +895,8 @@ class UniformityDataFlowAnalysisTests {
               if x { workgroupBarrier(); }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -895,7 +928,8 @@ class UniformityDataFlowAnalysisTests {
               return 0;
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -918,7 +952,8 @@ class UniformityDataFlowAnalysisTests {
               workgroupBarrier();
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertEquals(setOf(0), state.returnedValueUniformity)
         assertTrue(state.uniformParams.isEmpty())
@@ -943,7 +978,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertEquals(setOf(0), state.returnedValueUniformity)
         assertTrue(state.uniformParams.isEmpty())
@@ -979,7 +1015,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -1015,11 +1052,12 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state =
+        val (state, errors) =
             runSingleFunctionAnalysisHelper(
                 program,
                 maximalReconvergence = true,
             )
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -1049,7 +1087,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -1077,7 +1116,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        assertTrue(errors.isEmpty())
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -1096,7 +1136,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -1115,7 +1156,8 @@ class UniformityDataFlowAnalysisTests {
               }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program, maximalReconvergence = true)
+        assertTrue(errors.isEmpty())
         assertFalse(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertTrue(state.uniformParams.isEmpty())
@@ -1138,7 +1180,8 @@ class UniformityDataFlowAnalysisTests {
                 }
             }
             """.trimIndent()
-        val state = runSingleFunctionAnalysisHelper(program)
+        val (state, errors) = runSingleFunctionAnalysisHelper(program)
+        assertEquals(setOf(Pair("main", 0)), errors)
         assertTrue(state.callSiteMustBeUniform)
         assertTrue(state.returnedValueUniformity.isEmpty())
         assertEquals(setOf(0), state.uniformParams)
@@ -1162,14 +1205,18 @@ class UniformityDataFlowAnalysisTests {
             }
             """.trimIndent()
         val analysisResult = runAnalysisHelper(program)
+        assertEquals(
+            setOf(Pair("Function1", 0)),
+            analysisResult.uniformityErrors,
+        )
         run {
-            val function0Result = analysisResult["Function0"]!!
+            val function0Result = analysisResult.resultsPerFunction["Function0"]!!
             assertTrue(function0Result.callSiteMustBeUniform)
             assertTrue(function0Result.returnedValueUniformity.isEmpty())
             assertTrue(function0Result.uniformParams.isEmpty())
         }
         run {
-            val function1Result = analysisResult["Function1"]!!
+            val function1Result = analysisResult.resultsPerFunction["Function1"]!!
             assertTrue(function1Result.callSiteMustBeUniform)
             assertTrue(function1Result.returnedValueUniformity.isEmpty())
             assertEquals(setOf(0), function1Result.uniformParams)
@@ -1192,14 +1239,15 @@ class UniformityDataFlowAnalysisTests {
             }
             """.trimIndent()
         val analysisResult = runAnalysisHelper(program)
+        assertTrue(analysisResult.uniformityErrors.isEmpty())
         run {
-            val function0Result = analysisResult["Function0"]!!
+            val function0Result = analysisResult.resultsPerFunction["Function0"]!!
             assertFalse(function0Result.callSiteMustBeUniform)
             assertTrue(function0Result.returnedValueUniformity.isEmpty())
             assertTrue(function0Result.uniformParams.isEmpty())
         }
         run {
-            val function1Result = analysisResult["Function1"]!!
+            val function1Result = analysisResult.resultsPerFunction["Function1"]!!
             assertFalse(function1Result.callSiteMustBeUniform)
             assertTrue(function1Result.returnedValueUniformity.isEmpty())
             assertTrue(function1Result.uniformParams.isEmpty())
@@ -1224,14 +1272,15 @@ class UniformityDataFlowAnalysisTests {
             }
             """.trimIndent()
         val analysisResult = runAnalysisHelper(program)
+        assertTrue(analysisResult.uniformityErrors.isEmpty())
         run {
-            val fResult = analysisResult["f"]!!
+            val fResult = analysisResult.resultsPerFunction["f"]!!
             assertTrue(fResult.callSiteMustBeUniform)
             assertEquals(setOf(1), fResult.returnedValueUniformity)
             assertEquals(setOf(0), fResult.uniformParams)
         }
         run {
-            val gResult = analysisResult["g"]!!
+            val gResult = analysisResult.resultsPerFunction["g"]!!
             assertTrue(gResult.callSiteMustBeUniform)
             assertTrue(gResult.returnedValueUniformity.isEmpty())
             assertEquals(setOf(0, 1), gResult.uniformParams)
@@ -1256,14 +1305,15 @@ class UniformityDataFlowAnalysisTests {
             }
             """.trimIndent()
         val analysisResult = runAnalysisHelper(program)
+        assertTrue(analysisResult.uniformityErrors.isEmpty())
         run {
-            val fResult = analysisResult["f"]!!
+            val fResult = analysisResult.resultsPerFunction["f"]!!
             assertTrue(fResult.callSiteMustBeUniform)
             assertEquals(setOf(1), fResult.returnedValueUniformity)
             assertEquals(setOf(0), fResult.uniformParams)
         }
         run {
-            val gResult = analysisResult["g"]!!
+            val gResult = analysisResult.resultsPerFunction["g"]!!
             assertTrue(gResult.callSiteMustBeUniform)
             assertTrue(gResult.returnedValueUniformity.isEmpty())
             assertEquals(setOf(0, 1), gResult.uniformParams)
@@ -1294,8 +1344,9 @@ class UniformityDataFlowAnalysisTests {
             }
             """.trimIndent()
         val analysisResult = runAnalysisHelper(program)
+        assertTrue(analysisResult.uniformityErrors.isEmpty())
         run {
-            val gResult = analysisResult["g"]!!
+            val gResult = analysisResult.resultsPerFunction["g"]!!
             assertTrue(gResult.callSiteMustBeUniform)
             assertTrue(gResult.returnedValueUniformity.isEmpty())
             assertEquals(setOf(1), gResult.uniformParams)
@@ -1318,8 +1369,12 @@ class UniformityDataFlowAnalysisTests {
             }
             """.trimIndent()
         val analysisResult = runAnalysisHelper(program)
+        assertEquals(
+            setOf(Pair("Function0", 0)),
+            analysisResult.uniformityErrors,
+        )
         run {
-            val gResult = analysisResult["Function0"]!!
+            val gResult = analysisResult.resultsPerFunction["Function0"]!!
             assertTrue(gResult.callSiteMustBeUniform)
             assertTrue(gResult.returnedValueUniformity.isEmpty())
             assertEquals(setOf(0), gResult.uniformParams)
@@ -1342,8 +1397,9 @@ class UniformityDataFlowAnalysisTests {
             }
             """.trimIndent()
         val analysisResult = runAnalysisHelper(program)
+        assertTrue(analysisResult.uniformityErrors.isEmpty())
         run {
-            val result = analysisResult["Function0"]!!
+            val result = analysisResult.resultsPerFunction["Function0"]!!
             assertTrue(result.callSiteMustBeUniform)
             assertTrue(result.returnedValueUniformity.isEmpty())
             assertTrue(result.uniformParams.isEmpty())
@@ -1353,15 +1409,16 @@ class UniformityDataFlowAnalysisTests {
     private fun runSingleFunctionAnalysisHelper(
         program: String,
         maximalReconvergence: Boolean = false,
-    ): FunctionAnalysisState {
+    ): Pair<FunctionAnalysisState, Set<Pair<String, Int>>> {
         val tu = parseFromString(program, LoggingParseErrorListener())
         check(tu.globalDecls.size == 1) { "This helper is for single-function programs." }
         checkProgramIsFeatherweight(tu)
         val singleFunction = tu.globalDecls[0] as GlobalDecl.Function
-        return runAnalysis(originalTu = tu, maximalReconvergence = maximalReconvergence)[singleFunction.name]!!
+        val analysisResult = runAnalysis(originalTu = tu, maximalReconvergence = maximalReconvergence)
+        return Pair(analysisResult.resultsPerFunction[singleFunction.name]!!, analysisResult.uniformityErrors)
     }
 
-    private fun runAnalysisHelper(program: String): Map<String, FunctionAnalysisState> {
+    private fun runAnalysisHelper(program: String): UniformityAnalysisResult {
         val tu = parseFromString(program, LoggingParseErrorListener())
         checkProgramIsFeatherweight(tu)
         return runAnalysis(tu)
