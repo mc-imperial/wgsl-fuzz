@@ -25,6 +25,27 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class UniformityDataFlowAnalysisTests {
+    // // Helper to crunch through a large number of shaders to check that the analysis does not fall over.
+    //    @Test
+    //    fun processDirectoryOfShaders() {
+    //        val path = "/path/to/your/shaders"
+    //        // File needs to be imported
+    //        val dir = File(path)
+    //        if (!dir.isDirectory) {
+    //            println("Not a directory: $path")
+    //            return
+    //        }
+    //
+    //        dir.walkTopDown()  // recursively traverse subdirectories too
+    //            .filter { it.isFile && it.extension == "wgsl" }
+    //            .forEach { file ->
+    //                println("Found WGSL file: ${file.absolutePath}")
+    //                val tu = parseFromFile(file.absolutePath, LoggingParseErrorListener())
+    //                runAnalysis(tu, maximalReconvergence = false)
+    //                runAnalysis(tu, maximalReconvergence = true)
+    //            }
+    //    }
+
     @Test
     fun simpleProgram() {
         val program =
