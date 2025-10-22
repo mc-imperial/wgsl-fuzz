@@ -105,9 +105,7 @@ fun runAnalysis(
 ): Map<String, FunctionAnalysisState> {
     val adaptedTu = addContinuesToEndsOfLoops(addContinuingStatements(originalTu)) as TranslationUnit
     val result = mutableMapOf<String, FunctionAnalysisState>()
-    for (decl in adaptedTu.globalDecls) {
-        assert(decl is GlobalDecl.Function)
-        val functionDecl = decl as GlobalDecl.Function
+    for (functionDecl in functionsOrderedByCallGraph(adaptedTu)) {
         result[functionDecl.name] =
             analyseFunction(
                 functionDecl,
@@ -122,6 +120,77 @@ fun runAnalysis(
             )
     }
     return result
+}
+
+private fun findUserDefinedCallees(function: GlobalDecl.Function, userDefinedFunctions: Set<String>): Set<String> {
+    fun action(node: AstNode, callees: MutableSet<String>) {
+        traverse(::action, node, callees)
+        when (node) {
+            is Statement.FunctionCall -> {
+                if (node.callee in userDefinedFunctions) {
+                    callees.add(node.callee)
+                }
+            }
+            is Expression.FunctionCall -> {
+                if (node.callee in userDefinedFunctions) {
+                    callees.add(node.callee)
+                }
+            }
+            else -> {}
+        }
+    }
+
+    val result = mutableSetOf<String>()
+    traverse(::action, function, result)
+    return result
+}
+
+fun functionsOrderedByCallGraph(tu: TranslationUnit): List<GlobalDecl.Function> {
+    fun topologicalSortLeavesFirst(callGraphRoots: Set<String>, callGraphEdges: Map<String, Set<String>>): List<String> {
+        val visited = mutableSetOf<String>()
+        val stack = mutableSetOf<String>() // current recursion stack
+        val result = mutableListOf<String>()
+
+        fun dfs(node: String, path: MutableList<String>) {
+            if (node in stack) {
+                throw UnsupportedOperationException("Recursion detected in call graph.")
+            }
+            if (!visited.add(node)) {
+                return
+            }
+            stack.add(node)
+            path.add(node)
+            for (callee in callGraphEdges[node].orEmpty()) {
+                dfs(callee, path)
+            }
+            stack.remove(node)
+            path.removeLast()
+            result.add(node)
+        }
+
+        for (root in callGraphRoots) {
+            if (root !in visited) dfs(root, mutableListOf())
+        }
+        return result
+    }
+
+    val declaredFunctions: Set<GlobalDecl.Function> = tu.globalDecls.filterIsInstance<GlobalDecl.Function>().toSet()
+    if (declaredFunctions.isEmpty()) {
+        return emptyList()
+    }
+    val functionNameToDecl = declaredFunctions.associateBy { it.name }
+    val declaredFunctionNames: Set<String> = declaredFunctions.map { it.name }.toSet()
+    val callGraphEdges: Map<String, Set<String>> = declaredFunctions.associate {
+        it.name to findUserDefinedCallees(it, declaredFunctionNames)
+    }
+    val calledBySomeFunction = callGraphEdges.values.flatMap { it }.toSet()
+    val callGraphRoots = declaredFunctionNames - calledBySomeFunction
+    if (callGraphRoots.isEmpty()) {
+        throw UnsupportedOperationException("There are no call graph roots - the call graph must be cyclic!")
+    }
+    return topologicalSortLeavesFirst(callGraphRoots, callGraphEdges).map {
+        it -> functionNameToDecl[it]!!
+    }
 }
 
 private fun extractBreakToLoopMapping(function: GlobalDecl.Function): Map<Statement.Break, Statement.Loop> {

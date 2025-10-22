@@ -1212,6 +1212,38 @@ class UniformityDataFlowAnalysisTests {
         }
     }
 
+    @Test
+    fun functionCallExpressionsDeclarationsOutOfOrder() {
+        val program =
+            """
+            fn g(p0: u32, p1: u32) {
+              var temp: u32;
+              temp = f(p0, p1);
+              temp = f(p1, p0);
+            }
+            
+            fn f(p0: u32, p1: u32) -> u32 {
+              if (p0 == 0) {
+                workgroupBarrier();
+              }
+              return p1;
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        run {
+            val fResult = analysisResult["f"]!!
+            assertTrue(fResult.callSiteMustBeUniform)
+            assertEquals(setOf(1), fResult.returnedValueUniformity)
+            assertEquals(setOf(0), fResult.uniformParams)
+        }
+        run {
+            val gResult = analysisResult["g"]!!
+            assertTrue(gResult.callSiteMustBeUniform)
+            assertTrue(gResult.returnedValueUniformity.isEmpty())
+            assertEquals(setOf(0, 1), gResult.uniformParams)
+        }
+    }
+
 //    @Test
 //    fun continuingConstruct() {
 //        val program =
