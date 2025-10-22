@@ -38,22 +38,6 @@ data class PresentInfo(
     val variableUniformityInfo: Map<String, Set<Int>>,
 )
 
-fun mergeControls(
-    first: Set<Int>?,
-    second: Set<Int>?,
-): Set<Int> {
-    if (first == null && second == null) {
-        return emptySet()
-    }
-    if (first == null) {
-        return second!!
-    }
-    if (second == null) {
-        return first
-    }
-    return first union second
-}
-
 data class StatementUniformityRecord(
     val presentInfo: PresentInfo?,
     val breakControls: Set<Int>,
@@ -635,9 +619,10 @@ private fun analyseIfStatement(
     val mergedRecord =
         StatementUniformityRecord(
             presentInfo = mergedPresent,
-            breakControls = mergeControls(endOfThenSideRecord?.breakControls, endOfElseSideRecord?.breakControls),
-            continueControls = mergeControls(endOfThenSideRecord?.continueControls, endOfElseSideRecord?.continueControls),
-            returnControls = mergeControls(endOfThenSideRecord?.returnControls, endOfElseSideRecord?.returnControls),
+            breakControls = (endOfThenSideRecord?.breakControls ?: emptySet()) union (endOfElseSideRecord?.breakControls ?: emptySet()),
+            continueControls =
+                (endOfThenSideRecord?.continueControls ?: emptySet()) union (endOfElseSideRecord?.continueControls ?: emptySet()),
+            returnControls = (endOfThenSideRecord?.returnControls ?: emptySet()) union (endOfElseSideRecord?.returnControls ?: emptySet()),
         )
 
     return afterAnalysingElseSide.copy(
@@ -701,7 +686,7 @@ private fun analyseLoopStatement(
                             ),
                         // Break information: retain whatever has been propagated via back edges, since on entry this information is empty
                         // Continue information: absent by construction as asserted above
-                        returnControls = mergeControls(existingLoopEntryRecord.returnControls, inStmt.returnControls),
+                        returnControls = existingLoopEntryRecord.returnControls union inStmt.returnControls,
                     )
                 }
 
@@ -759,7 +744,7 @@ private fun analyseLoopStatement(
                 assert(existingLoopEntryRecord.continueControls.isEmpty())
                 emptySet()
             } else {
-                mergeControls(existingLoopEntryRecord.continueControls, finalContinuingStatementRecord.continueControls)
+                existingLoopEntryRecord.continueControls union finalContinuingStatementRecord.continueControls
             }
 
         assert(statement.continuingStatement.breakIfExpr == null)
@@ -775,7 +760,7 @@ private fun analyseLoopStatement(
                     ),
                 breakControls = finalContinuingStatementRecord.breakControls, // No need to merge here as this is guaranteed to be larger
                 continueControls = updatedContinueControls,
-                returnControls = mergeControls(existingLoopEntryRecord.returnControls, finalContinuingStatementRecord.returnControls),
+                returnControls = existingLoopEntryRecord.returnControls union finalContinuingStatementRecord.returnControls,
             )
         val updatedAnalysisState =
             analysisStateAfterAnalysingContinuingStatement.copy(
@@ -822,7 +807,7 @@ private fun analyseReturnStatement(
             uniformityRecord =
                 inStmt.copy(
                     presentInfo = null,
-                    returnControls = mergeControls(inStmt.returnControls, presentControls),
+                    returnControls = inStmt.returnControls union presentControls,
                 ),
         )
 }
@@ -860,7 +845,7 @@ private fun analyseBreakStatement(
                                 presentVariables,
                             ),
                     ),
-                returnControls = mergeControls(existingOutUniformityRecordForLoop.returnControls, inStmt.returnControls),
+                returnControls = existingOutUniformityRecordForLoop.returnControls union inStmt.returnControls,
             )
         }
 
@@ -911,7 +896,7 @@ private fun analyseContinueStatement(
                     } else {
                         strengthenedContinueControls
                     },
-                returnControls = mergeControls(existingInUniformityRecordForLoop.returnControls, inStmt.returnControls),
+                returnControls = existingInUniformityRecordForLoop.returnControls union inStmt.returnControls,
             )
         } else {
             assert(existingInUniformityRecordForContinuingStatement.presentInfo != null)
@@ -925,20 +910,14 @@ private fun analyseContinueStatement(
                             ),
                     ),
                 breakControls =
-                    mergeControls(
-                        existingInUniformityRecordForContinuingStatement.breakControls,
-                        inStmt.breakControls,
-                    ),
+                    existingInUniformityRecordForContinuingStatement.breakControls union inStmt.breakControls,
                 continueControls =
                     if (functionAnalysisContext.maximalReconvergence) {
                         emptySet()
                     } else {
-                        mergeControls(
-                            existingInUniformityRecordForContinuingStatement.continueControls,
-                            strengthenedContinueControls,
-                        )
+                        existingInUniformityRecordForContinuingStatement.continueControls union strengthenedContinueControls
                     },
-                returnControls = mergeControls(existingInUniformityRecordForContinuingStatement.returnControls, inStmt.returnControls),
+                returnControls = existingInUniformityRecordForContinuingStatement.returnControls union inStmt.returnControls,
             )
         }
     return functionAnalysisState
