@@ -29,10 +29,26 @@ import org.junit.jupiter.api.Test
 // import java.io.File
 
 class UniformityDataFlowAnalysisTests {
-    // // Helper to crunch through a large number of shaders to check that the analysis does not fall over.
+    // // Helpers to crunch through a large number of shaders to check that the analysis agrees with tint.
+
+    //    fun runExternalProgram(command: List<String>, workingDir: File? = null): Pair<Int, String> {
+    //        val process = ProcessBuilder(command)
+    //            .apply {
+    //                if (workingDir != null) directory(workingDir)
+    //                redirectErrorStream(true) // merge stderr into stdout
+    //            }
+    //            .start()
+    //
+    //        val output = process.inputStream.bufferedReader().use { it.readText() }
+    //        val exitCode = process.waitFor()
+    //
+    //        return exitCode to output
+    //    }
+    //
     //    @Test
     //    fun processDirectoryOfShaders() {
     //        val path = "/path/to/your/shaders"
+    //        val tint_path = "/path/to/tint"
     //        // File needs to be imported
     //        val dir = File(path)
     //        if (!dir.isDirectory) {
@@ -46,8 +62,12 @@ class UniformityDataFlowAnalysisTests {
     //                println("Found WGSL file: ${file.absolutePath}")
     //                // parseFromFile needs to be imported
     //                val tu = parseFromFile(file.absolutePath, LoggingParseErrorListener())
-    //                runAnalysis(tu, maximalReconvergence = false)
+    //                val analysisResult = runAnalysis(tu, maximalReconvergence = false)
+    //                val tintResult = runExternalProgram(listOf(tint_path, file.absolutePath))
+    //                // Run with maximalReconvergence simply to confirm it doesn't fall over.
     //                runAnalysis(tu, maximalReconvergence = true)
+    //
+    //                assertEquals (tintResult.first == 0, analysisResult.uniformityErrors.isEmpty())
     //            }
     //    }
 
@@ -1403,6 +1423,160 @@ class UniformityDataFlowAnalysisTests {
             assertTrue(result.callSiteMustBeUniform)
             assertTrue(result.returnedValueUniformity.isEmpty())
             assertTrue(result.uniformParams.isEmpty())
+        }
+    }
+
+    @Test
+    fun nestedLoopWithOuterBreak() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn Function0(@builtin(local_invocation_index) Parameter0: u32, ) {
+                loop {
+                    if (Parameter0 == 0) {
+                         break;
+                    }
+                    loop {
+                        workgroupBarrier();
+                        break;
+                    }
+                }
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        assertEquals(
+            setOf(Pair("Function0", 0)),
+            analysisResult.uniformityErrors,
+        )
+        run {
+            val result = analysisResult.resultsPerFunction["Function0"]!!
+            assertTrue(result.callSiteMustBeUniform)
+            assertTrue(result.returnedValueUniformity.isEmpty())
+            assertEquals(setOf(0), result.uniformParams)
+        }
+    }
+
+    @Test
+    fun nestedLoopWithOuterContinue() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn Function0(@builtin(local_invocation_index) Parameter0: u32, ) {
+                loop {
+                    if (Parameter0 == 0) {
+                         continue;
+                    }
+                    loop {
+                        workgroupBarrier();
+                        break;
+                    }
+                }
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        assertEquals(
+            setOf(Pair("Function0", 0)),
+            analysisResult.uniformityErrors,
+        )
+        run {
+            val result = analysisResult.resultsPerFunction["Function0"]!!
+            assertTrue(result.callSiteMustBeUniform)
+            assertTrue(result.returnedValueUniformity.isEmpty())
+            assertEquals(setOf(0), result.uniformParams)
+        }
+    }
+
+    @Test
+    fun nestedLoopWithContinuing() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn Function0(@builtin(local_invocation_index) Parameter0: u32, ) {
+                loop {
+                    continue;
+                    continuing {
+                        loop {
+                            workgroupBarrier();
+                            continuing {
+                                break if (true);
+                            }
+                        }
+                        break if (Parameter0 == 0);
+                    }
+                }
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        assertEquals(
+            setOf(Pair("Function0", 0)),
+            analysisResult.uniformityErrors,
+        )
+        run {
+            val result = analysisResult.resultsPerFunction["Function0"]!!
+            assertTrue(result.callSiteMustBeUniform)
+            assertTrue(result.returnedValueUniformity.isEmpty())
+            assertEquals(setOf(0), result.uniformParams)
+        }
+    }
+
+    @Test
+    fun nestedLoopWithContinuing2() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn Function0(@builtin(local_invocation_index) Parameter0: u32, ) {
+                loop {
+                    workgroupBarrier();
+                    continue;
+                    continuing {
+                        loop {
+                            workgroupBarrier();
+                            continuing {
+                                break if (true);
+                            }
+                        }
+                        break if (Parameter0 == 0);
+                    }
+                }
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        assertEquals(
+            setOf(Pair("Function0", 0)),
+            analysisResult.uniformityErrors,
+        )
+        run {
+            val result = analysisResult.resultsPerFunction["Function0"]!!
+            assertTrue(result.callSiteMustBeUniform)
+            assertTrue(result.returnedValueUniformity.isEmpty())
+            assertEquals(setOf(0), result.uniformParams)
+        }
+    }
+
+    @Test
+    fun nestedLoopWithContinuing3() {
+        val program =
+            """
+            @compute @workgroup_size(16,1,1)
+            fn Function0(@builtin(local_invocation_index) Parameter0: u32, ) {
+                loop {
+                    continuing {
+                        loop {
+                            workgroupBarrier();
+                            // Cannot break this loop, so no way to get to non-uniformity
+                        }
+                        break if (Parameter0 == 0);
+                    }
+                }
+            }
+            """.trimIndent()
+        val analysisResult = runAnalysisHelper(program)
+        assertTrue(analysisResult.uniformityErrors.isEmpty())
+        run {
+            val result = analysisResult.resultsPerFunction["Function0"]!!
+            assertTrue(result.callSiteMustBeUniform)
+            assertTrue(result.returnedValueUniformity.isEmpty())
+            assertTrue(result.returnedValueUniformity.isEmpty())
         }
     }
 

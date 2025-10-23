@@ -36,6 +36,32 @@ import kotlin.collections.contains
 import kotlin.collections.last
 import kotlin.collections.plus
 
+private fun unionControls(sets: List<Set<Int>>): Set<Int> = sets.fold(emptySet()) { acc, set -> acc union set }
+
+private fun strengthenControls(
+    controls: List<Set<Int>>,
+    extra: Set<Int>,
+): List<Set<Int>> {
+    val result = mutableListOf<Set<Int>>()
+    for (i in 0..<controls.size - 1) {
+        result.add(controls[i])
+    }
+    result.add(controls.last() + extra)
+    return result
+}
+
+private fun mergeControls(
+    controls1: List<Set<Int>>,
+    controls2: List<Set<Int>>,
+): List<Set<Int>> {
+    assert(controls1.size == controls2.size)
+    val result = mutableListOf<Set<Int>>()
+    for (i in 0..<controls1.size) {
+        result.add(controls1[i] + controls2[i])
+    }
+    return result
+}
+
 data class PresentInfo(
     val ifControls: List<Set<Int>>,
     val variableUniformityInfo: Map<String, Set<Int>>,
@@ -43,8 +69,8 @@ data class PresentInfo(
 
 data class StatementUniformityRecord(
     val presentInfo: PresentInfo?,
-    val breakControls: Set<Int>,
-    val continueControls: Set<Int>,
+    val breakControls: List<Set<Int>>,
+    val continueControls: List<Set<Int>>,
     val returnControls: Set<Int>,
 ) {
     fun updateVariableUniformityInfo(
@@ -330,8 +356,8 @@ private fun analyseFunction(
                                         ifControls = listOf(emptySet()),
                                         variableUniformityInfo = functionAnalysisContext.variables.associateWith { emptySet() },
                                     ),
-                                breakControls = emptySet(),
-                                continueControls = emptySet(),
+                                breakControls = listOf(emptySet()),
+                                continueControls = listOf(emptySet()),
                                 returnControls = emptySet(),
                             ),
                     )
@@ -501,7 +527,8 @@ private fun analyseAssignmentStatement(
             val newUniformityRecord =
                 inStmt.updateVariableUniformityInfo(
                     lhsName,
-                    presentControls union inStmt.breakControls union inStmt.continueControls union inStmt.returnControls union
+                    presentControls union unionControls(inStmt.breakControls) union unionControls(inStmt.continueControls) union
+                        inStmt.returnControls union
                         parametersAffectingReturnedValueUniformity,
                 )
 
@@ -521,8 +548,8 @@ private fun analyseAssignmentStatement(
                             functionAnalysisState.uniformParams union
                                 parametersThatMustBeUniformDueToThisCall union
                                 presentControls union
-                                inStmt.breakControls union
-                                inStmt.continueControls union
+                                unionControls(inStmt.breakControls) union
+                                unionControls(inStmt.continueControls) union
                                 inStmt.returnControls,
                     ).updateOutForStatement(statement, newUniformityRecord)
             } else {
@@ -542,7 +569,8 @@ private fun analyseAssignmentStatement(
             val newUniformityRecord =
                 inStmt.updateVariableUniformityInfo(
                     lhsName,
-                    presentControls union inStmt.breakControls union inStmt.continueControls union inStmt.returnControls union
+                    presentControls union unionControls(inStmt.breakControls) union unionControls(inStmt.continueControls) union
+                        inStmt.returnControls union
                         parametersAffectingRhs,
                 )
             functionAnalysisState.updateOutForStatement(statement, newUniformityRecord)
@@ -564,7 +592,8 @@ private fun analyseFunctionCallStatement(
             .copy(
                 callSiteMustBeUniform = true,
                 uniformParams =
-                    functionAnalysisState.uniformParams union presentControls union inStmt.breakControls union inStmt.continueControls union
+                    functionAnalysisState.uniformParams union presentControls union unionControls(inStmt.breakControls) union
+                        unionControls(inStmt.continueControls) union
                         inStmt.returnControls,
             ).updateOutForStatement(statement, inStmt)
     } else {
@@ -589,8 +618,8 @@ private fun analyseFunctionCallStatement(
                         functionAnalysisState.uniformParams union
                             parametersThatMustBeUniformDueToThisCall union
                             presentControls union
-                            inStmt.breakControls union
-                            inStmt.continueControls union
+                            unionControls(inStmt.breakControls) union
+                            unionControls(inStmt.continueControls) union
                             inStmt.returnControls,
                 ).updateOutForStatement(statement, inStmt)
         } else {
@@ -673,12 +702,17 @@ private fun analyseIfStatement(
                     ),
             )
         }
+    val endOfThenSideBreakControls: List<Set<Int>> = endOfThenSideRecord?.breakControls ?: inStmt.breakControls
+    val endOfElseSideBreakControls: List<Set<Int>> = endOfElseSideRecord?.breakControls ?: inStmt.breakControls
+
+    val endOfThenSideContinueControls: List<Set<Int>> = endOfThenSideRecord?.continueControls ?: inStmt.continueControls
+    val endOfElseSideContinueControls: List<Set<Int>> = endOfElseSideRecord?.continueControls ?: inStmt.continueControls
+
     val mergedRecord =
         StatementUniformityRecord(
             presentInfo = mergedPresent,
-            breakControls = (endOfThenSideRecord?.breakControls ?: emptySet()) union (endOfElseSideRecord?.breakControls ?: emptySet()),
-            continueControls =
-                (endOfThenSideRecord?.continueControls ?: emptySet()) union (endOfElseSideRecord?.continueControls ?: emptySet()),
+            breakControls = mergeControls(endOfThenSideBreakControls, endOfElseSideBreakControls),
+            continueControls = mergeControls(endOfThenSideContinueControls, endOfElseSideContinueControls),
             returnControls = (endOfThenSideRecord?.returnControls ?: emptySet()) union (endOfElseSideRecord?.returnControls ?: emptySet()),
         )
 
@@ -718,13 +752,13 @@ private fun analyseLoopStatement(
                             inStmt.presentInfo!!.copy(
                                 ifControls = inStmt.presentInfo.ifControls + listOf(emptySet()),
                             ),
-                        breakControls = emptySet(), // This is a fresh loop
-                        continueControls = emptySet(), // This is a fresh loop
+                        breakControls = inStmt.breakControls + emptySet(), // This is a fresh loop
+                        continueControls = inStmt.continueControls + emptySet(), // This is a fresh loop
                         returnControls = inStmt.returnControls,
                     )
                 } else {
                     if (functionAnalysisContext.maximalReconvergence) {
-                        assert(existingLoopEntryRecord.continueControls.isEmpty())
+                        assert(existingLoopEntryRecord.continueControls.last().isEmpty())
                     }
                     assert(
                         existingLoopEntryRecord.presentInfo!!.ifControls == inStmt.presentInfo!!.ifControls +
@@ -741,8 +775,8 @@ private fun analyseLoopStatement(
                                         existingLoopEntryRecord.presentInfo.variableUniformityInfo,
                                     ),
                             ),
-                        // Break information: retain whatever has been propagated via back edges, since on entry this information is empty
-                        // Continue information: absent by construction as asserted above
+                        breakControls = mergeControls(existingLoopEntryRecord.breakControls, inStmt.breakControls + emptySet()),
+                        continueControls = mergeControls(existingLoopEntryRecord.continueControls, inStmt.continueControls + emptySet()),
                         returnControls = existingLoopEntryRecord.returnControls union inStmt.returnControls,
                     )
                 }
@@ -776,7 +810,7 @@ private fun analyseLoopStatement(
             break
         }
         if (functionAnalysisContext.maximalReconvergence) {
-            assert(existingContinueStatementStartRecord.continueControls.isEmpty())
+            assert(existingContinueStatementStartRecord.continueControls.last().isEmpty())
         }
 
         // Analyse continuing statement
@@ -788,31 +822,40 @@ private fun analyseLoopStatement(
             )
 
         // Handle back edge to loop header
-        val existingLoopEntryRecord: StatementUniformityRecord = analysisStateAfterAnalysingContinuingStatement.stmtIn[loopBodyStart]!!
-        val continueStatementEnd =
+        val existingLoopEntryRecord: StatementUniformityRecord =
+            analysisStateAfterAnalysingContinuingStatement.stmtIn[loopBodyStart]!!
+        val continuingStatementEnd: Statement =
             statement.continuingStatement.statements.statements
                 .last()
-        val finalContinuingStatementRecord = analysisStateAfterAnalysingContinuingStatement.stmtOut[continueStatementEnd]!!
+        val finalContinuingStatementRecord: StatementUniformityRecord? =
+            analysisStateAfterAnalysingContinuingStatement.stmtOut[continuingStatementEnd]
 
-        val updatedContinueControls: Set<Int> =
-            if (functionAnalysisContext.maximalReconvergence) {
-                assert(finalContinuingStatementRecord.continueControls.isEmpty())
-                assert(existingLoopEntryRecord.continueControls.isEmpty())
-                emptySet()
+        val updatedContinueControls: List<Set<Int>> =
+            if (finalContinuingStatementRecord == null) {
+                // This can happen if the continue statement features an infinite loop
+                existingLoopEntryRecord.continueControls
+            } else if (functionAnalysisContext.maximalReconvergence) {
+                assert(finalContinuingStatementRecord.continueControls.last().isEmpty())
+                assert(existingLoopEntryRecord.continueControls.last().isEmpty())
+                existingLoopEntryRecord.continueControls
             } else {
-                existingLoopEntryRecord.continueControls union finalContinuingStatementRecord.continueControls
+                mergeControls(existingLoopEntryRecord.continueControls, finalContinuingStatementRecord.continueControls)
             }
 
-        var updatedBreakControls: Set<Int>
+        var updatedBreakControls: List<Set<Int>>
         val analysisStateAfterAnalysingBreakIf =
-            if (statement.continuingStatement.breakIfExpr != null) {
+            if (finalContinuingStatementRecord == null) {
+                // The continue does not pass back to the loop head.
+                updatedBreakControls = existingLoopEntryRecord.breakControls
+                analysisStateAfterAnalysingContinuingStatement
+            } else if (statement.continuingStatement.breakIfExpr != null) {
                 val parametersAffectingBreakIfCondition =
                     determineParametersAffectingUniformityOfExpressionResult(
                         expression = statement.continuingStatement.breakIfExpr,
                         functionAnalysisContext = functionAnalysisContext,
                         presentVariables = finalContinuingStatementRecord.presentInfo!!.variableUniformityInfo,
                     )
-                updatedBreakControls = parametersAffectingBreakIfCondition union finalContinuingStatementRecord.breakControls
+                updatedBreakControls = strengthenControls(finalContinuingStatementRecord.breakControls, parametersAffectingBreakIfCondition)
 
                 val existingOutUniformityRecordForLoop: StatementUniformityRecord? =
                     analysisStateAfterAnalysingContinuingStatement.stmtOut[statement]
@@ -853,19 +896,23 @@ private fun analyseLoopStatement(
             }
 
         val loopEntryRecordUpdatedWithBackEdge =
-            StatementUniformityRecord(
-                presentInfo =
-                    existingLoopEntryRecord.presentInfo!!.copy(
-                        variableUniformityInfo =
-                            mergeMaps(
-                                existingLoopEntryRecord.presentInfo.variableUniformityInfo,
-                                finalContinuingStatementRecord.presentInfo?.variableUniformityInfo,
-                            ),
-                    ),
-                breakControls = updatedBreakControls,
-                continueControls = updatedContinueControls,
-                returnControls = existingLoopEntryRecord.returnControls union finalContinuingStatementRecord.returnControls,
-            )
+            if (finalContinuingStatementRecord == null) {
+                existingLoopEntryRecord
+            } else {
+                StatementUniformityRecord(
+                    presentInfo =
+                        existingLoopEntryRecord.presentInfo!!.copy(
+                            variableUniformityInfo =
+                                mergeMaps(
+                                    existingLoopEntryRecord.presentInfo.variableUniformityInfo,
+                                    finalContinuingStatementRecord.presentInfo?.variableUniformityInfo,
+                                ),
+                        ),
+                    breakControls = updatedBreakControls,
+                    continueControls = updatedContinueControls,
+                    returnControls = existingLoopEntryRecord.returnControls union finalContinuingStatementRecord.returnControls,
+                )
+            }
         val updatedAnalysisState =
             analysisStateAfterAnalysingBreakIf.copy(
                 stmtIn = analysisStateAfterAnalysingContinuingStatement.stmtIn + (loopBodyStart to loopEntryRecordUpdatedWithBackEdge),
@@ -889,9 +936,9 @@ private fun analyseReturnStatement(
     presentControls: Set<Int>,
 ): FunctionAnalysisState {
     val returnedIdentifiers: Set<String> = collectNamesInExpression(statement.expression!!)
-    val parametersInfluencingReturnedValueUniformity =
+    val parametersInfluencingReturnedValueUniformity: MutableSet<Int> =
         (
-            presentControls union inStmt.breakControls union inStmt.continueControls union
+            presentControls union unionControls(inStmt.breakControls) union unionControls(inStmt.continueControls) union
                 inStmt.returnControls
         ).toMutableSet()
     for (identifier in returnedIdentifiers) {
@@ -959,7 +1006,7 @@ private fun analyseBreakStatement(
             uniformityRecord =
                 inStmt.copy(
                     presentInfo = null,
-                    breakControls = inStmt.breakControls union inStmt.presentInfo!!.ifControls.last(),
+                    breakControls = strengthenControls(inStmt.breakControls, inStmt.presentInfo!!.ifControls.last()),
                 ),
         ).updateOutForStatement(
             statement = associatedLoop,
@@ -981,7 +1028,7 @@ private fun analyseContinueStatement(
     val existingInUniformityRecordForContinuingStatement: StatementUniformityRecord? =
         functionAnalysisState.stmtIn[startOfContinuingStatement]
 
-    val strengthenedContinueControls = inStmt.continueControls union inStmt.presentInfo!!.ifControls.last()
+    val strengthenedContinueControls: List<Set<Int>> = strengthenControls(inStmt.continueControls, inStmt.presentInfo!!.ifControls.last())
 
     val newInUniformityRecordForContinuingStatement: StatementUniformityRecord =
         if (existingInUniformityRecordForContinuingStatement ==
@@ -996,7 +1043,7 @@ private fun analyseContinueStatement(
                 breakControls = inStmt.breakControls,
                 continueControls =
                     if (functionAnalysisContext.maximalReconvergence) {
-                        emptySet()
+                        existingInUniformityRecordForLoop.continueControls + emptySet()
                     } else {
                         strengthenedContinueControls
                     },
@@ -1014,12 +1061,12 @@ private fun analyseContinueStatement(
                             ),
                     ),
                 breakControls =
-                    existingInUniformityRecordForContinuingStatement.breakControls union inStmt.breakControls,
+                    mergeControls(existingInUniformityRecordForContinuingStatement.breakControls, inStmt.breakControls),
                 continueControls =
                     if (functionAnalysisContext.maximalReconvergence) {
-                        emptySet()
+                        existingInUniformityRecordForContinuingStatement.continueControls
                     } else {
-                        existingInUniformityRecordForContinuingStatement.continueControls union strengthenedContinueControls
+                        mergeControls(existingInUniformityRecordForContinuingStatement.continueControls, strengthenedContinueControls)
                     },
                 returnControls = existingInUniformityRecordForContinuingStatement.returnControls union inStmt.returnControls,
             )
