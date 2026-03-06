@@ -17,7 +17,6 @@
 package com.wgslfuzz.analysis
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.TranslationUnit
@@ -184,15 +183,6 @@ private fun statementBehaviour(
                     // the behaviour of the callee is known when called.
                     functionMap[statement.callee]!!
                 }
-
-            // NON-STANDARD: the code here is statically unreachable so has behaviour next.
-            is AugmentedStatement.DeadCodeFragment -> setOf(StatementBehaviour.NEXT)
-            is AugmentedStatement.ControlFlowWrapper -> TODO("Not implemented ControlFlowWrapper in statementBehaviour")
-            is AugmentedStatement.ControlFlowWrapReturn -> TODO("Not implemented ControlFlowWrapReturn in statementBehaviour")
-            is AugmentedStatement.ArbitraryElseBranch -> TODO("Not implemented ArbitraryElseBranch in statementBehaviour")
-            is AugmentedStatement.ArbitraryStatement -> TODO("Not implemented ArbitraryStatement in statementBehaviour")
-            is AugmentedStatement.ControlFlowWrapHelperStatement ->
-                TODO("Not implemented ControlFlowWrapHelperStatement in statementBehaviour")
         }
 
     behaviourMap.put(statement, behaviour)

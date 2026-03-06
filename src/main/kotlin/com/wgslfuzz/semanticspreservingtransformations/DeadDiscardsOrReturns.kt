@@ -19,7 +19,6 @@ package com.wgslfuzz.semanticspreservingtransformations
 import com.wgslfuzz.analysis.ShaderStage
 import com.wgslfuzz.analysis.runFunctionToShaderStageAnalysis
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.Scope
@@ -41,7 +40,7 @@ fun deadDiscardOrReturn(
     fuzzerSettings: FuzzerSettings,
     scope: Scope,
     discardOrReturn: Statement,
-): AugmentedStatement.DeadCodeFragment {
+): Statement {
     check(discardOrReturn is Statement.Discard || discardOrReturn is Statement.Return)
     val deadStatement =
         Statement.Compound(
@@ -55,18 +54,21 @@ fun deadDiscardOrReturn(
                     falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
                     includeEmptyElseBranch = fuzzerSettings.randomBool(),
+                    id = fuzzerSettings.getUniqueId(),
                 )
             },
             fuzzerSettings.deadDiscardOrReturnWeights.ifTrue to {
                 createIfTrueElseDeadStatement(
                     trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
+                    id = fuzzerSettings.getUniqueId(),
                 )
             },
             fuzzerSettings.deadDiscardOrReturnWeights.whileFalse to {
                 createWhileFalseDeadStatement(
                     falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                     deadStatement = deadStatement,
+                    id = fuzzerSettings.getUniqueId(),
                 )
             },
             fuzzerSettings.deadDiscardOrReturnWeights.forLoopWithFalseCondition to {
@@ -76,6 +78,7 @@ fun deadDiscardOrReturn(
                     // TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/99): with some probability, perhaps
                     //  controlled via fuzzer settings, randomly pick a variable and perform a random update to it.
                     unreachableUpdate = null,
+                    id = fuzzerSettings.getUniqueId(),
                 )
             },
             fuzzerSettings.deadDiscardOrReturnWeights.loopWithUnconditionalBreak to {
@@ -98,6 +101,7 @@ fun deadDiscardOrReturn(
                     deadStatement = deadStatement,
                     includeContinuingStatement = includeContinuingStatement,
                     breakIfExpr = breakIfExpr,
+                    id = fuzzerSettings.getUniqueId(),
                 )
             },
         )

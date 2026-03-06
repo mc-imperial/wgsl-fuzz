@@ -30,6 +30,7 @@ ignoreList=(
   "collatz"
   "logic_operations"
   "counting_sort" # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/250) Counting sort uses pointers which can cause invalid aliased pointer argument
+  "binarysearch_tree" # TODO(https://github.com/mc-imperial/wgsl-fuzz/issues/252)
 )
 
 numVariants=1

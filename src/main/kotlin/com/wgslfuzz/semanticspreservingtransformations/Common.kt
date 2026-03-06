@@ -21,33 +21,16 @@ import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.GlobalDecl
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ParameterDecl
-import com.wgslfuzz.core.Scope
-import com.wgslfuzz.core.ScopeEntry
 import com.wgslfuzz.core.ShaderJob
 import com.wgslfuzz.core.Statement
 import com.wgslfuzz.core.StructMember
 import com.wgslfuzz.core.Type
 import com.wgslfuzz.core.TypeDecl
-import com.wgslfuzz.core.asStoreTypeIfReference
 import com.wgslfuzz.core.builtinFunctionNames
 import com.wgslfuzz.core.builtinNamedTypes
 import com.wgslfuzz.core.clone
 
 const val LARGEST_INTEGER_IN_PRECISE_FLOAT_RANGE: Int = 16777216
-
-fun Scope.containsVariableOfType(type: Type): Boolean =
-    this
-        .getAllEntries()
-        .any {
-            it is ScopeEntry.TypedDecl &&
-                it !is ScopeEntry.TypeAlias &&
-                it.type.asStoreTypeIfReference() == type
-        }
-
-fun ScopeEntry.TypedDecl.toExpression(): Expression =
-    Expression.Identifier(
-        name = declName,
-    )
 
 fun constantWithSameValueEverywhere(
     value: Int,

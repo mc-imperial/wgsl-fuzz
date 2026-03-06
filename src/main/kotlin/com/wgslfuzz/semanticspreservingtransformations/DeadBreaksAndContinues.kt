@@ -17,7 +17,6 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AstNode
-import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.ContinuingStatement
 import com.wgslfuzz.core.Scope
 import com.wgslfuzz.core.ShaderJob
@@ -93,7 +92,7 @@ private class InjectDeadBreaksContinues(
             Statement.Compound(newBody, compound.metadata)
         }
 
-    private fun createDeadStatement(scope: Scope): AugmentedStatement.DeadCodeFragment {
+    private fun createDeadStatement(scope: Scope): Statement {
         val deadStatement =
             Statement.Compound(
                 listOf(
@@ -112,6 +111,7 @@ private class InjectDeadBreaksContinues(
                         falseCondition = generateFalseByConstructionExpression(fuzzerSettings, shaderJob, scope),
                         deadStatement = deadStatement,
                         includeEmptyElseBranch = fuzzerSettings.randomBool(),
+                        id = fuzzerSettings.getUniqueId(),
                     )
                 },
                 fuzzerSettings.deadBreaksAndContinuesWeights.ifTrue to {
@@ -119,6 +119,7 @@ private class InjectDeadBreaksContinues(
                     createIfTrueElseDeadStatement(
                         trueCondition = generateTrueByConstructionExpression(fuzzerSettings, shaderJob, scope),
                         deadStatement = deadStatement,
+                        id = fuzzerSettings.getUniqueId(),
                     )
                 },
             )

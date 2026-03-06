@@ -17,7 +17,6 @@
 package com.wgslfuzz.semanticspreservingtransformations
 
 import com.wgslfuzz.core.AugmentedMetadata
-import com.wgslfuzz.core.AugmentedStatement
 import com.wgslfuzz.core.Expression
 import com.wgslfuzz.core.LhsExpression
 import com.wgslfuzz.core.ShaderJob
@@ -39,7 +38,7 @@ fun generateArbitraryElseBranch(
     shaderJob: ShaderJob,
     donorShaderJob: ShaderJob,
     returnType: Type?,
-): Pair<AugmentedStatement.ArbitraryElseBranch?, Set<String>> {
+): Pair<Statement.ElseBranch?, Set<String>> {
     val nonRecursiveChoices: List<Pair<Int, () -> Pair<Statement.ElseBranch?, Set<String>>>> =
         listOf(
             fuzzerSettings.arbitraryElseBranchWeights.empty(depth) to {
@@ -97,14 +96,14 @@ fun generateArbitraryElseBranch(
             },
         )
 
-    val (arbitraryCompound, functionCalls) =
+    val (arbitraryElseBranch, functionCalls) =
         if (fuzzerSettings.goDeeper(depth)) {
             choose(fuzzerSettings, recursiveChoices + nonRecursiveChoices)
         } else {
             choose(fuzzerSettings, nonRecursiveChoices)
         }
     return Pair(
-        arbitraryCompound?.let { AugmentedStatement.ArbitraryElseBranch(it) },
+        arbitraryElseBranch,
         functionCalls,
     )
 }
@@ -173,7 +172,7 @@ fun generateArbitraryCompound(
     return Pair(
         Statement.Compound(
             statements = compoundWithReturnsOfCorrectType.statements,
-            metadata = AugmentedMetadata.ArbitraryCompoundMetaData,
+            metadata = setOf(AugmentedMetadata.EmptiableCompound(fuzzerSettings.getUniqueId(), "arbitrary compound")),
         ),
         functionCalls,
     )

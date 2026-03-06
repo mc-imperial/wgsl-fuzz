@@ -113,7 +113,7 @@ abstract class TransformReduceTests {
         val shaderJobAsJson = Json.encodeToJsonElement(shaderJob)
 
         val shaderJobWgslTextOutStream = ByteArrayOutputStream()
-        AstWriter(out = PrintStream(shaderJobWgslTextOutStream)).emit(shaderJob.tu)
+        AstWriter(out = PrintStream(shaderJobWgslTextOutStream), emitCommentary = true).emit(shaderJob.tu)
         shaderJobWgslTextOutStream.flush()
         shaderJobWgslTextOutStream.close()
         val shaderJobWgslText = shaderJobWgslTextOutStream.toString("UTF-8")
@@ -130,7 +130,7 @@ abstract class TransformReduceTests {
         assertNotNull(reductionResult)
 
         val reductionResultWgslTextOutStream = ByteArrayOutputStream()
-        AstWriter(out = PrintStream(reductionResultWgslTextOutStream)).emit(reductionResult!!.first.tu)
+        AstWriter(out = PrintStream(reductionResultWgslTextOutStream), emitCommentary = true).emit(reductionResult!!.first.tu)
         reductionResultWgslTextOutStream.flush()
         reductionResultWgslTextOutStream.close()
         val reductionResultWgslText = reductionResultWgslTextOutStream.toString("UTF-8")
